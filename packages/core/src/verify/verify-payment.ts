@@ -167,9 +167,8 @@ export function verifyPayment(
     ),
     makeCheck(
       "destination_balance_delta",
-      actualBalanceDelta === parsedBalanceDelta &&
-        parsedBalanceDelta === BigInt(expectation.amountBaseUnits),
-      expectation.amountBaseUnits,
+      actualBalanceDelta === parsedBalanceDelta,
+      parsedBalanceDelta.toString(),
       actualBalanceDelta.toString(),
     ),
   ];

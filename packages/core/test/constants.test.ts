@@ -24,4 +24,17 @@ describe("canonical asset allowlist", () => {
       USDT: MAINNET_USDT,
     });
   });
+
+  it("cannot be changed by JavaScript consumers at runtime", () => {
+    expect(Object.isFrozen(MAINNET_USDC)).toBe(true);
+    expect(Object.isFrozen(MAINNET_USDT)).toBe(true);
+    expect(Object.isFrozen(SUPPORTED_MAINNET_ASSETS)).toBe(true);
+    expect(
+      Reflect.set(
+        MAINNET_USDC,
+        "mint",
+        "4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw",
+      ),
+    ).toBe(false);
+  });
 });

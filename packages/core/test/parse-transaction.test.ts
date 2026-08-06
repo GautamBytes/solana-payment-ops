@@ -20,9 +20,9 @@ describe("parseTransferCheckedEvents", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual({
       eventId:
-        "mainnet-beta:1111111111111111111111111111111111111111111111111111111111111111:0:outer",
+        "mainnet-beta:2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T:0:outer",
       signature:
-        "1111111111111111111111111111111111111111111111111111111111111111",
+        "2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T",
       slot: 345678901,
       outerInstructionIndex: 0,
       innerInstructionIndex: null,
@@ -49,7 +49,16 @@ describe("parseTransferCheckedEvents", () => {
     }
 
     const cpiFixture = structuredClone(fixture);
-    cpiFixture.rpcTransaction.transaction.message.instructions = [];
+    const wrapperInstruction = {
+      programIdIndex: 3,
+      accounts: [],
+      data: "2",
+    };
+    cpiFixture.rpcTransaction.transaction.message.instructions = [
+      wrapperInstruction,
+      wrapperInstruction,
+      wrapperInstruction,
+    ];
     cpiFixture.rpcTransaction.meta.innerInstructions = [
       { index: 2, instructions: [transferInstruction] },
     ];
@@ -58,7 +67,7 @@ describe("parseTransferCheckedEvents", () => {
 
     expect(events).toHaveLength(1);
     expect(events[0]?.eventId).toBe(
-      "mainnet-beta:1111111111111111111111111111111111111111111111111111111111111111:2:0",
+      "mainnet-beta:2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T:2:0",
     );
     expect(events[0]?.outerInstructionIndex).toBe(2);
     expect(events[0]?.innerInstructionIndex).toBe(0);

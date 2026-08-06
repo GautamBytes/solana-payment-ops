@@ -30,7 +30,7 @@ describe("resolveAccountKeys", () => {
       { signer: false, writable: true, source: "static" },
       { signer: false, writable: false, source: "static" },
       { signer: false, writable: false, source: "static" },
-      { signer: false, writable: false, source: "static" },
+      { signer: false, writable: false, source: "loaded-readonly" },
     ]);
   });
 });

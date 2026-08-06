@@ -31,6 +31,10 @@ The first release:
 It does not sign transactions, hold keys, send funds, call RPC providers, or
 make compliance claims.
 
+The included transaction is a synthetic, structurally faithful version-0
+conformance vector. Its purpose is deterministic parser and verifier testing;
+it is not presented as a historical mainnet payment.
+
 ## Requirements
 
 - Node.js 22.18 or newer

@@ -16,12 +16,15 @@ export function evaluateFixture(fixture: PaymentFixture): ConformanceReport {
   const reports = transfers.map((transfer) =>
     verifyPayment(fixture, transfer, transfers),
   );
+  const verifiedReportCount = reports.filter(
+    (report) => report.verified,
+  ).length;
 
   return {
     schemaVersion: "0.1",
     fixtureName: fixture.name,
     signature: fixture.rpcTransaction.signature,
-    passed: reports.length > 0 && reports.every((report) => report.verified),
+    passed: verifiedReportCount === 1,
     reports,
   };
 }
