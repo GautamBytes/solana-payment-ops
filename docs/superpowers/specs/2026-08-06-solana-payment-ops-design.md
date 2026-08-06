@@ -1,6 +1,6 @@
 # Solana Payment Operations
 
-- Status: design candidate for final review
+- Status: approved for implementation
 - Date: 2026-08-06
 - Repository: solana-payment-ops
 - Working product name: Solana Payment Ops
