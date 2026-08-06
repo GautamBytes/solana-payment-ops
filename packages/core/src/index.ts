@@ -16,3 +16,5 @@ export type {
 } from "./domain/types.js";
 export { resolveAccountKeys } from "./solana/compiled-message.js";
 export { decodeTransferChecked } from "./solana/transfer-checked.js";
+export type { ParsedTransfer } from "./domain/types.js";
+export { parseTransferCheckedEvents } from "./solana/parse-transaction.js";
