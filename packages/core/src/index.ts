@@ -10,3 +10,9 @@ export {
   type PaymentFixture,
 } from "./fixtures/schema.js";
 export { loadPaymentFixture } from "./fixtures/load-fixture.js";
+export type {
+  DecodedTransferChecked,
+  ResolvedAccountKey,
+} from "./domain/types.js";
+export { resolveAccountKeys } from "./solana/compiled-message.js";
+export { decodeTransferChecked } from "./solana/transfer-checked.js";
