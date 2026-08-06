@@ -10,6 +10,10 @@ export interface DecodedTransferChecked {
   readonly decimals: number;
 }
 
+export interface DecodedTransfer {
+  readonly amountBaseUnits: bigint;
+}
+
 export interface ParsedTransfer {
   readonly eventId: string;
   readonly signature: string;
