@@ -1,0 +1,35 @@
+{
+  "name": "@payops/core",
+  "version": "0.0.1",
+  "description": "Deterministic Solana payment parsing and verification primitives",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "payops-conformance": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "conformance": "tsc -p tsconfig.build.json && node dist/cli.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@solana/kit": "7.0.0",
+    "bs58": "6.0.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

@@ -1,6 +1,6 @@
 # PayOps Core Vertical Slice Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [x]) syntax for tracking.
 
 **Goal:** Build a deterministic command-line vertical slice that loads a raw Solana RPC payment fixture, parses a legacy SPL Token TransferChecked instruction, verifies it against an expected USDC payment, and emits a stable conformance report.
 
@@ -104,7 +104,7 @@ The current plan proves the open-core contract on which those plans depend.
 - Produces: LEGACY_TOKEN_PROGRAM_ADDRESS, MAINNET_USDC, MAINNET_USDT, SUPPORTED_MAINNET_ASSETS.
 - Consumes: no earlier task.
 
-- [ ] **Step 1: Create the workspace manifests and failing canonical-asset test**
+- [x] **Step 1: Create the workspace manifests and failing canonical-asset test**
 
 Create package.json:
 
@@ -144,7 +144,7 @@ Create tsconfig.base.json:
         "declarationMap": true,
         "exactOptionalPropertyTypes": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": ["ES2022"],
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "noFallthroughCasesInSwitch": true,
@@ -279,7 +279,7 @@ Create packages/core/test/constants.test.ts:
       });
     });
 
-- [ ] **Step 2: Install dependencies and verify the test fails**
+- [x] **Step 2: Install dependencies and verify the test fails**
 
 Run:
 
@@ -288,7 +288,7 @@ Run:
 
 Expected: installation succeeds and the test fails because packages/core/src/index.ts does not exist.
 
-- [ ] **Step 3: Implement the exact asset allowlist**
+- [x] **Step 3: Implement the exact asset allowlist**
 
 Create packages/core/src/domain/constants.ts:
 
@@ -326,7 +326,7 @@ Create packages/core/src/index.ts:
       SUPPORTED_MAINNET_ASSETS,
     } from './domain/constants.js';
 
-- [ ] **Step 4: Run checks and verify the test passes**
+- [x] **Step 4: Run checks and verify the test passes**
 
 Run:
 
@@ -336,7 +336,7 @@ Run:
 
 Expected: one test passes, TypeScript reports no errors, and packages/core/dist/index.js exists.
 
-- [ ] **Step 5: Commit the workspace foundation**
+- [x] **Step 5: Commit the workspace foundation**
 
 Run:
 
@@ -362,7 +362,7 @@ Expected: one commit containing the reproducible workspace and canonical asset t
 - Produces: PaymentFixtureSchema, PaymentFixture, loadPaymentFixture(path).
 - Consumes: canonical addresses from Task 1.
 
-- [ ] **Step 1: Write the valid-load and invalid-address tests**
+- [x] **Step 1: Write the valid-load and invalid-address tests**
 
 Create packages/core/test/fixture-schema.test.ts:
 
@@ -503,7 +503,7 @@ Create fixtures/v0.1/usdc-transfer-checked-finalized.json:
       }
     }
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run:
 
@@ -511,7 +511,7 @@ Run:
 
 Expected: failure because loadPaymentFixture and PaymentFixtureSchema are not exported.
 
-- [ ] **Step 3: Implement the fixture schema and loader**
+- [x] **Step 3: Implement the fixture schema and loader**
 
 Create packages/core/src/fixtures/schema.ts:
 
@@ -668,7 +668,7 @@ Append to packages/core/src/index.ts:
     } from './fixtures/schema.js';
     export { loadPaymentFixture } from './fixtures/load-fixture.js';
 
-- [ ] **Step 4: Run the fixture tests and type check**
+- [x] **Step 4: Run the fixture tests and type check**
 
 Run:
 
@@ -677,7 +677,7 @@ Run:
 
 Expected: two tests pass and TypeScript reports no errors.
 
-- [ ] **Step 5: Commit the fixture contract**
+- [x] **Step 5: Commit the fixture contract**
 
 Run:
 
@@ -704,7 +704,7 @@ Expected: one commit containing the schema, loader, and canonical raw RPC fixtur
 - Produces: ResolvedAccountKey, DecodedTransferChecked, resolveAccountKeys(message, loadedAddresses), decodeTransferChecked(data).
 - Consumes: PaymentFixture and CompiledInstruction from Task 2.
 
-- [ ] **Step 1: Write failing account-resolution and instruction-decoding tests**
+- [x] **Step 1: Write failing account-resolution and instruction-decoding tests**
 
 Create packages/core/test/compiled-message.test.ts:
 
@@ -763,7 +763,7 @@ Create packages/core/test/transfer-checked.test.ts:
       });
     });
 
-- [ ] **Step 2: Run focused tests and verify they fail**
+- [x] **Step 2: Run focused tests and verify they fail**
 
 Run:
 
@@ -771,7 +771,7 @@ Run:
 
 Expected: failure because resolveAccountKeys and decodeTransferChecked do not exist.
 
-- [ ] **Step 3: Implement account resolution and binary decoding**
+- [x] **Step 3: Implement account resolution and binary decoding**
 
 Create packages/core/src/domain/types.ts:
 
@@ -887,7 +887,7 @@ Append to packages/core/src/index.ts:
     export { resolveAccountKeys } from './solana/compiled-message.js';
     export { decodeTransferChecked } from './solana/transfer-checked.js';
 
-- [ ] **Step 4: Verify primitive tests and all earlier tests pass**
+- [x] **Step 4: Verify primitive tests and all earlier tests pass**
 
 Run:
 
@@ -896,7 +896,7 @@ Run:
 
 Expected: six tests pass and TypeScript reports no errors.
 
-- [ ] **Step 5: Commit the Solana primitives**
+- [x] **Step 5: Commit the Solana primitives**
 
 Run:
 
@@ -921,7 +921,7 @@ Expected: one commit containing pure, deterministic instruction primitives.
 - Produces: ParsedTransfer, parseTransferCheckedEvents(fixture).
 - Consumes: PaymentFixture, resolveAccountKeys, decodeTransferChecked, and LEGACY_TOKEN_PROGRAM_ADDRESS.
 
-- [ ] **Step 1: Write the failing event-parser test**
+- [x] **Step 1: Write the failing event-parser test**
 
 Create packages/core/test/parse-transaction.test.ts:
 
@@ -966,7 +966,7 @@ Create packages/core/test/parse-transaction.test.ts:
       });
     });
 
-- [ ] **Step 2: Run the parser test and verify it fails**
+- [x] **Step 2: Run the parser test and verify it fails**
 
 Run:
 
@@ -974,7 +974,7 @@ Run:
 
 Expected: failure because parseTransferCheckedEvents is not defined.
 
-- [ ] **Step 3: Implement outer and inner instruction parsing**
+- [x] **Step 3: Implement outer and inner instruction parsing**
 
 Append to packages/core/src/domain/types.ts:
 
@@ -1123,7 +1123,7 @@ Append to packages/core/src/index.ts:
     export type { ParsedTransfer } from './domain/types.js';
     export { parseTransferCheckedEvents } from './solana/parse-transaction.js';
 
-- [ ] **Step 4: Run parser, earlier tests, and type check**
+- [x] **Step 4: Run parser, earlier tests, and type check**
 
 Run:
 
@@ -1132,7 +1132,7 @@ Run:
 
 Expected: seven tests pass and TypeScript reports no errors.
 
-- [ ] **Step 5: Commit instruction-level parsing**
+- [x] **Step 5: Commit instruction-level parsing**
 
 Run:
 
@@ -1157,7 +1157,7 @@ Expected: one commit with stable outer and inner instruction coordinates.
 - Produces: VerificationCode, VerificationCheck, VerificationReport, verifyPayment(fixture, transfer, allTransfers).
 - Consumes: PaymentFixture and ParsedTransfer.
 
-- [ ] **Step 1: Write passing-fixture and wrong-mint failure tests**
+- [x] **Step 1: Write passing-fixture and wrong-mint failure tests**
 
 Create packages/core/test/verify-payment.test.ts:
 
@@ -1228,7 +1228,7 @@ Create packages/core/test/verify-payment.test.ts:
       });
     });
 
-- [ ] **Step 2: Run the verification tests and verify they fail**
+- [x] **Step 2: Run the verification tests and verify they fail**
 
 Run:
 
@@ -1236,7 +1236,7 @@ Run:
 
 Expected: failure because verifyPayment is not defined.
 
-- [ ] **Step 3: Implement all deterministic verification checks**
+- [x] **Step 3: Implement all deterministic verification checks**
 
 Append to packages/core/src/domain/types.ts:
 
@@ -1468,7 +1468,7 @@ Append to packages/core/src/index.ts:
     } from './domain/types.js';
     export { verifyPayment } from './verify/verify-payment.js';
 
-- [ ] **Step 4: Run verification, full tests, type check, and build**
+- [x] **Step 4: Run verification, full tests, type check, and build**
 
 Run:
 
@@ -1478,7 +1478,7 @@ Run:
 
 Expected: nine tests pass, TypeScript reports no errors, and the package builds.
 
-- [ ] **Step 5: Commit the payment verifier**
+- [x] **Step 5: Commit the payment verifier**
 
 Run:
 
@@ -1508,7 +1508,7 @@ Expected: one commit containing explicit, inspectable verification results.
 - Produces: ConformanceReport, evaluateFixture(fixture), stringifyCanonical(value), payops-conformance CLI.
 - Consumes: loadPaymentFixture, parseTransferCheckedEvents, and verifyPayment.
 
-- [ ] **Step 1: Write the failing deterministic-report test**
+- [x] **Step 1: Write the failing deterministic-report test**
 
 Create packages/core/test/conformance.test.ts:
 
@@ -1539,7 +1539,7 @@ Create packages/core/test/conformance.test.ts:
       });
     });
 
-- [ ] **Step 2: Run the conformance test and verify it fails**
+- [x] **Step 2: Run the conformance test and verify it fails**
 
 Run:
 
@@ -1547,7 +1547,7 @@ Run:
 
 Expected: failure because evaluateFixture and stringifyCanonical do not exist.
 
-- [ ] **Step 3: Implement orchestration, canonical JSON, and CLI exit behavior**
+- [x] **Step 3: Implement orchestration, canonical JSON, and CLI exit behavior**
 
 Create packages/core/src/conformance.ts:
 
@@ -1688,7 +1688,7 @@ Replace the root package.json scripts object with:
       "typecheck": "pnpm -r typecheck"
     }
 
-- [ ] **Step 4: Add public documentation and continuous integration**
+- [x] **Step 4: Add public documentation and continuous integration**
 
 Create README.md:
 
@@ -1774,7 +1774,7 @@ Create .github/workflows/ci.yml:
               pnpm --filter @payops/core conformance
               ../../fixtures/v0.1/usdc-transfer-checked-finalized.json
 
-- [ ] **Step 5: Verify the complete public vertical slice**
+- [x] **Step 5: Verify the complete public vertical slice**
 
 Run:
 
@@ -1793,7 +1793,7 @@ Expected:
 - Conformance output contains passed: true and exits with status 0.
 - git diff --check reports no whitespace errors.
 
-- [ ] **Step 6: Commit the conformance release**
+- [x] **Step 6: Commit the conformance release**
 
 Run:
 
@@ -1834,3 +1834,18 @@ Expected: a focused commit that makes the first open-core vertical slice runnabl
 - decodeTransferChecked is the only binary amount decoder and returns bigint.
 - verifyPayment receives the selected transfer plus every parsed transfer so account-level deltas can be checked against aggregate instruction effects.
 - ConformanceReport contains only JSON-serializable types.
+
+### Post-implementation review amendments
+
+An independent review of the completed branch produced no critical findings.
+The following hardening changes were incorporated before release:
+
+- The exported USDC/USDT allowlist is frozen at runtime, not only typed as read-only.
+- The conformance fixture now models a structurally faithful version-0 envelope with transaction signatures, recent blockhash, address-table lookups, and non-empty loaded addresses.
+- The schema cross-checks the envelope signature, signature count, message header partitions, lookup/load counts, compiled account indexes, CPI parent indexes, and token-balance indexes.
+- String and structured Solana transaction errors are accepted as evidence and deterministically fail the transaction-success rule.
+- The selected instruction still has to match the exact requested payment amount, while transaction-wide balance conservation now compares the observed delta with the aggregate of every parsed instruction effect.
+- Every verification code has an explicit fail-closed test; the completed suite contains 44 tests across eight files.
+- Canonical JSON uses locale-independent code-unit ordering.
+- The complete Apache-2.0 license and package README are included in the publishable package, and a pack smoke test verifies the CLI is executable.
+- GitHub Actions dependencies are pinned to immutable commit SHAs.
