@@ -159,6 +159,7 @@ Create tsconfig.base.json:
 
 Create .gitignore:
 
+    .worktrees/
     .env
     .env.*
     !.env.example
