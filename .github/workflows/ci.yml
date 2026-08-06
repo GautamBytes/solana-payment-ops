@@ -14,6 +14,22 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_DB: payops_test
+          POSTGRES_PASSWORD: payops
+          POSTGRES_USER: payops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U payops -d payops_test"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://payops:payops@127.0.0.1:5432/payops_test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
@@ -25,7 +41,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - run: pnpm build
       - run: >-
           pnpm conformance
           fixtures/v0.1/usdc-transfer-checked-finalized.json

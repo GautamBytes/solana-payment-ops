@@ -4,6 +4,10 @@ export const LEGACY_TOKEN_PROGRAM_ADDRESS = address(
   "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
 );
 
+export const TOKEN_2022_PROGRAM_ADDRESS = address(
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+);
+
 export const MAINNET_USDC = Object.freeze({
   symbol: "USDC",
   mint: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),

@@ -1,0 +1,217 @@
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { PaymentFixtureSchema } from "@payops/core";
+import { describe, expect, it } from "vitest";
+import { HttpSolanaRpc, IngestionError } from "../src/index.js";
+
+const fixturePath = fileURLToPath(
+  new URL(
+    "../../../fixtures/v0.1/usdc-transfer-checked-finalized.json",
+    import.meta.url,
+  ),
+);
+const address = "Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM";
+const signature =
+  "2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T";
+
+interface CapturedRequest {
+  readonly method: string;
+  readonly params: readonly unknown[];
+}
+
+function fakeFetch(
+  results: readonly unknown[],
+  requests: CapturedRequest[],
+): typeof fetch {
+  let index = 0;
+  return (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    const request = JSON.parse(String(init?.body)) as CapturedRequest;
+    requests.push(request);
+    const result = results[index];
+    index += 1;
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: index, result }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+}
+
+async function loadRpcResult(): Promise<Record<string, unknown>> {
+  const fixture = PaymentFixtureSchema.parse(
+    JSON.parse(await readFile(fixturePath, "utf8")),
+  );
+  const {
+    cluster: _cluster,
+    commitment: _commitment,
+    signature: _signature,
+    ...result
+  } = fixture.rpcTransaction;
+  return result;
+}
+
+describe("HttpSolanaRpc", () => {
+  it("rejects plaintext non-local RPC endpoints", () => {
+    expect(
+      () =>
+        new HttpSolanaRpc({
+          cluster: "mainnet-beta",
+          endpoint: "http://rpc.example",
+        }),
+    ).toThrow("RPC endpoint must use HTTPS unless it is local");
+  });
+
+  it("disables fetch redirects so HTTPS cannot downgrade", async () => {
+    let redirect: RequestRedirect | undefined;
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      (async (_input, init) => {
+        redirect = init?.redirect;
+        return new Response(
+          JSON.stringify({ jsonrpc: "2.0", id: 1, result: 1 }),
+          { status: 200 },
+        );
+      }) as typeof fetch,
+    );
+
+    await rpc.getSlot("confirmed");
+
+    expect(redirect).toBe("error");
+  });
+
+  it("requests a stable captured address head", async () => {
+    const requests: CapturedRequest[] = [];
+    const rpc = new HttpSolanaRpc(
+      {
+        cluster: "mainnet-beta",
+        endpoint: "https://rpc.invalid/?token=secret",
+      },
+      fakeFetch(
+        [
+          [
+            {
+              signature,
+              slot: 345678901,
+              blockTime: 1786000000,
+              err: null,
+              confirmationStatus: "confirmed",
+            },
+          ],
+        ],
+        requests,
+      ),
+    );
+
+    const result = await rpc.getSignaturesForAddress({
+      address,
+      commitment: "confirmed",
+      limit: 1,
+    });
+
+    expect(result[0]?.slot).toBe(345678901n);
+    expect(requests[0]).toMatchObject({
+      method: "getSignaturesForAddress",
+      params: [address, { commitment: "confirmed", limit: 1 }],
+    });
+  });
+
+  it("wraps and validates a transaction result", async () => {
+    const requests: CapturedRequest[] = [];
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      fakeFetch([await loadRpcResult()], requests),
+    );
+
+    const result = await rpc.getTransaction(signature, "confirmed");
+
+    expect(result).toMatchObject({
+      cluster: "mainnet-beta",
+      commitment: "confirmed",
+      signature,
+      slot: 345678901,
+    });
+    expect(requests[0]).toMatchObject({
+      method: "getTransaction",
+      params: [
+        signature,
+        {
+          commitment: "confirmed",
+          encoding: "json",
+          maxSupportedTransactionVersion: 0,
+        },
+      ],
+    });
+  });
+
+  it("rejects a response whose transaction signature differs", async () => {
+    const transaction = await loadRpcResult();
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      fakeFetch([transaction], []),
+    );
+
+    await expect(
+      rpc.getTransaction(
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "confirmed",
+      ),
+    ).rejects.toMatchObject({ code: "rpc_signature_conflict" });
+  });
+
+  it("maps rate limiting without leaking the endpoint", async () => {
+    const rpc = new HttpSolanaRpc(
+      {
+        cluster: "mainnet-beta",
+        endpoint: "https://rpc.invalid/?token=super-secret",
+      },
+      (async () => new Response("limited", { status: 429 })) as typeof fetch,
+    );
+
+    const error = await rpc
+      .getSlot("confirmed")
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(IngestionError);
+    expect(error).toMatchObject({ code: "rpc_rate_limited", retryable: true });
+    expect(String(error)).not.toContain("super-secret");
+  });
+
+  it.each([401, 403])(
+    "treats HTTP %s as retryable so ingestion cannot skip evidence",
+    async (status) => {
+      const rpc = new HttpSolanaRpc(
+        { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+        (async () => new Response("denied", { status })) as typeof fetch,
+      );
+
+      await expect(rpc.getSlot("confirmed")).rejects.toMatchObject({
+        code: "rpc_transport_error",
+        retryable: true,
+      });
+    },
+  );
+
+  it("classifies an unsupported transaction version as non-retryable", async () => {
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      (async () =>
+        new Response(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            error: {
+              code: -32015,
+              message: "Transaction version (1) is not supported",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )) as typeof fetch,
+    );
+
+    await expect(
+      rpc.getTransaction(signature, "confirmed"),
+    ).rejects.toMatchObject({
+      code: "rpc_unsupported_version",
+      retryable: false,
+    });
+  });
+});

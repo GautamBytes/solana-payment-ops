@@ -10,17 +10,19 @@ commerce products, and accounting tools can build on.
 A successful transaction signature is not enough to mark an invoice paid.
 Applications must verify finality, token identity, recipient ownership, exact
 integer amounts, reference accounts, and transaction-wide balance changes.
-PayOps packages those checks into an open conformance contract instead of
-making every Solana team rebuild them independently.
+PayOps packages those checks into an open conformance contract and a durable
+ingestion engine instead of making every Solana team rebuild them
+independently.
 
-## Current vertical slice
+## Current implementation
 
-The first release:
+PayOps Core:
 
 - supports canonical mainnet USDC and USDT through an exact allowlist;
 - loads a versioned raw-RPC payment fixture;
 - resolves static and address-table account metadata;
-- decodes legacy SPL Token `TransferChecked` amounts as `bigint`;
+- decodes legacy SPL Token `TransferChecked` and balance-proven `Transfer`
+  amounts as `bigint`;
 - parses outer and CPI instruction coordinates into stable event IDs;
 - extracts Solana Pay-style read-only reference accounts;
 - verifies cluster, finality, token program, mint, recipient token account and
@@ -28,8 +30,18 @@ The first release:
   balance conservation;
 - emits canonical JSON suitable for CI and integration conformance tests.
 
-It does not sign transactions, hold keys, send funds, call RPC providers, or
-make compliance claims.
+The ingestion package adds:
+
+- captured-head `getSignaturesForAddress` backfills with overlapping cursors;
+- oldest-first processing, immutable raw snapshots, and SHA-256 digests;
+- PostgreSQL idempotency, advisory locks, retry records, and quarantines;
+- normalized transfer and reference-account indexes;
+- confirmed-to-finalized status tracking with bounded reversion evidence;
+- a deterministic CLI for migrations, provider and watch setup, sync,
+  finality, and inspection.
+
+PayOps does not sign transactions, hold keys, send funds, or make compliance
+claims.
 
 The included transaction is a synthetic, structurally faithful version-0
 conformance vector. Its purpose is deterministic parser and verifier testing;
@@ -51,6 +63,9 @@ pnpm conformance fixtures/v0.1/usdc-transfer-checked-finalized.json
 A passing fixture exits with status `0`. A parsed payment that fails a
 verification rule exits with status `1`. Invalid CLI usage or an invalid
 fixture exits with status `2`.
+
+The [ingestion quick start](packages/ingestion/README.md) runs the PostgreSQL
+service and one-shot operator CLI locally.
 
 ## What developers can build on it
 

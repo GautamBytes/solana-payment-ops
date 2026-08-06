@@ -1,0 +1,36 @@
+{
+  "name": "@payops/ingestion",
+  "version": "0.0.1",
+  "description": "Durable Solana payment ingestion and finality tracking",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "payops-ingestion": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/core": "workspace:*",
+    "@solana/kit": "7.0.0",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}
