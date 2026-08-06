@@ -4,6 +4,9 @@
   "description": "Deterministic Solana payment parsing and verification primitives",
   "type": "module",
   "license": "Apache-2.0",
+  "bin": {
+    "payops-conformance": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,6 +18,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "conformance": "tsc -p tsconfig.build.json && node dist/cli.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
@@ -24,7 +28,6 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "tsx": "4.23.9",
     "vitest": "4.1.10"
   }
 }

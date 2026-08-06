@@ -24,3 +24,5 @@ export type {
   VerificationReport,
 } from "./domain/types.js";
 export { verifyPayment } from "./verify/verify-payment.js";
+export { evaluateFixture, type ConformanceReport } from "./conformance.js";
+export { stringifyCanonical } from "./canonical-json.js";
