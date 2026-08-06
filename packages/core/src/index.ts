@@ -18,3 +18,9 @@ export { resolveAccountKeys } from "./solana/compiled-message.js";
 export { decodeTransferChecked } from "./solana/transfer-checked.js";
 export type { ParsedTransfer } from "./domain/types.js";
 export { parseTransferCheckedEvents } from "./solana/parse-transaction.js";
+export type {
+  VerificationCheck,
+  VerificationCode,
+  VerificationReport,
+} from "./domain/types.js";
+export { verifyPayment } from "./verify/verify-payment.js";

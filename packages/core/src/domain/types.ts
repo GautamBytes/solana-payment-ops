@@ -28,3 +28,38 @@ export interface ParsedTransfer {
   readonly references: readonly string[];
   readonly unsupportedExtraAccounts: readonly string[];
 }
+
+export type VerificationCode =
+  | "transaction_success"
+  | "cluster"
+  | "commitment"
+  | "token_program"
+  | "mint"
+  | "destination"
+  | "destination_owner"
+  | "destination_token_program"
+  | "destination_balance_mint"
+  | "amount"
+  | "decimals"
+  | "reference"
+  | "unambiguous_reference_accounts"
+  | "non_self_transfer"
+  | "destination_balance_delta";
+
+export interface VerificationCheck {
+  readonly code: VerificationCode;
+  readonly passed: boolean;
+  readonly expected: string;
+  readonly actual: string;
+}
+
+export interface VerificationReport {
+  readonly schemaVersion: "0.1";
+  readonly fixtureName: string;
+  readonly eventId: string;
+  readonly signature: string;
+  readonly slot: number;
+  readonly verified: boolean;
+  readonly checks: readonly VerificationCheck[];
+  readonly transfer: ParsedTransfer;
+}
