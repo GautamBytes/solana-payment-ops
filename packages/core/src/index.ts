@@ -1,0 +1,6 @@
+export {
+  LEGACY_TOKEN_PROGRAM_ADDRESS,
+  MAINNET_USDC,
+  MAINNET_USDT,
+  SUPPORTED_MAINNET_ASSETS,
+} from "./domain/constants.js";

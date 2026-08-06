@@ -144,7 +144,7 @@ Create tsconfig.base.json:
         "declarationMap": true,
         "exactOptionalPropertyTypes": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": ["ES2022"],
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "noFallthroughCasesInSwitch": true,
