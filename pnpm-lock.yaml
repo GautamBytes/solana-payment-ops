@@ -56,6 +56,28 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.23.9))
 
+  packages/reconciliation:
+    dependencies:
+      '@payops/core':
+        specifier: workspace:*
+        version: link:../core
+      '@solana/kit':
+        specifier: 7.0.0
+        version: 7.0.0(typescript@7.0.2)
+      csv-parse:
+        specifier: 7.0.2
+        version: 7.0.2
+      postgres:
+        specifier: 3.4.7
+        version: 3.4.7
+    devDependencies:
+      '@payops/ingestion':
+        specifier: workspace:*
+        version: link:../ingestion
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.23.9))
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.1':
@@ -892,6 +914,9 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  csv-parse@7.0.2:
+    resolution: {integrity: sha512-uKZghv9UmPkMVLYy//KZ9HFAIJsl7wkhoEdIL0+rhuSY9pZQlhaeGEDPIe+/w7eh81MOql8Q/9+inAGWG6ZHYA==}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -2028,6 +2053,8 @@ snapshots:
   commander@15.0.0: {}
 
   convert-source-map@2.0.0: {}
+
+  csv-parse@7.0.2: {}
 
   detect-libc@2.1.2: {}
 

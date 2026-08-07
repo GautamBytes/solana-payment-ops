@@ -67,6 +67,10 @@ fixture exits with status `2`.
 The [ingestion quick start](packages/ingestion/README.md) runs the PostgreSQL
 service and one-shot operator CLI locally.
 
+The [reconciliation quick start](packages/reconciliation/README.md) imports
+merchant invoice expectations, matches finalized USDC or USDT transfers, and
+exports explicit allocation and exception results.
+
 ## What developers can build on it
 
 - hosted invoice checkout and automatic payment matching;
