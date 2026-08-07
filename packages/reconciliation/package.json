@@ -1,0 +1,37 @@
+{
+  "name": "@payops/reconciliation",
+  "version": "0.0.1",
+  "description": "Deterministic invoice reconciliation for finalized Solana payments",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "payops-reconciliation": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "examples",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/core": "workspace:*",
+    "@solana/kit": "7.0.0",
+    "csv-parse": "7.0.2",
+    "postgres": "3.4.7"
+  },
+  "devDependencies": {
+    "@payops/ingestion": "workspace:*",
+    "vitest": "4.1.10"
+  }
+}

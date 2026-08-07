@@ -1,0 +1,3 @@
+invoice_id,customer_id,expected_mint,destination_token_account,amount_base_units,reference_address,issued_at,due_at
+inv-usdc-001,customer-acme,EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v,Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM,12500000,Gh5GixNvrU87vKWcLLLp6dcgBGRDtP4EJesFu6rjif4,2026-08-01T00:00:00.000Z,2026-08-15T00:00:00.000Z
+inv-usdt-001,customer-globex,Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB,Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM,8000000,4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw,2026-08-02T00:00:00.000Z,2026-08-16T00:00:00.000Z
