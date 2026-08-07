@@ -227,6 +227,80 @@ describe("PostgresIngestionStore", () => {
     });
   });
 
+  it("rejects noncanonical parser versions before representation writes", async () => {
+    await seedProviderAndWatch();
+    const discovered = {
+      signature: transaction.signature,
+      slot: BigInt(transaction.slot),
+      blockTime: BigInt(transaction.blockTime ?? 0),
+      err: null,
+      confirmationStatus: "confirmed" as const,
+    };
+    const runId = await store.startSyncRun({
+      providerId: "primary",
+      watchTargetId: "watch-1",
+      startedAt: now,
+      startingHeadSignature: null,
+      startingHeadSlot: null,
+      capturedHead: discovered,
+    });
+    const baseInput = {
+      runId,
+      providerId: "primary",
+      watchTargetId: "watch-1",
+      discovered,
+      classification: "parsed" as const,
+      snapshot: createCanonicalSnapshot(transaction),
+      transaction,
+      transfers: parseTransactionTransfers(transaction),
+      observedAt: now,
+    };
+
+    for (const parserVersion of [
+      "0.2",
+      "0.2.0-beta.1",
+      "0.2.0+build.1",
+      "00.2.0",
+      "0.02.0",
+      "0.2.00",
+      "v0.2.0",
+      " 0.2.0",
+      "1000000000.0.0",
+      "0.1000000000.0",
+      "0.0.1000000000",
+      `1${"0".repeat(1_000)}.0.0`,
+    ]) {
+      await expect(
+        store.recordRepresentation({ ...baseInput, parserVersion }),
+      ).rejects.toMatchObject({
+        code: "invalid_configuration",
+        retryable: false,
+      });
+    }
+    const [empty] = await cleanup<
+      { discovered: number; raw: number; events: number; transfers: number }[]
+    >`
+      SELECT
+        (SELECT count(*)::integer FROM discovered_signatures) AS discovered,
+        (SELECT count(*)::integer FROM raw_transactions) AS raw,
+        (SELECT count(*)::integer FROM chain_events) AS events,
+        (SELECT count(*)::integer FROM normalized_transfers) AS transfers
+    `;
+    expect(empty).toEqual({ discovered: 0, raw: 0, events: 0, transfers: 0 });
+
+    await expect(
+      store.recordRepresentation({
+        ...baseInput,
+        parserVersion: "999999999.999999999.999999999",
+      }),
+    ).resolves.toMatchObject({ signatureInserted: true, eventsInserted: 1 });
+    await expect(
+      cleanup<{ parser_version: string }[]>`
+        SELECT parser_version FROM normalized_transfers
+      `,
+    ).resolves.toEqual([{ parser_version: "999999999.999999999.999999999" }]);
+  });
+
   it("promotes pending discovery and resolves recovered transaction work atomically", async () => {
     await seedProviderAndWatch();
     const discovered = {

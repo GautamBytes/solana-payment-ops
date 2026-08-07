@@ -102,7 +102,9 @@ export async function loadReportRows(
     JOIN LATERAL (
       SELECT normalized.* FROM normalized_transfers AS normalized
       WHERE normalized.chain_event_id = event.id
-      ORDER BY normalized.parser_version DESC
+      ORDER BY
+        payops_semver_key(normalized.parser_version) DESC NULLS LAST,
+        normalized.parser_version DESC
       LIMIT 1
     ) AS transfer ON true
     WHERE exception.invoice_id IS NULL

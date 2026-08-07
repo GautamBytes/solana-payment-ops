@@ -8,6 +8,7 @@ const REFERENCE = "Gh5GixNvrU87vKWcLLLp6dcgBGRDtP4EJesFu6rjif4";
 const REFERENCE_2 = "4wBqpZM9xaSheZzJSMawUKKwhdpChKbZ5eu5ky4Vigw";
 const HEADER =
   "invoice_id,customer_id,expected_mint,destination_token_account,amount_base_units,reference_address,issued_at,due_at";
+const ASTRAL = "\u{1F680}";
 
 function row(overrides: Partial<Record<string, string>> = {}): string {
   const values = {
@@ -57,6 +58,20 @@ describe("parseInvoiceCsv", () => {
     ).toMatchObject({ expectedMint: USDT });
   });
 
+  it("accepts invoice and customer IDs at the event-contract boundaries", () => {
+    expect(
+      parseInvoiceCsv(
+        `${HEADER}\n${row({
+          invoice_id: ASTRAL.repeat(128),
+          customer_id: ASTRAL.repeat(512),
+        })}`,
+      )[0],
+    ).toMatchObject({
+      invoiceId: ASTRAL.repeat(128),
+      customerId: ASTRAL.repeat(512),
+    });
+  });
+
   it.each([
     ["unexpected header", `invoice_id,customer_id\ninv-001,customer-001`],
     ["unsupported mint", `${HEADER}\n${row({ expected_mint: DESTINATION })}`],
@@ -70,6 +85,14 @@ describe("parseInvoiceCsv", () => {
     ],
     ["zero amount", `${HEADER}\n${row({ amount_base_units: "0" })}`],
     ["decimal amount", `${HEADER}\n${row({ amount_base_units: "1.25" })}`],
+    [
+      "invoice ID beyond the event contract",
+      `${HEADER}\n${row({ invoice_id: ASTRAL.repeat(129) })}`,
+    ],
+    [
+      "customer ID beyond the event contract",
+      `${HEADER}\n${row({ customer_id: ASTRAL.repeat(513) })}`,
+    ],
     [
       "amount wider than numeric(78,0)",
       `${HEADER}\n${row({ amount_base_units: "1".repeat(79) })}`,

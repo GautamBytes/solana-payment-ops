@@ -72,6 +72,18 @@ interface RawRow {
   readonly digest: string;
 }
 
+const canonicalParserVersionPattern =
+  /^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$/;
+
+function assertCanonicalParserVersion(parserVersion: string): void {
+  if (canonicalParserVersionPattern.test(parserVersion)) return;
+  throw new IngestionError(
+    "invalid_configuration",
+    "Parser version must be a numeric MAJOR.MINOR.PATCH triplet with components from 0 to 999999999 and no leading zeroes",
+    { retryable: false },
+  );
+}
+
 export class PostgresIngestionStore implements IngestionStore {
   readonly #sql: Sql;
   readonly #db: PostgresJsDatabase<typeof schema>;
@@ -290,6 +302,7 @@ export class PostgresIngestionStore implements IngestionStore {
   public async recordRepresentation(
     input: RecordRepresentationInput,
   ): Promise<RecordRepresentationResult> {
+    assertCanonicalParserVersion(input.parserVersion);
     return persistRepresentation(this.#sql, input);
   }
 

@@ -1,0 +1,44 @@
+{
+  "name": "@payops/webhooks",
+  "version": "0.0.1",
+  "description": "Canonical lifecycle events and webhook signature verification",
+  "type": "module",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./consumer-example": {
+      "types": "./dist/examples/verify-consumer.d.ts",
+      "import": "./dist/examples/verify-consumer.js"
+    }
+  },
+  "bin": {
+    "payops-webhooks": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "src/examples/verify-consumer.ts",
+    "migrations",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run test:unit && pnpm run test:dist",
+    "test:dist": "pnpm run build && node test/endpoint-policy.esm-smoke.mjs && node test/cli.esm-smoke.mjs && node test/package-artifact.esm-smoke.mjs",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/core": "workspace:*",
+    "ipaddr.js": "2.5.0",
+    "postgres": "3.4.7",
+    "undici": "7.29.0"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}
