@@ -1,5 +1,6 @@
 export { createLifecycleEvent } from "./domain/envelope.js";
 export { parseLifecycleEventEnvelope } from "./domain/parse-envelope.js";
+export { SUPPORTED_LIFECYCLE_EVENT_TYPES } from "./domain/types.js";
 export { unicodeCodePointLength } from "./domain/unicode-length.js";
 export type { LifecycleEventEnvelope } from "./domain/parse-envelope.js";
 export {
@@ -25,12 +26,21 @@ export type {
   InvoiceObject,
   InvoicePaidData,
   InvoicePaidLifecycleEvent,
+  EvidencePackObject,
+  GenericLifecycleEvent,
+  GenericLifecycleEventType,
   LifecycleEvent,
+  LifecycleEventBase,
+  LifecycleObject,
+  LifecycleObjectType,
+  LifecycleObjectTypeForEvent,
   LifecycleEventRecord,
   LifecycleEventType,
+  PaymentObject,
   PaymentExceptionCreatedData,
   PaymentExceptionCreatedLifecycleEvent,
   PaymentExceptionObject,
+  RefundObject,
   VerificationFailureCode,
   VerificationResult,
   WebhookRequest,

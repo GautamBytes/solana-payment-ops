@@ -51,6 +51,7 @@ interface EventRow {
 interface AllocationLifecycleRow {
   readonly invoice_id: string;
   readonly customer_id: string;
+  readonly invoice_status: "matched";
   readonly event_id: string;
   readonly signature: string;
   readonly outer_instruction_index: number;
@@ -219,6 +220,7 @@ async function enqueueInvoicePaidEvent(
     SELECT
       invoice.invoice_id,
       invoice.customer_id,
+      invoice.status AS invoice_status,
       allocation.event_id,
       allocation.signature,
       allocation.outer_instruction_index,
@@ -237,6 +239,7 @@ async function enqueueInvoicePaidEvent(
   const event = createLifecycleEvent(
     {
       type: "invoice.paid",
+      statusAtOccurrence: evidence.invoice_status,
       object: {
         type: "invoice",
         id: evidence.invoice_id,
@@ -287,6 +290,7 @@ async function enqueuePaymentExceptionCreatedEvent(
   const event = createLifecycleEvent(
     {
       type: "payment.exception_created",
+      statusAtOccurrence: evidence.review_state,
       object: {
         type: "payment_exception",
         id: evidence.exception_id,

@@ -25,6 +25,7 @@ function invoicePaidEvent(
   return createLifecycleEvent(
     {
       type: "invoice.paid",
+      statusAtOccurrence: "matched",
       object: { type: "invoice", id: sourceId, version: 1 },
       data: {
         invoiceId: sourceId,
@@ -311,6 +312,7 @@ describe("PostgresWebhookStore", () => {
     const exception = createLifecycleEvent(
       {
         type: "payment.exception_created",
+        statusAtOccurrence: "open",
         object: {
           type: "payment_exception",
           id: "exception-001",

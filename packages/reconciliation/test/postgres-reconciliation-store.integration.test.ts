@@ -369,6 +369,7 @@ describe("PostgresReconciliationStore", () => {
     expect(JSON.parse(row!.payload)).toMatchObject({
       type: "invoice.paid",
       occurredAt: decidedAt.toISOString(),
+      statusAtOccurrence: "matched",
       object: { type: "invoice", id: publishedInvoice.invoiceId, version: 1 },
       data: {
         invoiceId: publishedInvoice.invoiceId,
@@ -487,6 +488,7 @@ describe("PostgresReconciliationStore", () => {
     });
     expect(JSON.parse(row!.payload)).toMatchObject({
       type: "payment.exception_created",
+      statusAtOccurrence: "open",
       object: {
         type: "payment_exception",
         id: row!.exception_id,
@@ -634,6 +636,7 @@ describe("PostgresReconciliationStore", () => {
         ON event.source_id = exception.id::text
     `;
     expect(JSON.parse(row!.payload)).toMatchObject({
+      statusAtOccurrence: "open",
       object: {
         type: "payment_exception",
         id: row!.exception_id,

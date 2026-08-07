@@ -14,10 +14,29 @@ CREATE TABLE IF NOT EXISTS webhook_endpoints (
 CREATE TABLE IF NOT EXISTS webhook_events (
   id uuid PRIMARY KEY,
   event_type text NOT NULL CHECK (
-    event_type IN ('invoice.paid', 'payment.exception_created')
+    event_type IN (
+      'invoice.issued',
+      'payment.detected',
+      'payment.confirmed',
+      'payment.finalized',
+      'payment.confirmation_revoked',
+      'payment.exception_created',
+      'invoice.partial',
+      'invoice.paid',
+      'invoice.overpaid',
+      'refund.prepared',
+      'refund.finalized',
+      'evidence.ready'
+    )
   ),
   source_type text NOT NULL CHECK (
-    source_type IN ('invoice', 'payment_exception')
+    source_type IN (
+      'invoice',
+      'payment',
+      'payment_exception',
+      'refund',
+      'evidence_pack'
+    )
   ),
   source_id text NOT NULL CHECK (length(source_id) > 0),
   source_version integer NOT NULL CHECK (source_version > 0),
@@ -26,8 +45,24 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   occurred_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL,
   CHECK (
-    (event_type = 'invoice.paid' AND source_type = 'invoice')
+    (event_type IN (
+      'invoice.issued',
+      'invoice.partial',
+      'invoice.paid',
+      'invoice.overpaid'
+    ) AND source_type = 'invoice')
+    OR (event_type IN (
+      'payment.detected',
+      'payment.confirmed',
+      'payment.finalized',
+      'payment.confirmation_revoked'
+    ) AND source_type = 'payment')
     OR (event_type = 'payment.exception_created' AND source_type = 'payment_exception')
+    OR (event_type IN (
+      'refund.prepared',
+      'refund.finalized'
+    ) AND source_type = 'refund')
+    OR (event_type = 'evidence.ready' AND source_type = 'evidence_pack')
   ),
   UNIQUE (event_type, source_type, source_id, source_version)
 );

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createLifecycleEvent,
   parseLifecycleEventEnvelope,
+  SUPPORTED_LIFECYCLE_EVENT_TYPES,
   type LifecycleEvent,
 } from "../src/index.js";
 
@@ -15,6 +16,7 @@ describe("createLifecycleEvent", () => {
     const event = createLifecycleEvent(
       {
         type: "invoice.paid",
+        statusAtOccurrence: "matched",
         object: { type: "invoice", id: "inv-001", version: 1 },
         data: {
           invoiceId: "inv-001",
@@ -62,24 +64,81 @@ describe("createLifecycleEvent", () => {
         "  },",
         '  "occurredAt": "2026-08-07T00:00:00.000Z",',
         '  "schemaVersion": "0.1",',
+        '  "statusAtOccurrence": "matched",',
         '  "type": "invoice.paid"',
         "}",
         "",
       ].join("\n"),
       digest:
-        "e84968f95cd3b8c8380b2f69bc74019b00bd37f66dcc312e10f37de27317ddab",
+        "d3794e4219a165e3d012114b5304cb45bbe5b9932b642523c3725fcdef52e2b5",
     });
     expect(JSON.parse(event.payload)).toMatchObject({
       schemaVersion: "0.1",
       id: eventId,
       type: "invoice.paid",
+      statusAtOccurrence: "matched",
     });
   });
+
+  it("exposes the complete initial lifecycle event type set", () => {
+    expect(SUPPORTED_LIFECYCLE_EVENT_TYPES).toEqual([
+      "invoice.issued",
+      "payment.detected",
+      "payment.confirmed",
+      "payment.finalized",
+      "payment.confirmation_revoked",
+      "payment.exception_created",
+      "invoice.partial",
+      "invoice.paid",
+      "invoice.overpaid",
+      "refund.prepared",
+      "refund.finalized",
+      "evidence.ready",
+    ]);
+  });
+
+  it.each([
+    ["invoice.issued", "invoice", "issued"],
+    ["payment.detected", "payment", "detected"],
+    ["payment.confirmed", "payment", "confirmed"],
+    ["payment.finalized", "payment", "finalized"],
+    ["payment.confirmation_revoked", "payment", "confirmation_revoked"],
+    ["invoice.partial", "invoice", "partial"],
+    ["invoice.overpaid", "invoice", "overpaid"],
+    ["refund.prepared", "refund", "prepared"],
+    ["refund.finalized", "refund", "finalized"],
+    ["evidence.ready", "evidence_pack", "ready"],
+  ] as const)(
+    "creates a minimal %s lifecycle envelope",
+    (type, objectType, statusAtOccurrence) => {
+      const event = createLifecycleEvent(
+        {
+          type,
+          statusAtOccurrence,
+          object: { type: objectType, id: `${objectType}-001`, version: 1 },
+          data: {},
+        } as LifecycleEvent,
+        eventId,
+        occurredAt,
+      );
+
+      expect(parseLifecycleEventEnvelope(JSON.parse(event.payload))).toEqual({
+        schemaVersion: "0.1",
+        id: eventId,
+        type,
+        occurredAt: occurredAt.toISOString(),
+        statusAtOccurrence,
+        object: { type: objectType, id: `${objectType}-001`, version: 1 },
+        data: {},
+      });
+    },
+  );
 
   it("preserves numeric instruction coordinates and string base-unit amounts", () => {
     const event = createLifecycleEvent(
       {
         type: "invoice.paid",
+        statusAtOccurrence: "matched",
         object: { type: "invoice", id: "inv-001", version: 1 },
         data: {
           invoiceId: "inv-001",
@@ -111,6 +170,7 @@ describe("createLifecycleEvent", () => {
       createLifecycleEvent(
         {
           type: "invoice.created",
+          statusAtOccurrence: "created",
           object: { type: "invoice", id: "inv-001", version: 1 },
           data: {},
         } as unknown as LifecycleEvent,
@@ -123,6 +183,7 @@ describe("createLifecycleEvent", () => {
   it.each([
     {
       type: "invoice.paid" as const,
+      statusAtOccurrence: "matched",
       object: {
         type: "invoice" as const,
         id: astral.repeat(128),
@@ -143,6 +204,7 @@ describe("createLifecycleEvent", () => {
     },
     {
       type: "payment.exception_created" as const,
+      statusAtOccurrence: "open",
       object: {
         type: "payment_exception" as const,
         id: astral.repeat(128),
@@ -180,6 +242,7 @@ describe("createLifecycleEvent", () => {
       createLifecycleEvent(
         {
           type: "invoice.paid",
+          statusAtOccurrence: "matched",
           object: { type: "invoice", id: values.objectId, version: 1 },
           data: {
             invoiceId: values.objectId,
@@ -208,6 +271,7 @@ describe("createLifecycleEvent", () => {
       createLifecycleEvent(
         {
           type: "invoice.paid",
+          statusAtOccurrence: "matched",
           object: { type: "invoice", id: "inv-001", version: 1 },
           data: {
             invoiceId: "inv-001",

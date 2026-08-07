@@ -11,7 +11,6 @@ export interface RetryScheduleOptions {
 const initialDelayMs = 5_000;
 const maximumDelayMs = 3_600_000;
 const automaticRetryWindowMs = 72 * 60 * 60 * 1_000;
-const maximumAttemptCount = 12;
 
 export function canAutomaticallySend(
   firstAttemptAt: Date,
@@ -19,10 +18,7 @@ export function canAutomaticallySend(
   now: Date,
 ): boolean {
   assertScheduleInputs(firstAttemptAt, attempt, now);
-  return (
-    attempt <= maximumAttemptCount &&
-    now.getTime() < firstAttemptAt.getTime() + automaticRetryWindowMs
-  );
+  return now.getTime() < firstAttemptAt.getTime() + automaticRetryWindowMs;
 }
 
 export function classifyDeliveryResult(
@@ -49,7 +45,6 @@ export function nextAttemptAt(
   options: RetryScheduleOptions = {},
 ): Date | null {
   assertScheduleInputs(firstAttemptAt, attempt, now);
-  if (attempt >= maximumAttemptCount) return null;
 
   const retryCutoff = firstAttemptAt.getTime() + automaticRetryWindowMs;
   if (now.getTime() >= retryCutoff) return null;
@@ -64,7 +59,8 @@ export function nextAttemptAt(
     throw new TypeError("Retry-After delay must be a non-negative integer");
   }
 
-  const exponentialDelay = initialDelayMs * 2 ** (attempt - 1);
+  const exponentialDelay =
+    attempt >= 12 ? maximumDelayMs : initialDelayMs * 2 ** (attempt - 1);
   const jitteredDelay = Math.floor(exponentialDelay * (0.5 + randomValue));
   const boundedDelay = Math.min(
     maximumDelayMs,

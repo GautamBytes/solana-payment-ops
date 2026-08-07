@@ -1,6 +1,26 @@
-import type { LifecycleEvent } from "./types.js";
+import {
+  SUPPORTED_LIFECYCLE_EVENT_TYPES,
+  type LifecycleEvent,
+  type LifecycleEventType,
+  type LifecycleObjectType,
+} from "./types.js";
 import { unicodeCodePointLength } from "./unicode-length.js";
 
+const eventObjectTypes = {
+  "invoice.issued": "invoice",
+  "payment.detected": "payment",
+  "payment.confirmed": "payment",
+  "payment.finalized": "payment",
+  "payment.confirmation_revoked": "payment",
+  "payment.exception_created": "payment_exception",
+  "invoice.partial": "invoice",
+  "invoice.paid": "invoice",
+  "invoice.overpaid": "invoice",
+  "refund.prepared": "refund",
+  "refund.finalized": "refund",
+  "evidence.ready": "evidence_pack",
+} as const satisfies Record<LifecycleEventType, LifecycleObjectType>;
+const supportedEventTypes = new Set<string>(SUPPORTED_LIFECYCLE_EVENT_TYPES);
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const decimalPattern = /^(0|[1-9][0-9]{0,77})$/;
@@ -10,6 +30,7 @@ const envelopeKeys = [
   "object",
   "occurredAt",
   "schemaVersion",
+  "statusAtOccurrence",
   "type",
 ] as const;
 const objectKeys = ["id", "type", "version"] as const;
@@ -48,37 +69,40 @@ export function parseLifecycleEventEnvelope(
   value: unknown,
 ): LifecycleEventEnvelope | null {
   if (!recordWithExactKeys(value, envelopeKeys)) return null;
+  const eventType = value.type;
   if (
     value.schemaVersion !== "0.1" ||
     !isUuid(value.id) ||
+    !isLifecycleEventType(eventType) ||
     !isCanonicalTimestamp(value.occurredAt) ||
+    !boundedString(value.statusAtOccurrence, 128) ||
     !recordWithExactKeys(value.object, objectKeys) ||
     !boundedString(value.object.id, 128) ||
-    !positiveInteger(value.object.version)
+    !positiveInteger(value.object.version) ||
+    value.object.type !== eventObjectTypes[eventType]
   ) {
     return null;
   }
 
-  if (value.type === "invoice.paid") {
-    if (
-      value.object.type !== "invoice" ||
-      !invoiceData(value.data) ||
-      value.object.id !== value.data.invoiceId
-    ) {
+  if (eventType === "invoice.paid") {
+    if (!invoiceData(value.data) || value.object.id !== value.data.invoiceId) {
       return null;
     }
-  } else if (value.type === "payment.exception_created") {
+  } else if (eventType === "payment.exception_created") {
     if (
-      value.object.type !== "payment_exception" ||
       !exceptionData(value.data) ||
       value.object.id !== value.data.exceptionId
     ) {
       return null;
     }
-  } else {
+  } else if (!genericData(value.data)) {
     return null;
   }
   return value as unknown as LifecycleEventEnvelope;
+}
+
+function isLifecycleEventType(value: unknown): value is LifecycleEventType {
+  return typeof value === "string" && supportedEventTypes.has(value);
 }
 
 function invoiceData(value: unknown): value is Record<string, unknown> {
@@ -113,6 +137,10 @@ function exceptionData(value: unknown): value is Record<string, unknown> {
       value.reviewState === "resolved" ||
       value.reviewState === "ignored")
   );
+}
+
+function genericData(value: unknown): value is Record<string, never> {
+  return recordWithExactKeys(value, [] as const);
 }
 
 function recordWithExactKeys<const Keys extends readonly string[]>(

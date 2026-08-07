@@ -1,16 +1,10 @@
 import { createHash } from "node:crypto";
 import { stringifyCanonical } from "@payops/core";
-import type {
-  LifecycleEvent,
-  LifecycleEventRecord,
-  LifecycleEventType,
-} from "./types.js";
+import type { LifecycleEvent, LifecycleEventRecord } from "./types.js";
+import { SUPPORTED_LIFECYCLE_EVENT_TYPES } from "./types.js";
 import { parseLifecycleEventEnvelope } from "./parse-envelope.js";
 
-const supportedEventTypes = new Set<LifecycleEventType>([
-  "invoice.paid",
-  "payment.exception_created",
-]);
+const supportedEventTypes = new Set<string>(SUPPORTED_LIFECYCLE_EVENT_TYPES);
 
 export function createLifecycleEvent(
   input: LifecycleEvent,
@@ -26,6 +20,7 @@ export function createLifecycleEvent(
     id: eventId,
     type: input.type,
     occurredAt: occurredAt.toISOString(),
+    statusAtOccurrence: input.statusAtOccurrence,
     object: input.object,
     data: input.data,
   };

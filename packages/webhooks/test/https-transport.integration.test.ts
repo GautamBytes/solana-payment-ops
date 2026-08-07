@@ -95,6 +95,7 @@ describe("real pinned HTTPS transport", () => {
     const event = createLifecycleEvent(
       {
         type: "invoice.paid",
+        statusAtOccurrence: "matched",
         object: { type: "invoice", id: "inv-real-https", version: 1 },
         data: {
           invoiceId: "inv-real-https",

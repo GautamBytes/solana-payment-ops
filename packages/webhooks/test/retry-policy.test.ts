@@ -60,11 +60,14 @@ describe("delivery retry policy", () => {
     ).toEqual(new Date("2026-08-07T11:01:00.000Z"));
   });
 
-  it("stops at the maximum attempt count", () => {
+  it("continues scheduling retryable work within the 72-hour window", () => {
     const firstAttemptAt = new Date("2026-08-07T10:00:00.000Z");
     expect(
       nextAttemptAt(firstAttemptAt, 12, firstAttemptAt, () => 0.5),
-    ).toBeNull();
+    ).toEqual(new Date("2026-08-07T11:00:00.000Z"));
+    expect(
+      nextAttemptAt(firstAttemptAt, 13, firstAttemptAt, () => 0.5),
+    ).toEqual(new Date("2026-08-07T11:00:00.000Z"));
   });
 
   it("does not schedule at or beyond the 72-hour retry window", () => {

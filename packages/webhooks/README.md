@@ -85,7 +85,7 @@ Delivery is at least once. A receiver can accept a request immediately before a
 worker loses its lease or process, so duplicate HTTP requests are expected.
 Success is any 2xx response. Network errors, 408, 425, 429, and 5xx responses
 retry with bounded backoff; other 4xx responses become dead. Automatic retries
-have attempt and age ceilings.
+continue until the 72-hour age ceiling.
 
 Production endpoints must use canonical HTTPS on port 443 without credentials,
 fragments, redirects, or ambiguous URL syntax. Registration rejects unsafe
@@ -96,9 +96,17 @@ cloud-metadata space, and pins one validated address for the TLS connection.
 
 ## Event contract
 
-Both event envelopes use `schemaVersion` `0.1`, a stable UUID `id`, `type`,
-`occurredAt`, a versioned `object`, and event-specific `data`. String limits
-count Unicode code points, matching PostgreSQL `char_length` semantics.
+Event envelopes use `schemaVersion` `0.1`, a stable UUID `id`, `type`,
+`occurredAt`, `statusAtOccurrence`, a versioned `object`, and event-specific
+`data`. String limits count Unicode code points, matching PostgreSQL
+`char_length` semantics.
+
+The initial event vocabulary is `invoice.issued`, `payment.detected`,
+`payment.confirmed`, `payment.finalized`, `payment.confirmation_revoked`,
+`payment.exception_created`, `invoice.partial`, `invoice.paid`,
+`invoice.overpaid`, `refund.prepared`, `refund.finalized`, and
+`evidence.ready`. Event variants without a detailed producer in this package
+currently use an empty `data` object and rely on the common envelope fields.
 
 - `invoice.paid` identifies the invoice and customer, stable Solana event ID,
   transaction signature, instruction coordinates, mint, exact base-unit amount,

@@ -315,10 +315,13 @@ describe("runDeliveryBatch", () => {
     });
   });
 
-  it("stops retryable deliveries when their retry budget is exhausted", async () => {
-    const delivery = claim("exhausted", { attemptNumber: 12 });
+  it("stops retryable deliveries when their retry window is exhausted", async () => {
+    const delivery = claim("exhausted", {
+      attemptNumber: 2,
+      firstAttemptAt: new Date("2026-08-04T10:00:00.000Z"),
+    });
     const store = new FakeStore([delivery]);
-    const transport = new FakeTransport([{ status: 503 }]);
+    const transport = new FakeTransport([]);
 
     await runDeliveryBatch(
       store,
@@ -327,11 +330,12 @@ describe("runDeliveryBatch", () => {
       options,
     );
 
+    expect(transport.requests).toEqual([]);
     expect(store.completions).toEqual([
       expect.objectContaining({
         state: "dead",
         nextAttemptAt: null,
-        httpStatus: 503,
+        httpStatus: null,
         errorCode: "retry_exhausted",
       }),
     ]);
@@ -340,7 +344,6 @@ describe("runDeliveryBatch", () => {
   it.each([
     ["exact-cutoff", 2, new Date("2026-08-04T10:00:00.000Z")],
     ["past-cutoff", 2, new Date("2026-08-04T09:59:59.999Z")],
-    ["attempt-thirteen", 13, batchNow],
   ] as const)(
     "does not automatically send %s work outside its retry budget",
     async (suffix, attemptNumber, firstAttemptAt) => {
@@ -369,6 +372,25 @@ describe("runDeliveryBatch", () => {
       expect(result).toMatchObject({ claimed: 1, dead: 1 });
     },
   );
+
+  it("continues automatic delivery past attempt twelve inside the retry window", async () => {
+    const delivery = claim("thirteen", { attemptNumber: 13 });
+    const store = new FakeStore([delivery]);
+    const transport = new FakeTransport([{ status: 204 }]);
+
+    const result = await runDeliveryBatch(
+      store,
+      transport,
+      { WEBHOOK_SECRET_THIRTEEN: "test-secret" },
+      options,
+    );
+
+    expect(transport.requests).toHaveLength(1);
+    expect(store.completions).toEqual([
+      expect.objectContaining({ state: "succeeded", errorCode: null }),
+    ]);
+    expect(result).toMatchObject({ succeeded: 1, dead: 0 });
+  });
 
   it("allows one explicitly replayed delivery beyond the automatic budget", async () => {
     const delivery = claim("manual", {
