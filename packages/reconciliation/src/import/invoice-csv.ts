@@ -1,5 +1,6 @@
 import { address } from "@solana/kit";
 import { MAINNET_USDC, MAINNET_USDT } from "@payops/core";
+import { unicodeCodePointLength } from "@payops/webhooks";
 import { parse } from "csv-parse/sync";
 import type { InvoiceImport } from "../domain/types.js";
 import { ReconciliationError } from "../domain/types.js";
@@ -28,9 +29,16 @@ function required(
   value: string | undefined,
   field: string,
   row: number,
+  maximumLength?: number,
 ): string {
   if (value === undefined || value.length === 0) {
     throw invalid(`Row ${row} requires ${field}`);
+  }
+  if (
+    maximumLength !== undefined &&
+    unicodeCodePointLength(value) > maximumLength
+  ) {
+    throw invalid(`Row ${row} ${field} exceeds ${maximumLength} characters`);
   }
   return value;
 }
@@ -62,8 +70,8 @@ function parseRow(values: readonly string[], row: number): InvoiceImport {
   if (values.length !== EXPECTED_HEADER.length) {
     throw invalid(`Row ${row} must contain ${EXPECTED_HEADER.length} columns`);
   }
-  const invoiceId = required(values[0], "invoice_id", row);
-  const customerId = required(values[1], "customer_id", row);
+  const invoiceId = required(values[0], "invoice_id", row, 128);
+  const customerId = required(values[1], "customer_id", row, 512);
   const expectedMint = solanaAddress(
     required(values[2], "expected_mint", row),
     "expected_mint",

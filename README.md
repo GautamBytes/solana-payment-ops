@@ -71,6 +71,10 @@ The [reconciliation quick start](packages/reconciliation/README.md) imports
 merchant invoice expectations, matches finalized USDC or USDT transfers, and
 exports explicit allocation and exception results.
 
+The [transactional webhook quick start](packages/webhooks/README.md) registers
+HTTPS receivers, delivers signed lifecycle events, verifies consumers, rotates
+secrets, and replays failed deliveries.
+
 ## What developers can build on it
 
 - hosted invoice checkout and automatic payment matching;
