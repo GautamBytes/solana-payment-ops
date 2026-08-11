@@ -54,7 +54,10 @@ function invoicePaidEvent(
 beforeAll(async () => {
   await runMigrations(databaseUrl);
   await runMigrations(databaseUrl);
-  store = new PostgresWebhookStore({ databaseUrl });
+  store = new PostgresWebhookStore({
+    databaseUrl,
+    selfHostedDefaultOrganization: true,
+  });
 });
 
 beforeEach(async () => {
@@ -74,6 +77,20 @@ afterAll(async () => {
 });
 
 describe("PostgresWebhookStore", () => {
+  it("requires one unambiguous organization scope", () => {
+    expect(() => new PostgresWebhookStore({ databaseUrl })).toThrowError(
+      expect.objectContaining({ code: "invalid_storage_input" }),
+    );
+    expect(
+      () =>
+        new PostgresWebhookStore({
+          databaseUrl,
+          organizationId: "00000000-0000-4000-8000-000000000001",
+          selfHostedDefaultOrganization: true,
+        }),
+    ).toThrowError(expect.objectContaining({ code: "invalid_storage_input" }));
+  });
+
   it("applies the transactional webhook migration idempotently", async () => {
     const rows = await sql<{ name: string; count: number }[]>`
       SELECT name, count(*)::integer AS count
@@ -239,6 +256,7 @@ describe("PostgresWebhookStore", () => {
     );
     const testStore = new PostgresWebhookStore({
       databaseUrl,
+      selfHostedDefaultOrganization: true,
       endpointPolicy: { allowUnsafeAddressesForTesting: true },
     });
     try {
@@ -539,7 +557,10 @@ describe("PostgresWebhookStore", () => {
     await sql.begin((transaction) =>
       enqueueLifecycleEvent(transaction, event, now),
     );
-    const otherStore = new PostgresWebhookStore({ databaseUrl });
+    const otherStore = new PostgresWebhookStore({
+      databaseUrl,
+      selfHostedDefaultOrganization: true,
+    });
     try {
       const claims = await Promise.all([
         store.claimDueDeliveries({ now, limit: 1, leaseMs: 30_000 }),

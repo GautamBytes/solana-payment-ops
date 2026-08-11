@@ -117,7 +117,10 @@ beforeAll(async () => {
   await runIngestionMigrations(databaseUrl);
   await runMigrations(databaseUrl);
   await runMigrations(databaseUrl);
-  store = new PostgresReconciliationStore({ databaseUrl });
+  store = new PostgresReconciliationStore({
+    databaseUrl,
+    selfHostedDefaultOrganization: true,
+  });
 });
 
 beforeEach(async () => {
@@ -153,6 +156,20 @@ afterAll(async () => {
 });
 
 describe("PostgresReconciliationStore", () => {
+  it("requires one unambiguous organization scope", () => {
+    expect(() => new PostgresReconciliationStore({ databaseUrl })).toThrowError(
+      expect.objectContaining({ code: "invalid_configuration" }),
+    );
+    expect(
+      () =>
+        new PostgresReconciliationStore({
+          databaseUrl,
+          organizationId: "00000000-0000-4000-8000-000000000001",
+          selfHostedDefaultOrganization: true,
+        }),
+    ).toThrowError(expect.objectContaining({ code: "invalid_configuration" }));
+  });
+
   it("applies every reconciliation and webhook migration idempotently", async () => {
     const rows = await sql<{ name: string; count: number }[]>`
       SELECT name, count(*)::integer AS count

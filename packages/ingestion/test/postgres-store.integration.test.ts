@@ -57,7 +57,10 @@ async function seedProviderAndWatch(): Promise<void> {
 beforeAll(async () => {
   await runMigrations(databaseUrl);
   await runMigrations(databaseUrl);
-  store = new PostgresIngestionStore({ databaseUrl });
+  store = new PostgresIngestionStore({
+    databaseUrl,
+    selfHostedDefaultOrganization: true,
+  });
   transaction = PaymentFixtureSchema.parse(
     JSON.parse(await readFile(fixturePath, "utf8")),
   ).rpcTransaction;
@@ -88,6 +91,20 @@ afterAll(async () => {
 });
 
 describe("PostgresIngestionStore", () => {
+  it("requires one unambiguous organization scope", () => {
+    expect(() => new PostgresIngestionStore({ databaseUrl })).toThrowError(
+      expect.objectContaining({ code: "invalid_configuration" }),
+    );
+    expect(
+      () =>
+        new PostgresIngestionStore({
+          databaseUrl,
+          organizationId: "00000000-0000-4000-8000-000000000001",
+          selfHostedDefaultOrganization: true,
+        }),
+    ).toThrowError(expect.objectContaining({ code: "invalid_configuration" }));
+  });
+
   it("keeps idempotent migration notices out of command output", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 

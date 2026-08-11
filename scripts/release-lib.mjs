@@ -11,6 +11,7 @@ export const RELEASE_PACKAGES = Object.freeze([
   { name: "@payops/webhooks", path: "packages/webhooks" },
   { name: "@payops/reconciliation", path: "packages/reconciliation" },
   { name: "@payops/pilot", path: "packages/pilot" },
+  { name: "@payops/sdk", path: "packages/sdk" },
 ]);
 
 const tagPattern = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
@@ -25,7 +26,7 @@ export function parseCanonicalReleaseTag(tag) {
 }
 
 export function parseReleaseManifest(value, tag) {
-  const { version } = parseCanonicalReleaseTag(tag);
+  parseCanonicalReleaseTag(tag);
   assertObject(value, "Release manifest");
   assertExactKeys(
     value,
@@ -45,24 +46,32 @@ export function parseReleaseManifest(value, tag) {
     "Release manifest packages must be an array",
   );
   assert(
-    value.packages.length === RELEASE_PACKAGES.length,
-    "Release manifest must use the exact package order",
+    value.packages.length > 0,
+    "Release manifest must publish at least one package",
   );
+  let previousIndex = -1;
   const packages = value.packages.map((entry, index) => {
     assertObject(entry, `Release package ${index}`);
     assertExactKeys(entry, packageKeys, `Release package ${index}`);
-    const expected = RELEASE_PACKAGES[index];
+    const expectedIndex = RELEASE_PACKAGES.findIndex(
+      (candidate) => candidate.name === entry.name,
+    );
+    const expected = RELEASE_PACKAGES[expectedIndex];
     assert(
-      expected !== undefined,
+      expected !== undefined && expectedIndex > previousIndex,
       "Release manifest must use the exact package order",
     );
+    previousIndex = expectedIndex;
     assert(
       entry.name === expected.name && entry.path === expected.path,
       "Release manifest must use the exact package order and safe package paths",
     );
     assert(
-      entry.version === version,
-      `Release package version must equal ${version}`,
+      typeof entry.version === "string" &&
+        /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(
+          entry.version,
+        ),
+      "Release package version must be canonical SemVer",
     );
     return Object.freeze({
       name: entry.name,

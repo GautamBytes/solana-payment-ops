@@ -195,9 +195,11 @@ describe("pilot package", () => {
       });
       const ingestionStore = new PostgresIngestionStore({
         databaseUrl: flowDatabaseUrl,
+        selfHostedDefaultOrganization: true,
       });
       const reconciliationStore = new PostgresReconciliationStore({
         databaseUrl: flowDatabaseUrl,
+        selfHostedDefaultOrganization: true,
       });
       const runner = createShadowAuditRunner({
         pilotStore,

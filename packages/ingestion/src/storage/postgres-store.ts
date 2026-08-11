@@ -33,6 +33,56 @@ import { readSignatureInspection } from "./signature-inspection.js";
 export interface PostgresIngestionStoreConfig {
   readonly databaseUrl: string;
   readonly maxConnections?: number;
+  readonly organizationId?: string;
+  readonly selfHostedDefaultOrganization?: true;
+}
+
+const selfHostedOrganizationId = "00000000-0000-4000-8000-000000000001";
+const organizationIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function scopedDatabaseUrl(config: PostgresIngestionStoreConfig): {
+  readonly databaseUrl: string;
+  readonly organizationId: string;
+} {
+  if (
+    config.organizationId !== undefined &&
+    config.selfHostedDefaultOrganization
+  ) {
+    throw new IngestionError(
+      "invalid_configuration",
+      "Tenant scope is ambiguous",
+      {
+        retryable: false,
+      },
+    );
+  }
+  const organizationId =
+    config.organizationId ??
+    (config.selfHostedDefaultOrganization
+      ? selfHostedOrganizationId
+      : undefined);
+  if (
+    organizationId === undefined ||
+    !organizationIdPattern.test(organizationId)
+  ) {
+    throw new IngestionError(
+      "invalid_configuration",
+      "Tenant scope is required",
+      {
+        retryable: false,
+      },
+    );
+  }
+  const url = new URL(config.databaseUrl);
+  const options = url.searchParams.get("options");
+  url.searchParams.set(
+    "options",
+    [options, `-cpayops.organization_id=${organizationId}`]
+      .filter((value): value is string => Boolean(value))
+      .join(" "),
+  );
+  return { databaseUrl: url.toString(), organizationId };
 }
 
 function parseCluster(value: string): SolanaCluster {
@@ -103,9 +153,12 @@ export class PostgresIngestionStore
 {
   readonly #sql: Sql;
   readonly #db: PostgresJsDatabase<typeof schema>;
+  readonly #organizationId: string;
 
   public constructor(config: PostgresIngestionStoreConfig) {
-    this.#sql = postgres(config.databaseUrl, {
+    const scope = scopedDatabaseUrl(config);
+    this.#organizationId = scope.organizationId;
+    this.#sql = postgres(scope.databaseUrl, {
       max: config.maxConnections ?? 10,
       onnotice: () => undefined,
       prepare: false,
@@ -118,7 +171,7 @@ export class PostgresIngestionStore
     watchTargetId: string,
   ): Promise<SyncLock | null> {
     const connection = await this.#sql.reserve();
-    const key = `${providerId}:${watchTargetId}`;
+    const key = `${this.#organizationId}:${providerId}:${watchTargetId}`;
     const rows = await connection<{ locked: boolean }[]>`
       SELECT pg_try_advisory_lock(hashtextextended(${key}, 0)) AS locked
     `;

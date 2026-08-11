@@ -24,7 +24,10 @@ const defaults: CliDependencies = {
   migrate: runMigrations,
   now: () => new Date(),
   createStore: (databaseUrl) =>
-    new PostgresReconciliationStore({ databaseUrl }),
+    new PostgresReconciliationStore({
+      databaseUrl,
+      selfHostedDefaultOrganization: true,
+    }),
 };
 
 function configuration(message: string): never {

@@ -8,29 +8,45 @@ const repository = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packages = [
   {
     name: "@payops/contracts",
+    version: "0.1.0",
     path: "packages/contracts",
     roots: ["dist/", "schemas/"],
   },
-  { name: "@payops/core", path: "packages/core", roots: ["dist/"] },
+  {
+    name: "@payops/core",
+    version: "0.1.0",
+    path: "packages/core",
+    roots: ["dist/"],
+  },
   {
     name: "@payops/ingestion",
+    version: "0.1.1",
     path: "packages/ingestion",
     roots: ["dist/", "migrations/"],
   },
   {
     name: "@payops/webhooks",
+    version: "0.1.1",
     path: "packages/webhooks",
     roots: ["dist/", "migrations/", "examples/", "src/examples/"],
   },
   {
     name: "@payops/reconciliation",
+    version: "0.1.1",
     path: "packages/reconciliation",
     roots: ["dist/", "migrations/", "examples/"],
   },
   {
     name: "@payops/pilot",
+    version: "0.1.0",
     path: "packages/pilot",
     roots: ["dist/", "migrations/", "examples/"],
+  },
+  {
+    name: "@payops/sdk",
+    version: "0.1.0",
+    path: "packages/sdk",
+    roots: ["dist/"],
   },
 ];
 const alwaysAllowed = new Set(["package.json", "README.md", "LICENSE"]);
@@ -57,8 +73,8 @@ try {
       `${definition.name}: wrong package name`,
     );
     assert(
-      inventory.version === "0.1.0",
-      `${definition.name}: version must be 0.1.0`,
+      inventory.version === definition.version,
+      `${definition.name}: version must be ${definition.version}`,
     );
     assertRepository(sourceManifest, definition);
     const files = inventory.files.map(({ path }) => path);
@@ -148,15 +164,7 @@ try {
   );
   execFileSync(
     "npm",
-    [
-      "install",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-      "--cache",
-      join(temporaryDirectory, "npm-cache"),
-      ...tarballs,
-    ],
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", ...tarballs],
     { cwd: consumer, stdio: "pipe" },
   );
   await writeFile(join(consumer, "smoke.mjs"), cleanConsumerSmoke());
@@ -234,6 +242,7 @@ import * as webhooks from "@payops/webhooks";
 import { createExampleConsumer } from "@payops/webhooks/consumer-example";
 import * as reconciliation from "@payops/reconciliation";
 import * as pilot from "@payops/pilot";
+import { createPayOpsClient } from "@payops/sdk";
 
 assert.equal(contracts.LIFECYCLE_SCHEMA_VERSION, "0.1");
 assert.equal(typeof core.evaluateManifest, "function");
@@ -241,6 +250,23 @@ assert.equal(typeof ingestion.PostgresIngestionStore, "function");
 assert.equal(typeof webhooks.verifyWebhook, "function");
 assert.equal(typeof reconciliation.reconcileEvent, "function");
 assert.equal(typeof pilot.buildAuditArtifacts, "function");
+let sdkRequests = 0;
+const sdk = createPayOpsClient({
+  baseUrl: "https://api.example.com",
+  apiKey: "payops_clean_consumer_key",
+  fetch: async (url, init) => {
+    sdkRequests += 1;
+    assert.equal(String(url), "https://api.example.com/v1/organization");
+    assert.equal(new Headers(init.headers).get("x-api-key"), "payops_clean_consumer_key");
+    return Response.json({
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      actorKind: "api_key",
+      permissions: { organizationRead: true }
+    }, { headers: { "x-request-id": "00000000-0000-4000-8000-000000000002" } });
+  }
+});
+assert.equal((await sdk.getOrganization()).actorKind, "api_key");
+assert.equal(sdkRequests, 1);
 
 const manifestPath = fileURLToPath(import.meta.resolve("@payops/core/fixtures/v0.1/manifest.json"));
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));

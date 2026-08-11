@@ -88,6 +88,11 @@ The [merchant shadow-audit runbook](packages/pilot/README.md) validates a
 consented pilot manifest, resumes historical ingestion and reconciliation, and
 produces private plus grant-safe reports without signing or moving funds.
 
+The [merchant API SDK guide](packages/sdk/README.md) covers invitation-only
+organization setup, verified Solana settlement wallets, USDC/USDT customer
+invoices, idempotent issuance, and typed backend integration. Hosted checkout
+and automatic payment detection remain the next product slice.
+
 The [open-core integration guide](docs/open-core/integration-guide.md) shows
 how to install the packages, replay the bundled corpus, verify a payment intent,
 and consume a signed lifecycle event. The

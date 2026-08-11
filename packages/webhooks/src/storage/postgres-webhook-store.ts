@@ -86,6 +86,47 @@ interface AttemptRow {
 export interface PostgresWebhookStoreConfig {
   readonly databaseUrl: string;
   readonly endpointPolicy?: EndpointPolicy;
+  readonly organizationId?: string;
+  readonly selfHostedDefaultOrganization?: true;
+}
+
+const selfHostedOrganizationId = "00000000-0000-4000-8000-000000000001";
+const organizationIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function scopedDatabaseUrl(config: PostgresWebhookStoreConfig): string {
+  if (
+    config.organizationId !== undefined &&
+    config.selfHostedDefaultOrganization
+  ) {
+    throw new WebhookStorageError(
+      "invalid_storage_input",
+      "Tenant scope is ambiguous",
+    );
+  }
+  const organizationId =
+    config.organizationId ??
+    (config.selfHostedDefaultOrganization
+      ? selfHostedOrganizationId
+      : undefined);
+  if (
+    organizationId === undefined ||
+    !organizationIdPattern.test(organizationId)
+  ) {
+    throw new WebhookStorageError(
+      "invalid_storage_input",
+      "Tenant scope is required",
+    );
+  }
+  const url = new URL(config.databaseUrl);
+  const options = url.searchParams.get("options");
+  url.searchParams.set(
+    "options",
+    [options, `-cpayops.organization_id=${organizationId}`]
+      .filter((value): value is string => Boolean(value))
+      .join(" "),
+  );
+  return url.toString();
 }
 
 export class PostgresWebhookStore {
@@ -93,7 +134,7 @@ export class PostgresWebhookStore {
   readonly #endpointPolicy: EndpointPolicy | undefined;
 
   public constructor(config: PostgresWebhookStoreConfig) {
-    this.#sql = postgres(config.databaseUrl);
+    this.#sql = postgres(scopedDatabaseUrl(config));
     this.#endpointPolicy = config.endpointPolicy;
   }
 
