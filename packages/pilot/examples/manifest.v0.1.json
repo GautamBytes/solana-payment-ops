@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "0.1",
+  "pilotId": "651cd115-6ad8-46e8-9368-6078b1620f24",
+  "provider": {
+    "id": "mainnet-provider",
+    "cluster": "mainnet-beta",
+    "endpointEnv": "PAYOPS_MAINNET_RPC_URL",
+    "endpointLabel": "Merchant mainnet RPC"
+  },
+  "watches": [
+    {
+      "id": "treasury-primary",
+      "tokenAccount": "Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM",
+      "cutoverSlot": "350000000",
+      "cutoverSignature": null,
+      "overlapSlots": "64"
+    }
+  ],
+  "invoices": {
+    "csvPath": "invoices.csv",
+    "expectedSha256": "f8698666617e5c6c432dd3a5fdc193fb08a8951dc1f5d2b3b7b33937b0c2060f"
+  },
+  "finality": {
+    "batchSize": 64,
+    "maxPasses": 10
+  },
+  "reporting": {
+    "pseudonymizationSecretEnv": "PAYOPS_AUDIT_SECRET"
+  }
+}

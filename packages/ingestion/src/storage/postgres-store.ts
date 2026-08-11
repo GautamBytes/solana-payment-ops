@@ -7,6 +7,7 @@ import type {
   AddWatchTargetInput,
   CompleteSyncRunInput,
   FinalityCandidate,
+  IngestionAuditStore,
   IngestionStore,
   InspectSignatureOptions,
   ProviderRecord,
@@ -20,6 +21,7 @@ import type {
   SolanaCluster,
   StartSyncRunInput,
   SyncLock,
+  WatchCoverageSummary,
   WatchTarget,
 } from "../domain/types.js";
 import { IngestionError } from "../domain/types.js";
@@ -72,6 +74,18 @@ interface RawRow {
   readonly digest: string;
 }
 
+interface WatchCoverageRow {
+  readonly watch_target_id: string;
+  readonly coverage: WatchCoverageSummary["coverage"];
+  readonly captured_head_slot: string | null;
+  readonly committed_head_slot: string | null;
+  readonly signatures: number;
+  readonly finalized: number;
+  readonly pending_finality: number;
+  readonly retries_open: number;
+  readonly quarantines_open: number;
+}
+
 const canonicalParserVersionPattern =
   /^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$/;
 
@@ -84,7 +98,9 @@ function assertCanonicalParserVersion(parserVersion: string): void {
   );
 }
 
-export class PostgresIngestionStore implements IngestionStore {
+export class PostgresIngestionStore
+  implements IngestionStore, IngestionAuditStore
+{
   readonly #sql: Sql;
   readonly #db: PostgresJsDatabase<typeof schema>;
 
@@ -256,6 +272,90 @@ export class PostgresIngestionStore implements IngestionStore {
       );
     }
     return target;
+  }
+
+  public async getWatchCoverageSummaries(
+    watchTargetIds: readonly string[],
+  ): Promise<readonly WatchCoverageSummary[]> {
+    if (
+      watchTargetIds.length === 0 ||
+      watchTargetIds.length > 64 ||
+      new Set(watchTargetIds).size !== watchTargetIds.length
+    ) {
+      throw new IngestionError(
+        "invalid_configuration",
+        "Audit watch selection is invalid",
+        { retryable: false },
+      );
+    }
+    const rows = await this.#sql<WatchCoverageRow[]>`
+      SELECT
+        target.id AS watch_target_id,
+        target.coverage,
+        latest.captured_head_slot::text,
+        target.committed_head_slot::text,
+        (
+          SELECT count(*)::integer
+          FROM discovered_signatures AS signature
+          WHERE signature.watch_target_id = target.id
+        ) AS signatures,
+        (
+          SELECT count(*)::integer
+          FROM discovered_signatures AS signature
+          WHERE signature.watch_target_id = target.id
+            AND signature.finality_state = 'finalized'
+        ) AS finalized,
+        (
+          SELECT count(*)::integer
+          FROM discovered_signatures AS signature
+          WHERE signature.watch_target_id = target.id
+            AND signature.finality_state IN ('detected', 'confirmed')
+        ) AS pending_finality,
+        (
+          SELECT count(*)::integer
+          FROM ingestion_retries AS retry
+          WHERE retry.watch_target_id = target.id
+            AND retry.resolved_at IS NULL
+        ) AS retries_open,
+        (
+          SELECT count(*)::integer
+          FROM ingestion_quarantines AS quarantine
+          WHERE quarantine.watch_target_id = target.id
+            AND quarantine.review_state = 'open'
+        ) AS quarantines_open
+      FROM watch_targets AS target
+      LEFT JOIN LATERAL (
+        SELECT run.captured_head_slot
+        FROM sync_runs AS run
+        WHERE run.watch_target_id = target.id
+        ORDER BY run.started_at DESC, run.id DESC
+        LIMIT 1
+      ) AS latest ON true
+      WHERE target.active = true
+        AND target.id = ANY(${watchTargetIds}::text[])
+    `;
+    const byId = new Map(rows.map((row) => [row.watch_target_id, row]));
+    if (byId.size !== watchTargetIds.length) {
+      throw new IngestionError(
+        "invalid_configuration",
+        "Audit watch selection is invalid",
+        { retryable: false },
+      );
+    }
+    return watchTargetIds.map((watchTargetId) => {
+      const row = byId.get(watchTargetId)!;
+      return {
+        watchTargetId,
+        coverage: row.coverage,
+        capturedHeadSlot: row.captured_head_slot,
+        committedHeadSlot: row.committed_head_slot,
+        signatures: row.signatures,
+        finalized: row.finalized,
+        pendingFinality: row.pending_finality,
+        retriesOpen: row.retries_open,
+        quarantinesOpen: row.quarantines_open,
+      };
+    });
   }
 
   public async startSyncRun(input: StartSyncRunInput): Promise<string> {

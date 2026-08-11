@@ -246,6 +246,24 @@ export interface AddWatchTargetInput {
   readonly createdAt: Date;
 }
 
+export interface WatchCoverageSummary {
+  readonly watchTargetId: string;
+  readonly coverage: "complete" | "incomplete";
+  readonly capturedHeadSlot: string | null;
+  readonly committedHeadSlot: string | null;
+  readonly signatures: number;
+  readonly finalized: number;
+  readonly pendingFinality: number;
+  readonly retriesOpen: number;
+  readonly quarantinesOpen: number;
+}
+
+export interface IngestionAuditStore {
+  getWatchCoverageSummaries(
+    watchTargetIds: readonly string[],
+  ): Promise<readonly WatchCoverageSummary[]>;
+}
+
 export interface IngestionStore {
   tryAcquireSyncLock(
     providerId: string,

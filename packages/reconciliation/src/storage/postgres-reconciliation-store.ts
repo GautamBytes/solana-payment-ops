@@ -16,8 +16,17 @@ import { ReconciliationError } from "../domain/types.js";
 import { reconcileEvent } from "../engine/reconcile-event.js";
 import type { ReconciliationReportRow } from "../report/csv-report.js";
 import type { ReconciliationReport } from "../report/json-report.js";
-import { loadReport, loadReportRows } from "./postgres-report-store.js";
-import type { OperatorReconciliationStore } from "./types.js";
+import {
+  loadAuditRows,
+  loadAuditSummary,
+  loadReport,
+  loadReportRows,
+} from "./postgres-report-store.js";
+import type {
+  OperatorReconciliationStore,
+  ReconciliationAuditStore,
+  ReconciliationAuditSummary,
+} from "./types.js";
 
 interface InvoiceRow {
   readonly invoice_id: string;
@@ -319,7 +328,9 @@ export interface PostgresReconciliationStoreConfig {
   readonly databaseUrl: string;
 }
 
-export class PostgresReconciliationStore implements OperatorReconciliationStore {
+export class PostgresReconciliationStore
+  implements OperatorReconciliationStore, ReconciliationAuditStore
+{
   readonly #sql: Sql;
 
   public constructor(config: PostgresReconciliationStoreConfig) {
@@ -590,7 +601,42 @@ export class PostgresReconciliationStore implements OperatorReconciliationStore 
     return loadReport(this.#sql, generatedAt);
   }
 
+  public async getAuditSummary(
+    invoiceIds: readonly string[],
+    watchTargetIds: readonly string[],
+  ): Promise<ReconciliationAuditSummary> {
+    assertAuditSelection(invoiceIds, watchTargetIds);
+    return loadAuditSummary(this.#sql, invoiceIds, watchTargetIds);
+  }
+
+  public async getAuditRows(
+    invoiceIds: readonly string[],
+    watchTargetIds: readonly string[],
+  ): Promise<readonly ReconciliationReportRow[]> {
+    assertAuditSelection(invoiceIds, watchTargetIds);
+    return loadAuditRows(this.#sql, invoiceIds, watchTargetIds);
+  }
+
   public async close(): Promise<void> {
     await this.#sql.end();
+  }
+}
+
+function assertAuditSelection(
+  invoiceIds: readonly string[],
+  watchTargetIds: readonly string[],
+): void {
+  if (
+    invoiceIds.length > 10_000 ||
+    watchTargetIds.length === 0 ||
+    watchTargetIds.length > 64 ||
+    new Set(invoiceIds).size !== invoiceIds.length ||
+    new Set(watchTargetIds).size !== watchTargetIds.length
+  ) {
+    throw new ReconciliationError(
+      "invalid_configuration",
+      "Audit selection is invalid",
+      { retryable: false },
+    );
   }
 }

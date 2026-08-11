@@ -1115,4 +1115,82 @@ describe("PostgresIngestionStore", () => {
       1,
     );
   });
+
+  it("summarizes only selected watch coverage without raw evidence", async () => {
+    await seedProviderAndWatch();
+    await store.addWatchTarget({
+      id: "watch-2",
+      providerId: "primary",
+      cluster: "mainnet-beta",
+      address: "8rUz82MkFsfqjpVjjgWEM66Brr1sm1R7VKZ991fF41e",
+      cutoverSlot: 1n,
+      cutoverSignature: null,
+      overlapSlots: 150n,
+      createdAt: now,
+    });
+    await cleanup`
+      UPDATE watch_targets SET
+        coverage = 'incomplete',
+        committed_head_slot = 499
+      WHERE id = 'watch-1'
+    `;
+    await cleanup`
+      INSERT INTO sync_runs (
+        id, provider_id, watch_target_id, captured_head_signature,
+        captured_head_slot, result, coverage, started_at, completed_at
+      ) VALUES (
+        '00000000-0000-4000-8000-000000000001', 'primary', 'watch-1',
+        'captured-signature', 500, 'incomplete', 'incomplete', ${now}, ${now}
+      )
+    `;
+    await cleanup`
+      INSERT INTO discovered_signatures (
+        watch_target_id, provider_id, signature, slot, confirmation_status,
+        representation_class, finality_state, observed_at
+      ) VALUES
+        ('watch-1', 'primary', 'sig-finalized', 490, 'finalized', 'parsed', 'finalized', ${now}),
+        ('watch-1', 'primary', 'sig-confirmed', 491, 'confirmed', 'parsed', 'confirmed', ${now}),
+        ('watch-2', 'primary', 'sig-unrelated', 492, 'finalized', 'parsed', 'finalized', ${now})
+    `;
+    await cleanup`
+      INSERT INTO ingestion_retries (
+        provider_id, watch_target_id, signature, operation, code, safe_message,
+        first_failed_at, last_failed_at, next_attempt_at
+      ) VALUES
+        ('primary', 'watch-1', 'sig-confirmed', 'finality', 'rpc_transport_error',
+         'safe', ${now}, ${now}, ${now}),
+        ('primary', 'watch-2', 'sig-unrelated', 'finality', 'rpc_transport_error',
+         'safe', ${now}, ${now}, ${now})
+    `;
+    await cleanup`
+      INSERT INTO ingestion_quarantines (
+        provider_id, watch_target_id, signature, code, safe_message,
+        review_state, created_at
+      ) VALUES
+        ('primary', 'watch-1', 'sig-quarantine', 'rpc_error', 'safe', 'open', ${now}),
+        ('primary', 'watch-2', 'sig-unrelated', 'rpc_error', 'safe', 'open', ${now})
+    `;
+
+    const first = await store.getWatchCoverageSummaries(["watch-1"]);
+    const second = await store.getWatchCoverageSummaries(["watch-1"]);
+
+    expect(second).toEqual(first);
+    expect(first).toEqual([
+      {
+        watchTargetId: "watch-1",
+        coverage: "incomplete",
+        capturedHeadSlot: "500",
+        committedHeadSlot: "499",
+        signatures: 2,
+        finalized: 1,
+        pendingFinality: 1,
+        retriesOpen: 1,
+        quarantinesOpen: 1,
+      },
+    ]);
+    const serialized = JSON.stringify(first);
+    expect(serialized).not.toContain("canonical_body");
+    expect(serialized).not.toContain("body");
+    expect(serialized).not.toContain("SOLANA_RPC_URL");
+  });
 });

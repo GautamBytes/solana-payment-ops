@@ -28,6 +28,25 @@ export interface ReconciliationStore {
   ): Promise<boolean>;
 }
 
+export interface ReconciliationAuditSummary {
+  readonly invoiceCount: number;
+  readonly allocationCount: number;
+  readonly exceptionCount: number;
+  readonly exceptionsByCode: Readonly<Record<string, number>>;
+  readonly unmatchedFinalizedEvents: number;
+}
+
+export interface ReconciliationAuditStore {
+  getAuditSummary(
+    invoiceIds: readonly string[],
+    watchTargetIds: readonly string[],
+  ): Promise<ReconciliationAuditSummary>;
+  getAuditRows(
+    invoiceIds: readonly string[],
+    watchTargetIds: readonly string[],
+  ): Promise<readonly ReconciliationReportRow[]>;
+}
+
 export interface OperatorReconciliationStore extends ReconciliationStore {
   importInvoices(
     invoices: readonly InvoiceImport[],

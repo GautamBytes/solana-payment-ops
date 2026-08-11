@@ -1,0 +1,2 @@
+invoice_id,customer_id,expected_mint,destination_token_account,amount_base_units,reference_address,issued_at,due_at
+invoice-001,customer-001,EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v,Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM,12500000,Gh5GixNvrU87vKWcLLLp6dcgBGRDtP4EJesFu6rjif4,2026-08-01T00:00:00Z,2026-08-15T00:00:00Z
