@@ -1,0 +1,19 @@
+{
+  "name": "@payops/reference-integration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/core": "workspace:*",
+    "@payops/webhooks": "workspace:*",
+    "postgres": "3.4.7"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

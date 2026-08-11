@@ -12,8 +12,10 @@
     "conformance": "pnpm --filter @payops/core conformance",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "packages:verify": "pnpm build && node scripts/verify-public-packages.mjs",
     "pilot": "pnpm --filter @payops/pilot exec payops-pilot",
-    "test": "pnpm -r test",
+    "schemas:check": "pnpm --filter @payops/contracts build && node scripts/check-json-schemas.mjs",
+    "test": "pnpm -r test && node --test scripts/test/*.test.mjs",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

@@ -13,6 +13,7 @@ import {
   verifyWebhook,
   type DeliveryTransportRequest,
 } from "../src/index.js";
+import { TEST_SIGNATURE } from "./support/lifecycle-events.js";
 
 const baseDatabaseUrl =
   process.env.DATABASE_URL ??
@@ -257,7 +258,7 @@ async function seedFinalizedPayment(): Promise<void> {
       provider_id, signature, commitment, digest, canonical_body, body,
       byte_length, retrieved_at
     ) VALUES (
-      'e2e-provider', 'e2e-signature', 'finalized', 'e2e-digest', '{}',
+      'e2e-provider', ${TEST_SIGNATURE}, 'finalized', 'e2e-digest', '{}',
       ${sql.json({ blockTime: 1_786_320_000 })},
       2, '2026-08-10T00:00:00.000Z'
     ) RETURNING id::text
@@ -267,7 +268,7 @@ async function seedFinalizedPayment(): Promise<void> {
       event_id, cluster, signature, outer_instruction_index,
       inner_instruction_index, raw_transaction_id, current_state
     ) VALUES (
-      'e2e-event', 'mainnet-beta', 'e2e-signature', 0, -1,
+      'e2e-event', 'mainnet-beta', ${TEST_SIGNATURE}, 0, -1,
       ${raw!.id}, 'finalized'
     ) RETURNING id::text
   `;

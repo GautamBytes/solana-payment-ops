@@ -1,11 +1,22 @@
 {
   "name": "@payops/reconciliation",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Deterministic invoice reconciliation for finalized Solana payments",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "directory": "packages/reconciliation"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
-    "payops-reconciliation": "./dist/cli.js"
+    "payops-reconciliation": "./dist/bin.js"
   },
   "exports": {
     ".": {
@@ -17,7 +28,8 @@
     "dist",
     "examples",
     "migrations",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -25,8 +37,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/core": "workspace:*",
-    "@payops/webhooks": "workspace:*",
+    "@payops/core": "workspace:^0.1.0",
+    "@payops/webhooks": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "csv-parse": "7.0.2",
     "postgres": "3.4.7"

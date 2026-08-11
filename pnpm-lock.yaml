@@ -18,8 +18,43 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
+  examples/reference-integration:
+    dependencies:
+      '@payops/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@payops/webhooks':
+        specifier: workspace:*
+        version: link:../../packages/webhooks
+      postgres:
+        specifier: 3.4.7
+        version: 3.4.7
+    devDependencies:
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.23.9))
+
+  packages/contracts:
+    dependencies:
+      '@solana/kit':
+        specifier: 7.0.0
+        version: 7.0.0(typescript@7.0.2)
+      bs58:
+        specifier: 6.0.0
+        version: 6.0.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@22.20.1)(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.23.9))
+
   packages/core:
     dependencies:
+      '@payops/contracts':
+        specifier: workspace:^0.1.0
+        version: link:../contracts
       '@solana/kit':
         specifier: 7.0.0
         version: 7.0.0(typescript@7.0.2)
@@ -37,7 +72,7 @@ importers:
   packages/ingestion:
     dependencies:
       '@payops/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@solana/kit':
         specifier: 7.0.0
@@ -59,16 +94,16 @@ importers:
   packages/pilot:
     dependencies:
       '@payops/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@payops/ingestion':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../ingestion
       '@payops/reconciliation':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../reconciliation
       '@payops/webhooks':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../webhooks
       '@solana/kit':
         specifier: 7.0.0
@@ -87,10 +122,10 @@ importers:
   packages/reconciliation:
     dependencies:
       '@payops/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       '@payops/webhooks':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../webhooks
       '@solana/kit':
         specifier: 7.0.0
@@ -111,8 +146,11 @@ importers:
 
   packages/webhooks:
     dependencies:
+      '@payops/contracts':
+        specifier: workspace:^0.1.0
+        version: link:../contracts
       '@payops/core':
-        specifier: workspace:*
+        specifier: workspace:^0.1.0
         version: link:../core
       ipaddr.js:
         specifier: 2.5.0

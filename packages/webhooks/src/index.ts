@@ -4,6 +4,24 @@ export { SUPPORTED_LIFECYCLE_EVENT_TYPES } from "./domain/types.js";
 export { unicodeCodePointLength } from "./domain/unicode-length.js";
 export type { LifecycleEventEnvelope } from "./domain/parse-envelope.js";
 export {
+  EXCEPTION_CODES,
+  lifecycleEventEnvelopeSchema,
+  LIFECYCLE_SCHEMA_VERSION,
+} from "@payops/contracts";
+export type {
+  EvidenceReadyData,
+  ExceptionCode,
+  InvoiceBalanceChangedData,
+  InvoiceCancelledData,
+  InvoiceIssuedData,
+  InvoiceOverpaidData,
+  LifecycleEventDataByType,
+  PaymentConfirmationRevokedData,
+  PaymentObservedData,
+  RefundFinalizedData,
+  RefundPreparedData,
+} from "@payops/contracts";
+export {
   classifyDeliveryResult,
   nextAttemptAt,
 } from "./delivery/retry-policy.js";

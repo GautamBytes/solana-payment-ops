@@ -1,7 +1,4 @@
-#!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { stringifyCanonical } from "@payops/core";
 import { parseInvoiceCsv } from "./import/invoice-csv.js";
 import { ReconciliationError } from "./domain/types.js";
@@ -120,11 +117,4 @@ export async function runCli(
     });
     return known && !error.retryable ? 2 : 1;
   }
-}
-
-if (
-  process.argv[1] !== undefined &&
-  resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
-) {
-  process.exitCode = await runCli(process.argv.slice(2));
 }

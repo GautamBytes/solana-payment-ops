@@ -1,11 +1,22 @@
 {
   "name": "@payops/ingestion",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Durable Solana payment ingestion and finality tracking",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "directory": "packages/ingestion"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
-    "payops-ingestion": "./dist/cli.js"
+    "payops-ingestion": "./dist/bin.js"
   },
   "exports": {
     ".": {
@@ -16,7 +27,8 @@
   "files": [
     "dist",
     "migrations",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -24,7 +36,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/core": "workspace:*",
+    "@payops/core": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "drizzle-orm": "0.45.2",
     "postgres": "3.4.7",

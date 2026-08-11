@@ -1,4 +1,5 @@
 import { address } from "@solana/kit";
+import { unicodeCodePointLength } from "@payops/contracts";
 import bs58 from "bs58";
 import { z } from "zod";
 
@@ -285,7 +286,15 @@ const paymentExpectationSchema = z
 export const PaymentFixtureSchema = z
   .object({
     fixtureVersion: z.literal("0.1"),
-    name: z.string().min(1),
+    name: z.string().refine(
+      (value) => {
+        const length = unicodeCodePointLength(value);
+        return length >= 1 && length <= 128;
+      },
+      {
+        message: "Fixture name must contain 1 through 128 Unicode code points",
+      },
+    ),
     expectation: paymentExpectationSchema,
     rpcTransaction: RpcTransactionEnvelopeSchema,
   })

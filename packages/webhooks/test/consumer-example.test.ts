@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { signWebhook } from "../src/signing/hmac.js";
 import { createExampleConsumer } from "../src/examples/verify-consumer.js";
+import { TEST_MINT, TEST_SIGNATURE } from "./support/lifecycle-events.js";
 
 const now = new Date("2026-08-07T10:00:00.000Z");
 const timestamp = String(Math.floor(now.getTime() / 1_000));
-const body =
-  '{"schemaVersion":"0.1","id":"123e4567-e89b-42d3-a456-426614174000","type":"invoice.paid","occurredAt":"2026-08-07T10:00:00.000Z","statusAtOccurrence":"matched","object":{"type":"invoice","id":"invoice-1","version":1},"data":{"invoiceId":"invoice-1","customerId":"customer-1","eventId":"event-1","signature":"signature-1","outerInstructionIndex":0,"innerInstructionIndex":null,"mint":"mint-1","amountBaseUnits":"100","ruleCode":"exact_match","ruleVersion":"0.1"}}';
+const body = `{"schemaVersion":"0.1","id":"123e4567-e89b-42d3-a456-426614174000","type":"invoice.paid","occurredAt":"2026-08-07T10:00:00.000Z","statusAtOccurrence":"matched","object":{"type":"invoice","id":"invoice-1","version":1},"data":{"invoiceId":"invoice-1","customerId":"customer-1","eventId":"event-1","signature":"${TEST_SIGNATURE}","outerInstructionIndex":0,"innerInstructionIndex":null,"mint":"${TEST_MINT}","amountBaseUnits":"100","ruleCode":"exact_match","ruleVersion":"0.1"}}`;
 
-const exceptionBody =
-  '{"schemaVersion":"0.1","id":"223e4567-e89b-42d3-a456-426614174000","type":"payment.exception_created","occurredAt":"2026-08-07T10:00:00.000Z","statusAtOccurrence":"open","object":{"type":"payment_exception","id":"exception-1","version":1},"data":{"exceptionId":"exception-1","invoiceId":null,"eventId":"event-1","signature":"signature-1","outerInstructionIndex":0,"innerInstructionIndex":2,"amountBaseUnits":"100","code":"amount_mismatch","ruleVersion":"0.1","reviewState":"open"}}';
+const exceptionBody = `{"schemaVersion":"0.1","id":"223e4567-e89b-42d3-a456-426614174000","type":"payment.exception_created","occurredAt":"2026-08-07T10:00:00.000Z","statusAtOccurrence":"open","object":{"type":"payment_exception","id":"exception-1","version":1},"data":{"exceptionId":"exception-1","invoiceId":null,"eventId":"event-1","signature":"${TEST_SIGNATURE}","outerInstructionIndex":0,"innerInstructionIndex":2,"amountBaseUnits":"100","code":"wrong_asset","ruleVersion":"0.1","reviewState":"open"}}`;
 
 function request(secret = "current-secret", rawBody = body) {
   return {

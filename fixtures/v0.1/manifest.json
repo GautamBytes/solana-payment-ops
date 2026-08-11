@@ -1,0 +1,438 @@
+{
+  "schemaVersion": "0.1",
+  "generatedAt": "2026-08-11T00:00:00.000Z",
+  "cases": [
+    {
+      "id": "usdc-transfer-checked-v0-finalized",
+      "file": "cases/usdc-transfer-checked-v0-finalized.json",
+      "sha256": "3253e98288a8b4e8670b9319b753b8be2e4ce73ec4eee3f5ac220ee9539f286e",
+      "kind": "payment",
+      "tags": ["transfer_checked", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "usdt-transfer-checked-legacy-finalized",
+      "file": "cases/usdt-transfer-checked-legacy-finalized.json",
+      "sha256": "92b0de24dd251a1f647cca8f1d92d1a94e73275cfe1efe62d710eb6018a0efd4",
+      "kind": "payment",
+      "tags": ["transfer_checked", "legacy"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:gayYrhqFzfdbrRJHq2EZDFHcYarDmAbQDeA9MuNNuiBxho9ZPVh5SKitzpKmB4RG9AYV1QuDoWSXnfjiZNbCeb2:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "usdc-transfer-balance-proven-legacy",
+      "file": "cases/usdc-transfer-balance-proven-legacy.json",
+      "sha256": "d36ba3382ec49c7fd748804ef4a637c7645e2966091291b63ff2516a4f2c32ac",
+      "kind": "payment",
+      "tags": ["transfer", "legacy"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:22Nq9QvE64pBYbSWvoBE4AvPw3A4Q9bR7yRGdU4QwRPRYj6Teh32pqe26bfJQumUMtHRQBoiJHNhRraoVFNoUe3K:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "usdc-transfer-checked-inner-cpi",
+      "file": "cases/usdc-transfer-checked-inner-cpi.json",
+      "sha256": "b52bd2e7667b259fceef6f4956428751343d57e134f67761d146c125ef15fe3f",
+      "kind": "payment",
+      "tags": ["transfer_checked", "inner_instruction", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:2NAgjy8cv8xjVLTjZmLDZ8bWFXjGaY2EqjCP7aDTVw4f8kPmjzaNaExKJCWH4eUXTdQJKNCXNmExKvVsFwP1kdVc:0:0"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "usdt-transfer-inner-cpi",
+      "file": "cases/usdt-transfer-inner-cpi.json",
+      "sha256": "dcbea003c703d65f212e8ccfc86790c526253feed9f4fc21ebfd7a511850a800",
+      "kind": "payment",
+      "tags": ["transfer", "inner_instruction", "legacy"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:2hxYLXM1kD7HS5UxCjVD46Gca2JUkvT4ZUyVbgNW4Sjtimh5qJ7iKeGcVoMFiPBaZNXBEYbLTF7DDzQw2dPE2cwu:0:0"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "versioned-address-lookup-table",
+      "file": "cases/versioned-address-lookup-table.json",
+      "sha256": "6c9daf1ea0f8c6df5da2ff7bd628b1047f8c35335a04c491f07c94ce424c8876",
+      "kind": "payment",
+      "tags": ["transfer_checked", "versioned", "address_lookup_table"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:33kPw5ZQaHFqNpWAqheCZ3witWsgwJstHEkc5nXYcxR8JnzPvbf453auhQCEN7tdf7e49iz9XiyU84KzoKPSJcQC:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "two-distinct-transfer-instructions",
+      "file": "cases/two-distinct-transfer-instructions.json",
+      "sha256": "daf75ae15cfde0708d4092645b25ff8087d923c87174074c9bb57a9da2540e45",
+      "kind": "payment",
+      "tags": ["transfer_checked", "multi_transfer", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 2,
+        "verifiedCount": 2,
+        "eventIds": [
+          "mainnet-beta:3PYFXdmoQMQPKZXPUfoC41cqD1Su7hJhzzXiZtgbBU6MtpHi1uCPpSuCu13D1rbgkrkw4uNxcCqj28F4a1PeabrV:0:outer",
+          "mainnet-beta:3PYFXdmoQMQPKZXPUfoC41cqD1Su7hJhzzXiZtgbBU6MtpHi1uCPpSuCu13D1rbgkrkw4uNxcCqj28F4a1PeabrV:1:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": "duplicate_payment"
+      }
+    },
+    {
+      "id": "two-credits-same-destination-balanced",
+      "file": "cases/two-credits-same-destination-balanced.json",
+      "sha256": "f01afd1fdc55c0e966a0d3b64474fbf37bef76dedea6311f4d92a3603fa20365",
+      "kind": "payment",
+      "tags": ["transfer_checked", "multi_transfer", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 2,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:3jL78BzCERYwGJYc7dxBYyHwXW27J5jXikJq3zqdjymbUqb27CjjZrDW6btBfbJjrbsoz5mmgghyvCA8LhPrrbJn:0:outer",
+          "mainnet-beta:3jL78BzCERYwGJYc7dxBYyHwXW27J5jXikJq3zqdjymbUqb27CjjZrDW6btBfbJjrbsoz5mmgghyvCA8LhPrrbJn:1:outer"
+        ],
+        "verificationCodes": ["amount"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "multiple-readonly-references",
+      "file": "cases/multiple-readonly-references.json",
+      "sha256": "78e731e0874a3ba5805ee818b6af9962de3023b52eb44c0aec0c6446590afe3c",
+      "kind": "payment",
+      "tags": [
+        "transfer_checked",
+        "multi_transfer",
+        "multi_reference",
+        "versioned"
+      ],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 2,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:457xikCb4VhVD3Zpkc7B3vy3qzbKUUAMSW5wY6zgJVSq4rtLCWH5KFXoJCjAKL1nxLzguGAamAaEpG5C7PQ58am5:0:outer",
+          "mainnet-beta:457xikCb4VhVD3Zpkc7B3vy3qzbKUUAMSW5wY6zgJVSq4rtLCWH5KFXoJCjAKL1nxLzguGAamAaEpG5C7PQ58am5:1:outer"
+        ],
+        "verificationCodes": ["amount", "reference"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "missing-reference",
+      "file": "cases/missing-reference.json",
+      "sha256": "d8d4245aea9efecb637a1041a47448f28a8a66121a87730b83d19995a65f8c9b",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:4QupKJQytZr39nb3PaGAYteAAVAXerbBAFs42D9is184etBeHopR4er6Voa8y4ir467ZpSZPqeSViKzFt5QHQaDN:0:outer"
+        ],
+        "verificationCodes": ["reference"],
+        "exceptionCode": "missing_reference"
+      }
+    },
+    {
+      "id": "unknown-reference",
+      "file": "cases/unknown-reference.json",
+      "sha256": "201ca648017ee7942303d9fe523d14dab5c4fc745902d6dce94617fb249c1c06",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:4khfurdNidzb6XcG2YRA3rKGUyjjqF1zt1eAWKJmRWoJEuUxP7Mkp4APhQR7coRu9qESjcxCv8JkcPuKemQVgZff:0:outer"
+        ],
+        "verificationCodes": ["reference"],
+        "exceptionCode": "unknown_reference"
+      }
+    },
+    {
+      "id": "ambiguous-reference-expectations",
+      "file": "cases/ambiguous-reference-expectations.json",
+      "sha256": "0fbadef5a417a5b8443c17ae96e5b650fef35279bfe2397a24fdced66815037f",
+      "kind": "payment",
+      "tags": ["transfer_checked", "multi_reference", "negative", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:56VXWQqmYi993GdUfWa9YozNoUJx1dSpbmRGzRToz2UXpvnGUQu6ZTUgu1G6GY8xFaMKeoLw9KABQfUPwwGSep6N:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": "ambiguous_reference"
+      }
+    },
+    {
+      "id": "lookalike-wrong-mint",
+      "file": "cases/lookalike-wrong-mint.json",
+      "sha256": "46e739fb4ecfea5fe5c6be260b6efe44f133bf451fdaebf6cda2adcea5b8de60",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:5SHP6y4ANnHgz1ehJUj93mfV7xtAC1seKXCPUXcrYY9mQx5aN3jwYyV8bDMmMSQcpC1EVDyjJv3b1CaY19NVB97q:0:outer"
+        ],
+        "verificationCodes": ["destination_balance_mint", "mint"],
+        "exceptionCode": "wrong_asset"
+      }
+    },
+    {
+      "id": "unsupported-token-2022-program",
+      "file": "cases/unsupported-token-2022-program.json",
+      "sha256": "7fbe396c715a61acbcf2c009bf9041c7caebb9b2281264c7c9d21b3317e0b7ea",
+      "kind": "schema_rejection",
+      "tags": ["token_2022", "negative", "versioned"],
+      "expected": {
+        "outcome": "parse_failure",
+        "eventCount": 0,
+        "verifiedCount": 0,
+        "eventIds": [],
+        "verificationCodes": [],
+        "exceptionCode": null,
+        "parseFailureCode": "unsupported_transfer_evidence"
+      }
+    },
+    {
+      "id": "wrong-destination-token-account",
+      "file": "cases/wrong-destination-token-account.json",
+      "sha256": "ef22b8d21abce850785af4337edc6f019d796bae08dddc0f9dec9cc1a260f0b0",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:66ha5owWorvkzWaEf4g85Q6E6LEGmppeqQ4RpyDUDmQWr41eyexZwLzcu1Pfq4DhV4EFsv2pLcFXgJrvyxMvBU6q:0:outer"
+        ],
+        "verificationCodes": ["destination"],
+        "exceptionCode": "wrong_destination"
+      }
+    },
+    {
+      "id": "destination-owner-mismatch",
+      "file": "cases/destination-owner-mismatch.json",
+      "sha256": "6b7b3b7da976344166201c98d0d1271a4846b5b40a01829a24a6b1f185e8f535",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:Kdbk2x1Crs3n8HBjWWF5xehdSDLGQq8kqAs3V2rNbwEdjqHhRPoTiaU6bZzikJx6eZy3QXTFt7w7N42CJJxKbki:0:outer"
+        ],
+        "verificationCodes": ["destination_owner"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "partial-base-unit-amount",
+      "file": "cases/partial-base-unit-amount.json",
+      "sha256": "25716a88ce926bc1f1740e64ffce1f0c3f2e5bae108b8d9a00b4a701ca5021bb",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:fRTLbAQ2w1bisJQNUfEavKowvnYSoFxUawyXbBtw7cUDm8bniw9D7tmJCQyNV21CPgqxavGLMzC1Ry5xzKAbbD1:0:outer"
+        ],
+        "verificationCodes": ["amount"],
+        "exceptionCode": "partial_payment"
+      }
+    },
+    {
+      "id": "excess-base-unit-amount",
+      "file": "cases/excess-base-unit-amount.json",
+      "sha256": "2e12118a0db0b2983dedc5092df475ae75061fbe4b05b99a13e2f5d115040d14",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:21DJw9Nns1A9fcKd1SpE5szvGRMkdBgnCLj61hLwVdHhonRut2UUxXD4VoFx2Dj4J8oismK5QqrSuVt9jgKNsafJ:0:outer"
+        ],
+        "verificationCodes": ["amount"],
+        "exceptionCode": "excess_payment"
+      }
+    },
+    {
+      "id": "failed-transaction",
+      "file": "cases/failed-transaction.json",
+      "sha256": "afb836d66113fc610fd385ae8379b765d443a51c45303a39d6345dbb21048059",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:2M1AXhbBh5JhcMLqeQyDaqg2auvxoa7bv6WCVoVz48xwPojDyL1phvXMhQ6vfxS7PsvbnwhtVKihoZoDWNKb9a7b:0:outer"
+        ],
+        "verificationCodes": ["transaction_success"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "null-block-time",
+      "file": "cases/null-block-time.json",
+      "sha256": "128f0b78301e82e332d5537832cb12842110faf7e96f4722786f4fd612fc0c84",
+      "kind": "payment",
+      "tags": ["transfer_checked", "negative", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:2go28FoaX9TFZ6N4HP8D5oM8uQWAyxYRdrHJyuf2ceeAyq2Y4dZATKqetzwuKh9AVd3Ui86hZoaxhdiHH4KoRZZt:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": "missing_block_time"
+      }
+    },
+    {
+      "id": "confirmed-provisional-payment",
+      "file": "cases/confirmed-provisional-payment.json",
+      "sha256": "14fae3798d9ec83d4367b9155745306ebe548be3898196194a3ae1f067612e70",
+      "kind": "payment",
+      "tags": ["transfer_checked", "provisional", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:32asip1yMDboVqPGvMHCam2FDu5PALyFMc4RU1p5BAKQZrKr9w6WCj9x6bnsyRrDbNAMdJVWeHTDbhdM3kL1hZ2B:0:outer"
+        ],
+        "verificationCodes": ["commitment"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "confirmed-then-reverted-scenario",
+      "file": "cases/confirmed-then-reverted-scenario.json",
+      "sha256": "bde10f20189fde7e02f3233d6777fa919c9f5c956ff9c2cf162c9303079ca816",
+      "kind": "finality_scenario",
+      "tags": ["transfer_checked", "provisional", "reversion", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 1,
+        "verifiedCount": 0,
+        "eventIds": [
+          "mainnet-beta:3NNjKNENBHkMSaQVZKSC5ihMYPebLjQ55MqXx7y7jfze9sdAFEdqx8UFJCdrdAZGh7HEYUtKimKUVmYQpSLDyYUU:0:outer"
+        ],
+        "verificationCodes": ["transaction_success"],
+        "exceptionCode": null
+      }
+    },
+    {
+      "id": "duplicate-looking-distinct-instruction",
+      "file": "cases/duplicate-looking-distinct-instruction.json",
+      "sha256": "5b0ff6cd780657e9e8c0aa14e00824c22899afa7425ec5fd8bd5a03c173872ce",
+      "kind": "payment",
+      "tags": ["transfer_checked", "multi_transfer", "negative", "versioned"],
+      "expected": {
+        "outcome": "verification_failure",
+        "eventCount": 2,
+        "verifiedCount": 2,
+        "eventIds": [
+          "mainnet-beta:3iAauvSm1MtuPKRiCHbBagNTrtDoX7pto7ceSE8AJBfsjtvULYBBhXnYVoUqGuGKnrQ7TfH8oFBjPqTUb8LSFXvm:0:outer",
+          "mainnet-beta:3iAauvSm1MtuPKRiCHbBagNTrtDoX7pto7ceSE8AJBfsjtvULYBBhXnYVoUqGuGKnrQ7TfH8oFBjPqTUb8LSFXvm:1:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": "duplicate_payment"
+      }
+    },
+    {
+      "id": "truncated-rpc-envelope-rejection",
+      "file": "cases/truncated-rpc-envelope-rejection.json",
+      "sha256": "7191c43232b9147a0fd2dd1157472b47431570282a4634511f87bdb42df0a124",
+      "kind": "schema_rejection",
+      "tags": ["malformed", "negative"],
+      "expected": {
+        "outcome": "parse_failure",
+        "eventCount": 0,
+        "verifiedCount": 0,
+        "eventIds": [],
+        "verificationCodes": [],
+        "exceptionCode": null,
+        "parseFailureCode": "invalid_fixture"
+      }
+    },
+    {
+      "id": "unicode-identifier-boundaries",
+      "file": "cases/unicode-identifier-boundaries.json",
+      "sha256": "2d3f72f813752afc097918a436a53dba1b2336ccd94729f834853a01326e7a5a",
+      "kind": "payment",
+      "tags": ["transfer_checked", "unicode", "versioned"],
+      "expected": {
+        "outcome": "pass",
+        "eventCount": 1,
+        "verifiedCount": 1,
+        "eventIds": [
+          "mainnet-beta:4PkJ72sYfWC1GoU9UDuAabigVsNDstgYEdAsQSSFRD2LuwX6X9FsCLR8u1AnaNgRzLdsJ24kxCvFByHc8WLroWqM:0:outer"
+        ],
+        "verificationCodes": [],
+        "exceptionCode": null
+      }
+    }
+  ]
+}

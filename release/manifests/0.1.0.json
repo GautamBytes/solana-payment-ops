@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "0.1",
+  "bundleVersion": "v0.1.0",
+  "packages": [
+    {
+      "name": "@payops/contracts",
+      "version": "0.1.0",
+      "path": "packages/contracts"
+    },
+    {
+      "name": "@payops/core",
+      "version": "0.1.0",
+      "path": "packages/core"
+    },
+    {
+      "name": "@payops/ingestion",
+      "version": "0.1.0",
+      "path": "packages/ingestion"
+    },
+    {
+      "name": "@payops/webhooks",
+      "version": "0.1.0",
+      "path": "packages/webhooks"
+    },
+    {
+      "name": "@payops/reconciliation",
+      "version": "0.1.0",
+      "path": "packages/reconciliation"
+    },
+    {
+      "name": "@payops/pilot",
+      "version": "0.1.0",
+      "path": "packages/pilot"
+    }
+  ]
+}

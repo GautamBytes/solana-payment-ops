@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { stringifyCanonical } from "@payops/core";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -9,6 +10,11 @@ import {
   runMigrations,
   type DeliveryTransportRequest,
 } from "../src/index.js";
+import {
+  lifecycleInputs,
+  TEST_MINT,
+  TEST_SIGNATURE,
+} from "./support/lifecycle-events.js";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -31,10 +37,10 @@ function invoicePaidEvent(
         invoiceId: sourceId,
         customerId: "customer-001",
         eventId: "event-001",
-        signature: "signature-001",
+        signature: TEST_SIGNATURE,
         outerInstructionIndex: 0,
         innerInstructionIndex: null,
-        mint: "USDC",
+        mint: TEST_MINT,
         amountBaseUnits,
         ruleCode: "exact_match",
         ruleVersion: "0.1.0",
@@ -69,12 +75,89 @@ afterAll(async () => {
 
 describe("PostgresWebhookStore", () => {
   it("applies the transactional webhook migration idempotently", async () => {
+    const rows = await sql<{ name: string; count: number }[]>`
+      SELECT name, count(*)::integer AS count
+      FROM payops_schema_migrations
+      WHERE name IN (
+        '2001_transactional_webhooks',
+        '2002_lifecycle_contract_v0_1'
+      )
+      GROUP BY name
+      ORDER BY name
+    `;
+    expect(rows).toEqual([
+      { name: "2001_transactional_webhooks", count: 1 },
+      { name: "2002_lifecycle_contract_v0_1", count: 1 },
+    ]);
+  });
+
+  it("persists invoice.cancelled through the v0.1 contract migration", async () => {
+    const event = createLifecycleEvent(
+      lifecycleInputs[1],
+      "5af0f165-54d5-49d7-99bf-9686888b857d",
+      now,
+    );
+
+    await expect(
+      sql.begin((transaction) =>
+        enqueueLifecycleEvent(transaction, event, now),
+      ),
+    ).resolves.toBe(event.id);
+    await expect(store.inspectEvent(event.id)).resolves.toMatchObject({
+      eventType: "invoice.cancelled",
+      sourceType: "invoice",
+      sourceId: "invoice-001",
+    });
+  });
+
+  it("records the v0.1 migration when its constraints already exist", async () => {
+    await sql`
+      DELETE FROM payops_schema_migrations
+      WHERE name = '2002_lifecycle_contract_v0_1'
+    `;
+
+    await expect(runMigrations(databaseUrl)).resolves.toBeUndefined();
+    await expect(runMigrations(databaseUrl)).resolves.toBeUndefined();
     const rows = await sql<{ count: number }[]>`
       SELECT count(*)::integer AS count
       FROM payops_schema_migrations
-      WHERE name = '2001_transactional_webhooks'
+      WHERE name = '2002_lifecycle_contract_v0_1'
     `;
     expect(rows).toEqual([{ count: 1 }]);
+  });
+
+  it("enqueues all 13 exact event variants and rejects invalid data first", async () => {
+    for (const input of lifecycleInputs) {
+      const event = createLifecycleEvent(input, randomUUID(), now);
+      const envelope = JSON.parse(event.payload) as Record<string, unknown>;
+      const invalidPayload = stringifyCanonical({ ...envelope, data: {} });
+
+      await expect(
+        sql.begin((transaction) =>
+          enqueueLifecycleEvent(
+            transaction,
+            {
+              ...event,
+              payload: invalidPayload,
+              digest: createHash("sha256")
+                .update(invalidPayload, "utf8")
+                .digest("hex"),
+            },
+            now,
+          ),
+        ),
+      ).rejects.toThrow(/envelope/i);
+      await expect(
+        sql.begin((transaction) =>
+          enqueueLifecycleEvent(transaction, event, now),
+        ),
+      ).resolves.toBe(event.id);
+    }
+
+    const rows = await sql<{ count: number }[]>`
+      SELECT count(*)::integer AS count FROM webhook_events
+    `;
+    expect(rows).toEqual([{ count: 13 }]);
   });
 
   it("adds identical endpoints idempotently and rejects reused IDs", async () => {
@@ -322,11 +405,11 @@ describe("PostgresWebhookStore", () => {
           exceptionId: "exception-001",
           invoiceId: null,
           eventId: "event-003",
-          signature: "signature-003",
+          signature: TEST_SIGNATURE,
           outerInstructionIndex: 2,
           innerInstructionIndex: null,
           amountBaseUnits: "12500000",
-          code: "amount_mismatch",
+          code: "wrong_asset",
           ruleVersion: "0.1.0",
           reviewState: "open",
         },

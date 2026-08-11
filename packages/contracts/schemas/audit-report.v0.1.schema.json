@@ -1,0 +1,266 @@
+{
+  "$defs": {
+    "__schema0": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema1": {
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "__schema2": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/GautamBytes/solana-payment-ops/v0.1.0/packages/contracts/schemas/audit-report.v0.1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "coverage": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "capturedHeadSlot": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "committedHeadSlot": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "coverage": {
+            "enum": [
+              "complete",
+              "incomplete"
+            ],
+            "type": "string"
+          },
+          "finalized": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "pendingFinality": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "quarantinesOpen": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "retriesOpen": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "signatures": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "watchTargetId": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "required": [
+          "watchTargetId",
+          "coverage",
+          "capturedHeadSlot",
+          "committedHeadSlot",
+          "signatures",
+          "finalized",
+          "pendingFinality",
+          "retriesOpen",
+          "quarantinesOpen"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exceptionsByCode": {
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema2"
+      },
+      "propertyNames": {
+        "pattern": "^(missing_reference|unknown_reference|ambiguous_reference|duplicate_payment|wrong_asset|wrong_destination|missing_block_time|before_issue|late_payment|partial_payment|excess_payment)$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "generatedAt": {
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "type": "string"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "amountBaseUnits": {
+            "maxLength": 20,
+            "pattern": "^(0|[1-9][0-9]{0,77})$",
+            "type": "string"
+          },
+          "customerId": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eventId": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema0"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedMint": {
+            "maxLength": 44,
+            "minLength": 32,
+            "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+            "type": "string"
+          },
+          "invoiceId": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema0"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ruleCode": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "const": "exact_match",
+                    "type": "string"
+                  },
+                  {
+                    "enum": [
+                      "missing_reference",
+                      "unknown_reference",
+                      "ambiguous_reference",
+                      "duplicate_payment",
+                      "wrong_asset",
+                      "wrong_destination",
+                      "missing_block_time",
+                      "before_issue",
+                      "late_payment",
+                      "partial_payment",
+                      "excess_payment"
+                    ],
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "open",
+              "matched",
+              "exception",
+              "unapplied"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "invoiceId",
+          "customerId",
+          "status",
+          "expectedMint",
+          "amountBaseUnits",
+          "eventId",
+          "ruleCode"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "schemaVersion": {
+      "const": "0.1",
+      "type": "string"
+    },
+    "totals": {
+      "additionalProperties": false,
+      "properties": {
+        "exactMatches": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "exceptions": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "finalizedEvents": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "invoices": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "unapplied": {
+          "$ref": "#/$defs/__schema2"
+        }
+      },
+      "required": [
+        "invoices",
+        "finalizedEvents",
+        "exactMatches",
+        "exceptions",
+        "unapplied"
+      ],
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "enum": [
+          "coverage_incomplete",
+          "finality_pending",
+          "open_retries",
+          "open_quarantines",
+          "unclassified_finalized_value",
+          "audit_busy"
+        ],
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "runId",
+    "generatedAt",
+    "coverage",
+    "totals",
+    "exceptionsByCode",
+    "warnings",
+    "rows"
+  ],
+  "title": "PayOps audit report v0.1",
+  "type": "object",
+  "x-payops-version": "0.1"
+}
