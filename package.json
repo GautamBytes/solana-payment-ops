@@ -12,6 +12,7 @@
     "conformance": "pnpm --filter @payops/core conformance",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "pilot": "pnpm --filter @payops/pilot exec payops-pilot",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },

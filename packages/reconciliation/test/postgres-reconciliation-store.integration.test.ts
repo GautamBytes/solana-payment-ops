@@ -791,4 +791,89 @@ describe("PostgresReconciliationStore", () => {
       },
     ]);
   });
+
+  it("summarizes only selected invoices and watches, including unmatched value", async () => {
+    await store.importInvoices([invoice, unrelatedInvoice], nowForAudit());
+    await seedFinalizedEvent();
+    const [candidate] = await store.listFinalizedCandidates();
+    await store.recordDecision(
+      reconcileEvent(candidate!, await store.listInvoices()),
+      nowForAudit(),
+    );
+    await sql`
+      INSERT INTO watch_targets (
+        id, provider_id, cluster, address, cutover_slot, overlap_slots,
+        committed_head_slot, coverage, created_at
+      ) VALUES
+        ('audit-watch', 'primary', 'mainnet-beta',
+         'Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM', 1, 64, 10,
+         'complete', ${nowForAudit()}),
+        ('unrelated-watch', 'primary', 'mainnet-beta',
+         '8rUz82MkFsfqjpVjjgWEM66Brr1sm1R7VKZ991fF41e', 1, 64, 10,
+         'complete', ${nowForAudit()})
+    `;
+    const rawRows = await sql<{ id: string }[]>`
+      INSERT INTO raw_transactions (
+        provider_id, signature, commitment, digest, canonical_body, body,
+        byte_length, retrieved_at
+      ) VALUES
+        ('primary', 'signature-002', 'finalized', 'digest-2', '{}', '{}'::jsonb, 2, ${nowForAudit()}),
+        ('primary', 'signature-003', 'finalized', 'digest-3', '{}', '{}'::jsonb, 2, ${nowForAudit()})
+      RETURNING id::text
+    `;
+    await sql`
+      INSERT INTO chain_events (
+        event_id, cluster, signature, outer_instruction_index,
+        inner_instruction_index, raw_transaction_id, current_state
+      ) VALUES
+        ('event-002', 'mainnet-beta', 'signature-002', 0, -1, ${rawRows[0]!.id}, 'finalized'),
+        ('event-003', 'mainnet-beta', 'signature-003', 0, -1, ${rawRows[1]!.id}, 'finalized')
+    `;
+    await sql`
+      INSERT INTO discovered_signatures (
+        watch_target_id, provider_id, signature, slot, confirmation_status,
+        representation_class, finality_state, observed_at
+      ) VALUES
+        ('audit-watch', 'primary', 'signature-001', 1, 'finalized', 'parsed', 'finalized', ${nowForAudit()}),
+        ('audit-watch', 'primary', 'signature-002', 2, 'finalized', 'parsed', 'finalized', ${nowForAudit()}),
+        ('unrelated-watch', 'primary', 'signature-003', 3, 'finalized', 'parsed', 'finalized', ${nowForAudit()})
+    `;
+
+    const first = await store.getAuditSummary(
+      [invoice.invoiceId],
+      ["audit-watch"],
+    );
+    const second = await store.getAuditSummary(
+      [invoice.invoiceId],
+      ["audit-watch"],
+    );
+
+    expect(second).toEqual(first);
+    expect(first).toEqual({
+      invoiceCount: 1,
+      allocationCount: 1,
+      exceptionCount: 0,
+      exceptionsByCode: {},
+      unmatchedFinalizedEvents: 1,
+    });
+    await expect(
+      store.getAuditRows([invoice.invoiceId], ["audit-watch"]),
+    ).resolves.toEqual([
+      {
+        invoiceId: invoice.invoiceId,
+        customerId: invoice.customerId,
+        status: "matched",
+        expectedMint: invoice.expectedMint,
+        amountBaseUnits: invoice.amountBaseUnits.toString(),
+        eventId: "event-001",
+        ruleCode: "exact_match",
+      },
+    ]);
+    expect(JSON.stringify(first)).not.toContain("canonical_body");
+    expect(JSON.stringify(first)).not.toContain("signature-002");
+  });
 });
+
+function nowForAudit(): Date {
+  return new Date("2026-08-10T00:00:00.000Z");
+}
