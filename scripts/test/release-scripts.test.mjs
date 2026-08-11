@@ -38,6 +38,25 @@ describe("release manifest validation", () => {
     assert.equal(parseReleaseManifest(manifest, "v0.1.0").packages.length, 6);
   });
 
+  it("accepts the exact mixed-version v0.2.0 bundle", async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL("../../release/manifests/0.2.0.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const parsed = parseReleaseManifest(manifest, "v0.2.0");
+    assert.deepEqual(
+      parsed.packages.map(({ name, version }) => [name, version]),
+      [
+        ["@payops/ingestion", "0.1.1"],
+        ["@payops/webhooks", "0.1.1"],
+        ["@payops/reconciliation", "0.1.1"],
+        ["@payops/sdk", "0.1.0"],
+      ],
+    );
+  });
+
   it("rejects bundle mismatch, duplicates, unsafe paths, order, and versions", () => {
     const base = releaseManifest();
     assert.throws(
@@ -88,13 +107,31 @@ describe("release manifest validation", () => {
           {
             ...base,
             packages: [
-              { ...base.packages[0], version: "0.1.1" },
+              { ...base.packages[0], version: "v0.1.1" },
               ...base.packages.slice(1),
             ],
           },
           "v0.1.0",
         ),
-      /version/i,
+      /semver/i,
+    );
+    assert.throws(
+      () =>
+        parseReleaseManifest(
+          {
+            ...base,
+            packages: [
+              ...base.packages,
+              {
+                name: "@payops/private",
+                version: "0.1.0",
+                path: "packages/private",
+              },
+            ],
+          },
+          "v0.1.0",
+        ),
+      /package order/i,
     );
   });
 

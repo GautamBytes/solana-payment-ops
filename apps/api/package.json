@@ -1,0 +1,45 @@
+{
+  "name": "@payops/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "payops-api": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run test:unit && pnpm run test:dist",
+    "test:dist": "pnpm run build && node test/app.esm-smoke.mjs",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@better-auth/api-key": "1.6.26",
+    "@payops/contracts": "workspace:^0.1.0",
+    "@payops/ingestion": "workspace:^0.1.0",
+    "@payops/platform": "workspace:*",
+    "@payops/reconciliation": "workspace:^0.1.0",
+    "@payops/webhooks": "workspace:^0.1.0",
+    "better-auth": "1.6.26",
+    "drizzle-orm": "0.45.2",
+    "fastify": "5.11.3",
+    "postgres": "3.4.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@payops/sdk": "workspace:*",
+    "@solana/kit": "7.0.0",
+    "@types/node": "22.20.1",
+    "auth": "1.6.26",
+    "vitest": "4.1.10"
+  }
+}

@@ -12,9 +12,11 @@
     "conformance": "pnpm --filter @payops/core conformance",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "openapi:check": "node scripts/check-openapi.mjs && node scripts/generate-sdk.mjs --check",
     "packages:verify": "pnpm build && node scripts/verify-public-packages.mjs",
     "pilot": "pnpm --filter @payops/pilot exec payops-pilot",
     "schemas:check": "pnpm --filter @payops/contracts build && node scripts/check-json-schemas.mjs",
+    "sdk:generate": "node scripts/generate-sdk.mjs",
     "test": "pnpm -r test && node --test scripts/test/*.test.mjs",
     "typecheck": "pnpm -r typecheck"
   },

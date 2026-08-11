@@ -326,15 +326,64 @@ async function enqueuePaymentExceptionCreatedEvent(
 
 export interface PostgresReconciliationStoreConfig {
   readonly databaseUrl: string;
+  readonly organizationId?: string;
+  readonly selfHostedDefaultOrganization?: true;
+}
+
+const selfHostedOrganizationId = "00000000-0000-4000-8000-000000000001";
+const organizationIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function scopedDatabaseUrl(config: PostgresReconciliationStoreConfig): {
+  readonly databaseUrl: string;
+  readonly organizationId: string;
+} {
+  if (
+    config.organizationId !== undefined &&
+    config.selfHostedDefaultOrganization
+  ) {
+    throw new ReconciliationError(
+      "invalid_configuration",
+      "Tenant scope is ambiguous",
+      { retryable: false },
+    );
+  }
+  const organizationId =
+    config.organizationId ??
+    (config.selfHostedDefaultOrganization
+      ? selfHostedOrganizationId
+      : undefined);
+  if (
+    organizationId === undefined ||
+    !organizationIdPattern.test(organizationId)
+  ) {
+    throw new ReconciliationError(
+      "invalid_configuration",
+      "Tenant scope is required",
+      { retryable: false },
+    );
+  }
+  const url = new URL(config.databaseUrl);
+  const options = url.searchParams.get("options");
+  url.searchParams.set(
+    "options",
+    [options, `-cpayops.organization_id=${organizationId}`]
+      .filter((value): value is string => Boolean(value))
+      .join(" "),
+  );
+  return { databaseUrl: url.toString(), organizationId };
 }
 
 export class PostgresReconciliationStore
   implements OperatorReconciliationStore, ReconciliationAuditStore
 {
   readonly #sql: Sql;
+  readonly #organizationId: string;
 
   public constructor(config: PostgresReconciliationStoreConfig) {
-    this.#sql = postgres(config.databaseUrl);
+    const scope = scopedDatabaseUrl(config);
+    this.#organizationId = scope.organizationId;
+    this.#sql = postgres(scope.databaseUrl);
   }
 
   public async startRun(startedAt: Date): Promise<string> {
@@ -388,7 +437,9 @@ export class PostgresReconciliationStore
     }
     return this.#sql.begin(async (transaction) => {
       await transaction`
-        SELECT pg_advisory_xact_lock(hashtextextended('reconciliation:invoice-import', 0))
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${`reconciliation:invoice-import:${this.#organizationId}`}, 0)
+        )
       `;
       let inserted = 0;
       let existing = 0;

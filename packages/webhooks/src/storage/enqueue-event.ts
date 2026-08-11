@@ -36,8 +36,7 @@ export async function enqueueLifecycleEvent(
       ${event.sourceVersion}, ${event.payload}, ${event.digest},
       ${event.occurredAt.toISOString()}, ${createdAt.toISOString()}
     )
-    ON CONFLICT (event_type, source_type, source_id, source_version)
-    DO NOTHING
+    ON CONFLICT DO NOTHING
   `;
 
   const existing = await sql<StoredEventRow[]>`

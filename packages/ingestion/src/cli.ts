@@ -31,7 +31,11 @@ export interface CliDependencies {
 const defaultDependencies: CliDependencies = {
   env: process.env,
   write: (line) => process.stdout.write(`${line}\n`),
-  createStore: (databaseUrl) => new PostgresIngestionStore({ databaseUrl }),
+  createStore: (databaseUrl) =>
+    new PostgresIngestionStore({
+      databaseUrl,
+      selfHostedDefaultOrganization: true,
+    }),
   createRpc: (config) => new HttpSolanaRpc(config),
   migrate: runMigrations,
   now: () => new Date(),

@@ -44,9 +44,13 @@ beforeAll(async () => {
   await runIngestionMigrations(databaseUrl);
   await runReconciliationMigrations(databaseUrl);
   await runReconciliationMigrations(databaseUrl);
-  reconciliationStore = new PostgresReconciliationStore({ databaseUrl });
+  reconciliationStore = new PostgresReconciliationStore({
+    databaseUrl,
+    selfHostedDefaultOrganization: true,
+  });
   webhookStore = new PostgresWebhookStore({
     databaseUrl,
+    selfHostedDefaultOrganization: true,
     endpointPolicy: { allowUnsafeAddressesForTesting: true },
   });
 });

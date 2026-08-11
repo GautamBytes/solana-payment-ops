@@ -65,7 +65,11 @@ const defaults: WebhookCliDependencies = {
   write: (line) => process.stdout.write(`${line}\n`),
   now: () => new Date(),
   migrate: runMigrations,
-  createStore: (databaseUrl) => new PostgresWebhookStore({ databaseUrl }),
+  createStore: (databaseUrl) =>
+    new PostgresWebhookStore({
+      databaseUrl,
+      selfHostedDefaultOrganization: true,
+    }),
   createTransport: () => new UndiciWebhookTransport(),
   deliver: runDeliveryBatch,
 };

@@ -1,0 +1,39 @@
+{
+  "name": "@payops/platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "payops-platform": "./dist/bin.js"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run test:unit && pnpm run test:dist",
+    "test:dist": "pnpm run build && node test/package-artifact.esm-smoke.mjs",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/contracts": "workspace:^0.1.0",
+    "@payops/ingestion": "workspace:^0.1.0",
+    "@payops/reconciliation": "workspace:^0.1.0",
+    "@payops/webhooks": "workspace:^0.1.0",
+    "@solana/kit": "7.0.0",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.7",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "vitest": "4.1.10"
+  }
+}

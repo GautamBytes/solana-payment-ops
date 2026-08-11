@@ -1,0 +1,39 @@
+{
+  "name": "@payops/sdk",
+  "version": "0.1.0",
+  "description": "Typed client for the PayOps merchant API",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "directory": "packages/sdk"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run test:unit && pnpm run test:dist",
+    "test:dist": "pnpm run build && node test/package-artifact.esm-smoke.mjs",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

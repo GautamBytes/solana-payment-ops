@@ -245,9 +245,13 @@ export const defaultPilotCliDependencies: PilotCliDependencies = {
   }) => {
     await runPilotMigrations(databaseUrl);
     const pilotStore = new PostgresPilotStore({ databaseUrl });
-    const ingestionStore = new PostgresIngestionStore({ databaseUrl });
+    const ingestionStore = new PostgresIngestionStore({
+      databaseUrl,
+      selfHostedDefaultOrganization: true,
+    });
     const reconciliationStore = new PostgresReconciliationStore({
       databaseUrl,
+      selfHostedDefaultOrganization: true,
     });
     const runner = createShadowAuditRunner({
       pilotStore,
