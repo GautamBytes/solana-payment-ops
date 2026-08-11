@@ -151,15 +151,33 @@ describe("PostgresIngestionStore", () => {
   });
 
   it("serializes concurrent migration runners", async () => {
-    await cleanup`DELETE FROM payops_schema_migrations`;
+    await cleanup`
+      DELETE FROM payops_schema_migrations
+      WHERE name IN (
+        '0001_durable_ingestion',
+        '0002_finality_claim_token',
+        '0003_pending_representation'
+      )
+    `;
 
     await expect(
       Promise.all([runMigrations(databaseUrl), runMigrations(databaseUrl)]),
     ).resolves.toEqual([undefined, undefined]);
-    const rows = await cleanup<{ count: number }[]>`
-      SELECT count(*)::int AS count FROM payops_schema_migrations
+    const rows = await cleanup<{ name: string }[]>`
+      SELECT name
+      FROM payops_schema_migrations
+      WHERE name IN (
+        '0001_durable_ingestion',
+        '0002_finality_claim_token',
+        '0003_pending_representation'
+      )
+      ORDER BY name
     `;
-    expect(rows[0]?.count).toBe(3);
+    expect(rows.map(({ name }) => name)).toEqual([
+      "0001_durable_ingestion",
+      "0002_finality_claim_token",
+      "0003_pending_representation",
+    ]);
   });
 
   it("holds an advisory lock on a dedicated connection", async () => {

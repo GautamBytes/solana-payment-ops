@@ -70,6 +70,7 @@ describe("pilot package", () => {
       "1003_strict_parser_versions",
       "1004_event_contract_bounds",
       "2001_transactional_webhooks",
+      "2002_lifecycle_contract_v0_1",
       "3001_shadow_audits",
     ]);
   });

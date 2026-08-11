@@ -1,0 +1,47 @@
+{
+  "name": "@payops/contracts",
+  "version": "0.1.0",
+  "description": "Stable lifecycle contracts and schemas for PayOps integrations",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "directory": "packages/contracts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas/audit-report.v0.1.schema.json": "./schemas/audit-report.v0.1.schema.json",
+    "./schemas/lifecycle-event.v0.1.schema.json": "./schemas/lifecycle-event.v0.1.schema.json",
+    "./schemas/payment-fixture.v0.1.schema.json": "./schemas/payment-fixture.v0.1.schema.json",
+    "./schemas/webhook-request.v0.1.schema.json": "./schemas/webhook-request.v0.1.schema.json"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@solana/kit": "7.0.0",
+    "bs58": "6.0.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
+}

@@ -14,7 +14,16 @@ PayOps packages those checks into an open conformance contract and a durable
 ingestion engine instead of making every Solana team rebuild them
 independently.
 
-## Current implementation
+## Open Core v0.1
+
+The release contains six installable Apache-2.0 packages:
+
+- `@payops/contracts`: strict lifecycle contracts and JSON Schemas;
+- `@payops/core`: Solana transaction parsing, verification, and 25 fixtures;
+- `@payops/ingestion`: durable RPC ingestion and finality tracking;
+- `@payops/reconciliation`: deterministic invoice matching and exceptions;
+- `@payops/webhooks`: transactional signed webhook delivery and verification;
+- `@payops/pilot`: resumable, read-only merchant shadow audits.
 
 PayOps Core:
 
@@ -57,7 +66,7 @@ it is not presented as a historical mainnet payment.
 ```bash
 pnpm install
 pnpm check
-pnpm conformance fixtures/v0.1/usdc-transfer-checked-finalized.json
+pnpm conformance fixtures/v0.1/manifest.json
 ```
 
 A passing fixture exits with status `0`. A parsed payment that fails a
@@ -78,6 +87,21 @@ secrets, and replays failed deliveries.
 The [merchant shadow-audit runbook](packages/pilot/README.md) validates a
 consented pilot manifest, resumes historical ingestion and reconciliation, and
 produces private plus grant-safe reports without signing or moving funds.
+
+The [open-core integration guide](docs/open-core/integration-guide.md) shows
+how to install the packages, replay the bundled corpus, verify a payment intent,
+and consume a signed lifecycle event. The
+[architecture](docs/open-core/architecture.md),
+[lifecycle contract](docs/open-core/lifecycle-contract.md),
+[fixture authoring guide](docs/open-core/fixture-authoring.md), and
+[security model](docs/open-core/security-model.md) define the v0.1 boundary.
+
+PayOps complements the
+[Solana Pay protocol](https://solana.com/docs/tools/solana-pay): Solana Pay
+constructs wallet-compatible requests, while PayOps verifies and reconciles
+the resulting chain evidence. Future hosted quoting may consume
+[Pyth Price Feeds](https://docs.pyth.network/price-feeds); no oracle or quote
+logic is part of Open Core v0.1.
 
 ## What developers can build on it
 

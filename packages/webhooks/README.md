@@ -101,12 +101,16 @@ Event envelopes use `schemaVersion` `0.1`, a stable UUID `id`, `type`,
 `data`. String limits count Unicode code points, matching PostgreSQL
 `char_length` semantics.
 
-The initial event vocabulary is `invoice.issued`, `payment.detected`,
-`payment.confirmed`, `payment.finalized`, `payment.confirmation_revoked`,
-`payment.exception_created`, `invoice.partial`, `invoice.paid`,
-`invoice.overpaid`, `refund.prepared`, `refund.finalized`, and
-`evidence.ready`. Event variants without a detailed producer in this package
-currently use an empty `data` object and rely on the common envelope fields.
+`@payops/contracts` is the canonical source for lifecycle types and runtime
+validation. Existing lifecycle imports from `@payops/webhooks` remain
+source-compatible and resolve to that same parser and type model.
+
+The v0.1 vocabulary is `invoice.issued`, `invoice.cancelled`,
+`payment.detected`, `payment.confirmed`, `payment.finalized`,
+`payment.confirmation_revoked`, `payment.exception_created`,
+`invoice.partial`, `invoice.paid`, `invoice.overpaid`, `refund.prepared`,
+`refund.finalized`, and `evidence.ready`. Every variant has an exact data
+schema; unknown and missing fields fail closed.
 
 - `invoice.paid` identifies the invoice and customer, stable Solana event ID,
   transaction signature, instruction coordinates, mint, exact base-unit amount,

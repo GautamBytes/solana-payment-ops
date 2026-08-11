@@ -13,6 +13,22 @@ export {
   type RpcTransactionEnvelope,
 } from "./fixtures/schema.js";
 export { loadPaymentFixture } from "./fixtures/load-fixture.js";
+export {
+  FixtureManifestError,
+  loadFixtureManifest,
+  MAX_FIXTURE_JSON_BYTES,
+  type FixtureManifestErrorCode,
+  type LoadedFixtureCase,
+  type LoadedFixtureManifest,
+} from "./fixtures/load-manifest.js";
+export {
+  FIXTURE_TAGS,
+  FixtureManifestSchema,
+  VERIFICATION_CODES,
+  type FixtureExpectation,
+  type FixtureManifest,
+  type FixtureManifestCase,
+} from "./fixtures/manifest-schema.js";
 export type {
   DecodedTransfer,
   DecodedTransferChecked,
@@ -33,5 +49,13 @@ export type {
   VerificationReport,
 } from "./domain/types.js";
 export { verifyPayment } from "./verify/verify-payment.js";
-export { evaluateFixture, type ConformanceReport } from "./conformance.js";
+export {
+  evaluateConformancePath,
+  evaluateFixture,
+  evaluateManifest,
+  type ConformanceCaseErrorCode,
+  type ConformanceCaseReport,
+  type ConformanceReport,
+  type ConformanceSuiteReport,
+} from "./conformance.js";
 export { stringifyCanonical } from "./canonical-json.js";

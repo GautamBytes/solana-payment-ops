@@ -16,6 +16,8 @@ const databaseUrl =
   "postgres://payops:payops@127.0.0.1:55432/payops_test";
 const sql = postgres(databaseUrl, { max: 1 });
 let store: PostgresReconciliationStore;
+const TEST_SIGNATURE =
+  "2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T";
 
 const invoice: InvoiceImport = {
   invoiceId: "inv-001",
@@ -51,7 +53,7 @@ async function seedFinalizedEvent(
       provider_id, signature, commitment, digest, canonical_body, body,
       byte_length, retrieved_at
     ) VALUES (
-      'primary', 'signature-001', 'finalized', 'digest', '{}',
+      'primary', ${TEST_SIGNATURE}, 'finalized', 'digest', '{}',
       ${sql.json({ blockTime: 1_786_320_000 })},
       2, '2026-08-10T00:00:00.000Z'
     ) RETURNING id::text
@@ -61,7 +63,7 @@ async function seedFinalizedEvent(
       event_id, cluster, signature, outer_instruction_index,
       inner_instruction_index, raw_transaction_id, current_state
     ) VALUES (
-      'event-001', 'mainnet-beta', 'signature-001', 0, -1,
+      'event-001', 'mainnet-beta', ${TEST_SIGNATURE}, 0, -1,
       ${raw[0]?.id ?? "0"}, 'finalized'
     ) RETURNING id::text
   `;
@@ -284,7 +286,7 @@ describe("PostgresReconciliationStore", () => {
       allocations: [
         {
           eventId: "event-001",
-          signature: "signature-001",
+          signature: TEST_SIGNATURE,
           outerInstructionIndex: 0,
           innerInstructionIndex: null,
           invoiceId: "inv-001",
@@ -375,7 +377,7 @@ describe("PostgresReconciliationStore", () => {
         invoiceId: publishedInvoice.invoiceId,
         customerId: publishedInvoice.customerId,
         eventId: "event-001",
-        signature: "signature-001",
+        signature: TEST_SIGNATURE,
         outerInstructionIndex: 0,
         innerInstructionIndex: null,
         mint: publishedInvoice.expectedMint,
@@ -498,7 +500,7 @@ describe("PostgresReconciliationStore", () => {
         exceptionId: row!.exception_id,
         invoiceId: invoice.invoiceId,
         eventId: "event-001",
-        signature: "signature-001",
+        signature: TEST_SIGNATURE,
         outerInstructionIndex: 0,
         innerInstructionIndex: null,
         amountBaseUnits: invoice.amountBaseUnits.toString(),
@@ -646,7 +648,7 @@ describe("PostgresReconciliationStore", () => {
         exceptionId: row!.exception_id,
         invoiceId: null,
         eventId: "event-001",
-        signature: "signature-001",
+        signature: TEST_SIGNATURE,
         outerInstructionIndex: 0,
         innerInstructionIndex: null,
         amountBaseUnits: invoice.amountBaseUnits.toString(),
@@ -834,7 +836,7 @@ describe("PostgresReconciliationStore", () => {
         watch_target_id, provider_id, signature, slot, confirmation_status,
         representation_class, finality_state, observed_at
       ) VALUES
-        ('audit-watch', 'primary', 'signature-001', 1, 'finalized', 'parsed', 'finalized', ${nowForAudit()}),
+        ('audit-watch', 'primary', ${TEST_SIGNATURE}, 1, 'finalized', 'parsed', 'finalized', ${nowForAudit()}),
         ('audit-watch', 'primary', 'signature-002', 2, 'finalized', 'parsed', 'finalized', ${nowForAudit()}),
         ('unrelated-watch', 'primary', 'signature-003', 3, 'finalized', 'parsed', 'finalized', ${nowForAudit()})
     `;

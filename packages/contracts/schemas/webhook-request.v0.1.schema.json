@@ -1,0 +1,1405 @@
+{
+  "$defs": {
+    "__schema0": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "type": "string"
+    },
+    "__schema1": {
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "type": "string"
+    },
+    "__schema10": {
+      "maxLength": 44,
+      "minLength": 32,
+      "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+      "type": "string"
+    },
+    "__schema11": {
+      "$ref": "#/$defs/__schema5",
+      "maxLength": 20,
+      "pattern": "^(0|[1-9][0-9]{0,77})$",
+      "type": "string"
+    },
+    "__schema2": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema3": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "__schema4": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "__schema5": {
+      "maxLength": 78,
+      "pattern": "^(0|[1-9][0-9]{0,77})$",
+      "type": "string"
+    },
+    "__schema6": {
+      "enum": [
+        "USDC",
+        "USDT"
+      ],
+      "type": "string"
+    },
+    "__schema7": {
+      "maxLength": 88,
+      "minLength": 64,
+      "pattern": "^[1-9A-HJ-NP-Za-km-z]{64,88}$",
+      "type": "string"
+    },
+    "__schema8": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "__schema9": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/__schema8"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/GautamBytes/solana-payment-ops/v0.1.0/packages/contracts/schemas/webhook-request.v0.1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "acceptedAssetSymbols": {
+                  "items": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "maxItems": 2,
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "currency": {
+                  "enum": [
+                    "USD",
+                    "EUR",
+                    "GBP",
+                    "INR"
+                  ],
+                  "type": "string"
+                },
+                "customerId": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "dueAt": {
+                  "$ref": "#/$defs/__schema1"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "issuedAt": {
+                  "$ref": "#/$defs/__schema1"
+                },
+                "publicReference": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "totalMinorUnits": {
+                  "$ref": "#/$defs/__schema5"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "customerId",
+                "publicReference",
+                "currency",
+                "totalMinorUnits",
+                "dueAt",
+                "issuedAt",
+                "acceptedAssetSymbols"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "invoice",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "invoice.issued",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "actorKind": {
+                  "enum": [
+                    "member",
+                    "api_key"
+                  ],
+                  "type": "string"
+                },
+                "cancelledAt": {
+                  "$ref": "#/$defs/__schema1"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "previousState": {
+                  "enum": [
+                    "draft",
+                    "issued"
+                  ],
+                  "type": "string"
+                },
+                "publicReference": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "reasonCode": {
+                  "enum": [
+                    "customer_request",
+                    "duplicate_invoice",
+                    "commercial_terms_changed",
+                    "merchant_error",
+                    "other_reviewed"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "publicReference",
+                "previousState",
+                "reasonCode",
+                "actorKind",
+                "cancelledAt"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "invoice",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "invoice.cancelled",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "commitment": {
+                  "const": "detected",
+                  "type": "string"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "innerInstructionIndex": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outerInstructionIndex": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "paymentAttemptId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "paymentAttemptId",
+                "invoiceId",
+                "eventId",
+                "signature",
+                "outerInstructionIndex",
+                "innerInstructionIndex",
+                "mint",
+                "amountBaseUnits",
+                "commitment"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "payment",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "payment.detected",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "commitment": {
+                  "const": "confirmed",
+                  "type": "string"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "innerInstructionIndex": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outerInstructionIndex": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "paymentAttemptId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "paymentAttemptId",
+                "invoiceId",
+                "eventId",
+                "signature",
+                "outerInstructionIndex",
+                "innerInstructionIndex",
+                "mint",
+                "amountBaseUnits",
+                "commitment"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "payment",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "payment.confirmed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "commitment": {
+                  "const": "finalized",
+                  "type": "string"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "innerInstructionIndex": {
+                  "$ref": "#/$defs/__schema9"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outerInstructionIndex": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "paymentAttemptId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "paymentAttemptId",
+                "invoiceId",
+                "eventId",
+                "signature",
+                "outerInstructionIndex",
+                "innerInstructionIndex",
+                "mint",
+                "amountBaseUnits",
+                "commitment"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "payment",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "payment.finalized",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "currentState": {
+                  "enum": [
+                    "failed",
+                    "reverted",
+                    "quarantined"
+                  ],
+                  "type": "string"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "paymentAttemptId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "previousState": {
+                  "enum": [
+                    "detected",
+                    "confirmed"
+                  ],
+                  "type": "string"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "paymentAttemptId",
+                "invoiceId",
+                "eventId",
+                "signature",
+                "previousState",
+                "currentState",
+                "code"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "payment",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "payment.confirmation_revoked",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "code": {
+                  "enum": [
+                    "missing_reference",
+                    "unknown_reference",
+                    "ambiguous_reference",
+                    "duplicate_payment",
+                    "wrong_asset",
+                    "wrong_destination",
+                    "missing_block_time",
+                    "before_issue",
+                    "late_payment",
+                    "partial_payment",
+                    "excess_payment"
+                  ],
+                  "type": "string"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "exceptionId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "innerInstructionIndex": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/__schema8"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "invoiceId": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/__schema2"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outerInstructionIndex": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "reviewState": {
+                  "enum": [
+                    "open",
+                    "resolved",
+                    "ignored"
+                  ],
+                  "type": "string"
+                },
+                "ruleVersion": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "exceptionId",
+                "invoiceId",
+                "eventId",
+                "signature",
+                "outerInstructionIndex",
+                "innerInstructionIndex",
+                "amountBaseUnits",
+                "code",
+                "ruleVersion",
+                "reviewState"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "payment_exception",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "payment.exception_created",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "allocatedBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "customerId": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outstandingBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "ruleVersion": {
+                  "$ref": "#/$defs/__schema2"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "customerId",
+                "eventId",
+                "allocatedBaseUnits",
+                "outstandingBaseUnits",
+                "mint",
+                "ruleVersion"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "invoice",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "invoice.partial",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "customerId": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "innerInstructionIndex": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/__schema8"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outerInstructionIndex": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "ruleCode": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "ruleVersion": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "customerId",
+                "eventId",
+                "signature",
+                "outerInstructionIndex",
+                "innerInstructionIndex",
+                "mint",
+                "amountBaseUnits",
+                "ruleCode",
+                "ruleVersion"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "invoice",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "invoice.paid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "allocatedBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "customerId": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "excessBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "outstandingBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "ruleVersion": {
+                  "$ref": "#/$defs/__schema2"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "customerId",
+                "eventId",
+                "allocatedBaseUnits",
+                "outstandingBaseUnits",
+                "mint",
+                "ruleVersion",
+                "excessBaseUnits"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "invoice",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "invoice.overpaid",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "allocationId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "approvalState": {
+                  "enum": [
+                    "pending",
+                    "approved"
+                  ],
+                  "type": "string"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "refundId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "returnOwner": {
+                  "$ref": "#/$defs/__schema10"
+                }
+              },
+              "required": [
+                "refundId",
+                "invoiceId",
+                "allocationId",
+                "mint",
+                "amountBaseUnits",
+                "returnOwner",
+                "approvalState"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "refund",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "refund.prepared",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "amountBaseUnits": {
+                  "$ref": "#/$defs/__schema11"
+                },
+                "eventId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "mint": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "refundId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signature": {
+                  "$ref": "#/$defs/__schema7"
+                }
+              },
+              "required": [
+                "refundId",
+                "invoiceId",
+                "signature",
+                "eventId",
+                "mint",
+                "amountBaseUnits"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "refund",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "refund.finalized",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "properties": {
+                "evidencePackId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "invoiceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "manifestDigest": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "resourceId": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "signingKeyId": {
+                  "$ref": "#/$defs/__schema2"
+                }
+              },
+              "required": [
+                "evidencePackId",
+                "invoiceId",
+                "manifestDigest",
+                "signingKeyId",
+                "resourceId"
+              ],
+              "type": "object"
+            },
+            "id": {
+              "$ref": "#/$defs/__schema0"
+            },
+            "object": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "type": {
+                  "const": "evidence_pack",
+                  "type": "string"
+                },
+                "version": {
+                  "$ref": "#/$defs/__schema3"
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "version"
+              ],
+              "type": "object"
+            },
+            "occurredAt": {
+              "$ref": "#/$defs/__schema1"
+            },
+            "schemaVersion": {
+              "const": "0.1",
+              "type": "string"
+            },
+            "statusAtOccurrence": {
+              "$ref": "#/$defs/__schema2"
+            },
+            "type": {
+              "const": "evidence.ready",
+              "type": "string"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "id",
+            "type",
+            "occurredAt",
+            "statusAtOccurrence",
+            "object",
+            "data"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "headers": {
+      "additionalProperties": false,
+      "properties": {
+        "content-type": {
+          "const": "application/json",
+          "type": "string"
+        },
+        "payops-delivery-id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "payops-event-id": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "payops-signature": {
+          "pattern": "^v1=[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "payops-timestamp": {
+          "pattern": "^(0|[1-9][0-9]{0,12})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "content-type",
+        "payops-delivery-id",
+        "payops-event-id",
+        "payops-signature",
+        "payops-timestamp"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "0.1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "headers",
+    "body"
+  ],
+  "title": "PayOps webhook request v0.1",
+  "type": "object",
+  "x-payops-version": "0.1"
+}

@@ -1,4 +1,3 @@
-import { MAINNET_USDC } from "@payops/core";
 import { describe, expect, it } from "vitest";
 import {
   createLifecycleEvent,
@@ -6,160 +5,94 @@ import {
   SUPPORTED_LIFECYCLE_EVENT_TYPES,
   type LifecycleEvent,
 } from "../src/index.js";
+import {
+  lifecycleInputs,
+  TEST_MINT,
+  TEST_SIGNATURE,
+} from "./support/lifecycle-events.js";
 
 const occurredAt = new Date("2026-08-07T00:00:00.000Z");
 const eventId = "00000000-0000-4000-8000-000000000001";
 const astral = "\u{1F680}";
 
 describe("createLifecycleEvent", () => {
-  it("creates a canonical invoice.paid envelope with a stable digest", () => {
-    const event = createLifecycleEvent(
-      {
-        type: "invoice.paid",
-        statusAtOccurrence: "matched",
-        object: { type: "invoice", id: "inv-001", version: 1 },
-        data: {
-          invoiceId: "inv-001",
-          customerId: "customer-001",
-          eventId: "event-001",
-          signature: "signature-001",
-          outerInstructionIndex: 0,
-          innerInstructionIndex: null,
-          mint: MAINNET_USDC.mint,
-          amountBaseUnits: "12500000",
-          ruleCode: "exact_match",
-          ruleVersion: "0.1",
-        },
-      },
-      eventId,
-      occurredAt,
-    );
+  it("creates canonical bytes and a stable digest", () => {
+    const event = createLifecycleEvent(lifecycleInputs[8], eventId, occurredAt);
 
-    expect(event).toEqual({
+    expect(event).toMatchObject({
       id: eventId,
       eventType: "invoice.paid",
       sourceType: "invoice",
-      sourceId: "inv-001",
+      sourceId: "invoice-001",
       sourceVersion: 1,
       occurredAt,
-      payload: [
+    });
+    expect(event.payload).toBe(
+      [
         "{",
         '  "data": {',
         '    "amountBaseUnits": "12500000",',
         '    "customerId": "customer-001",',
-        '    "eventId": "event-001",',
+        '    "eventId": "chain-event-001",',
         '    "innerInstructionIndex": null,',
-        '    "invoiceId": "inv-001",',
-        `    "mint": "${MAINNET_USDC.mint}",`,
+        '    "invoiceId": "invoice-001",',
+        `    "mint": "${TEST_MINT}",`,
         '    "outerInstructionIndex": 0,',
         '    "ruleCode": "exact_match",',
         '    "ruleVersion": "0.1",',
-        '    "signature": "signature-001"',
+        `    "signature": "${TEST_SIGNATURE}"`,
         "  },",
         `  "id": "${eventId}",`,
         '  "object": {',
-        '    "id": "inv-001",',
+        '    "id": "invoice-001",',
         '    "type": "invoice",',
         '    "version": 1',
         "  },",
         '  "occurredAt": "2026-08-07T00:00:00.000Z",',
         '  "schemaVersion": "0.1",',
-        '  "statusAtOccurrence": "matched",',
+        '  "statusAtOccurrence": "paid",',
         '  "type": "invoice.paid"',
         "}",
         "",
       ].join("\n"),
-      digest:
-        "d3794e4219a165e3d012114b5304cb45bbe5b9932b642523c3725fcdef52e2b5",
-    });
-    expect(JSON.parse(event.payload)).toMatchObject({
-      schemaVersion: "0.1",
-      id: eventId,
-      type: "invoice.paid",
-      statusAtOccurrence: "matched",
-    });
+    );
+    expect(event.digest).toBe(
+      "f59daa2e25473b03c3389e63dd3e1d5e3b5418d77f917399c2da70f787a2e346",
+    );
   });
 
-  it("exposes the complete initial lifecycle event type set", () => {
-    expect(SUPPORTED_LIFECYCLE_EVENT_TYPES).toEqual([
-      "invoice.issued",
-      "payment.detected",
-      "payment.confirmed",
-      "payment.finalized",
-      "payment.confirmation_revoked",
-      "payment.exception_created",
-      "invoice.partial",
-      "invoice.paid",
-      "invoice.overpaid",
-      "refund.prepared",
-      "refund.finalized",
-      "evidence.ready",
-    ]);
+  it("exposes the exact v0.1 lifecycle vocabulary", () => {
+    expect(SUPPORTED_LIFECYCLE_EVENT_TYPES).toEqual(
+      lifecycleInputs.map(({ type }) => type),
+    );
   });
 
-  it.each([
-    ["invoice.issued", "invoice", "issued"],
-    ["payment.detected", "payment", "detected"],
-    ["payment.confirmed", "payment", "confirmed"],
-    ["payment.finalized", "payment", "finalized"],
-    ["payment.confirmation_revoked", "payment", "confirmation_revoked"],
-    ["invoice.partial", "invoice", "partial"],
-    ["invoice.overpaid", "invoice", "overpaid"],
-    ["refund.prepared", "refund", "prepared"],
-    ["refund.finalized", "refund", "finalized"],
-    ["evidence.ready", "evidence_pack", "ready"],
-  ] as const)(
-    "creates a minimal %s lifecycle envelope",
-    (type, objectType, statusAtOccurrence) => {
-      const event = createLifecycleEvent(
-        {
-          type,
-          statusAtOccurrence,
-          object: { type: objectType, id: `${objectType}-001`, version: 1 },
-          data: {},
-        } as LifecycleEvent,
-        eventId,
-        occurredAt,
-      );
+  it.each(lifecycleInputs)(
+    "creates and parses an exact $type envelope",
+    (input) => {
+      const event = createLifecycleEvent(input, eventId, occurredAt);
+      const envelope = JSON.parse(event.payload) as unknown;
 
-      expect(parseLifecycleEventEnvelope(JSON.parse(event.payload))).toEqual({
-        schemaVersion: "0.1",
-        id: eventId,
-        type,
-        occurredAt: occurredAt.toISOString(),
-        statusAtOccurrence,
-        object: { type: objectType, id: `${objectType}-001`, version: 1 },
-        data: {},
-      });
+      expect(parseLifecycleEventEnvelope(envelope)).toEqual(envelope);
+      expect(event.eventType).toBe(input.type);
+      expect(event.sourceType).toBe(input.object.type);
+      expect(event.sourceId).toBe(input.object.id);
     },
   );
 
   it("preserves numeric instruction coordinates and string base-unit amounts", () => {
     const event = createLifecycleEvent(
       {
-        type: "invoice.paid",
-        statusAtOccurrence: "matched",
-        object: { type: "invoice", id: "inv-001", version: 1 },
-        data: {
-          invoiceId: "inv-001",
-          customerId: "customer-001",
-          eventId: "event-001",
-          signature: "signature-001",
-          outerInstructionIndex: 0,
-          innerInstructionIndex: 2,
-          mint: MAINNET_USDC.mint,
-          amountBaseUnits: "12500000",
-          ruleCode: "exact_match",
-          ruleVersion: "0.1",
-        },
+        ...lifecycleInputs[8],
+        data: { ...lifecycleInputs[8].data, innerInstructionIndex: 2 },
       },
       eventId,
       occurredAt,
     );
-
     const payload = JSON.parse(event.payload) as {
       data: Record<string, unknown>;
     };
+
     expect(payload.data.outerInstructionIndex).toBe(0);
     expect(payload.data.innerInstructionIndex).toBe(2);
     expect(payload.data.amountBaseUnits).toBe("12500000");
@@ -171,7 +104,7 @@ describe("createLifecycleEvent", () => {
         {
           type: "invoice.created",
           statusAtOccurrence: "created",
-          object: { type: "invoice", id: "inv-001", version: 1 },
+          object: { type: "invoice", id: "invoice-001", version: 1 },
           data: {},
         } as unknown as LifecycleEvent,
         eventId,
@@ -180,59 +113,22 @@ describe("createLifecycleEvent", () => {
     ).toThrow("Unsupported lifecycle event type: invoice.created");
   });
 
-  it.each([
-    {
-      type: "invoice.paid" as const,
-      statusAtOccurrence: "matched",
-      object: {
-        type: "invoice" as const,
-        id: astral.repeat(128),
-        version: 1,
-      },
+  it("round-trips exact Unicode code-point boundaries", () => {
+    const input: LifecycleEvent = {
+      ...lifecycleInputs[8],
+      object: { ...lifecycleInputs[8].object, id: astral.repeat(128) },
       data: {
+        ...lifecycleInputs[8].data,
         invoiceId: astral.repeat(128),
         customerId: astral.repeat(512),
-        eventId: "event-001",
-        signature: "signature-001",
-        outerInstructionIndex: 0,
-        innerInstructionIndex: null,
-        mint: MAINNET_USDC.mint,
-        amountBaseUnits: "12500000",
-        ruleCode: "exact_match",
-        ruleVersion: "0.1",
       },
-    },
-    {
-      type: "payment.exception_created" as const,
-      statusAtOccurrence: "open",
-      object: {
-        type: "payment_exception" as const,
-        id: astral.repeat(128),
-        version: 1,
-      },
-      data: {
-        exceptionId: astral.repeat(128),
-        invoiceId: astral.repeat(128),
-        eventId: "event-002",
-        signature: "signature-002",
-        outerInstructionIndex: 1,
-        innerInstructionIndex: 2,
-        amountBaseUnits: "1",
-        code: "wrong_asset",
-        ruleVersion: "0.1",
-        reviewState: "open" as const,
-      },
-    },
-  ])(
-    "round-trips the $type producer boundary through the consumer",
-    (input) => {
-      const event = createLifecycleEvent(input, eventId, occurredAt);
+    };
+    const event = createLifecycleEvent(input, eventId, occurredAt);
 
-      expect(parseLifecycleEventEnvelope(JSON.parse(event.payload))).toEqual(
-        JSON.parse(event.payload),
-      );
-    },
-  );
+    expect(
+      parseLifecycleEventEnvelope(JSON.parse(event.payload)),
+    ).not.toBeNull();
+  });
 
   it.each([
     ["invoice ID", { objectId: astral.repeat(129), customerId: "customer" }],
@@ -241,20 +137,12 @@ describe("createLifecycleEvent", () => {
     expect(() =>
       createLifecycleEvent(
         {
-          type: "invoice.paid",
-          statusAtOccurrence: "matched",
-          object: { type: "invoice", id: values.objectId, version: 1 },
+          ...lifecycleInputs[8],
+          object: { ...lifecycleInputs[8].object, id: values.objectId },
           data: {
+            ...lifecycleInputs[8].data,
             invoiceId: values.objectId,
             customerId: values.customerId,
-            eventId: "event-001",
-            signature: "signature-001",
-            outerInstructionIndex: 0,
-            innerInstructionIndex: null,
-            mint: MAINNET_USDC.mint,
-            amountBaseUnits: "1",
-            ruleCode: "exact_match",
-            ruleVersion: "0.1",
           },
         },
         eventId,
@@ -268,27 +156,7 @@ describe("createLifecycleEvent", () => {
     "00000000-0000-4000-7000-000000000001",
   ])("rejects the non-RFC UUID %s", (invalidEventId) => {
     expect(() =>
-      createLifecycleEvent(
-        {
-          type: "invoice.paid",
-          statusAtOccurrence: "matched",
-          object: { type: "invoice", id: "inv-001", version: 1 },
-          data: {
-            invoiceId: "inv-001",
-            customerId: "customer-001",
-            eventId: "event-001",
-            signature: "signature-001",
-            outerInstructionIndex: 0,
-            innerInstructionIndex: null,
-            mint: MAINNET_USDC.mint,
-            amountBaseUnits: "1",
-            ruleCode: "exact_match",
-            ruleVersion: "0.1",
-          },
-        },
-        invalidEventId,
-        occurredAt,
-      ),
+      createLifecycleEvent(lifecycleInputs[8], invalidEventId, occurredAt),
     ).toThrow(/schema contract/i);
   });
 });

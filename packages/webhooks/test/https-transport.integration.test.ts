@@ -14,6 +14,7 @@ import {
   type DeliveryStore,
 } from "../src/index.js";
 import type { PinnedDispatcherFactoryInput } from "../src/transport/https-transport.js";
+import { TEST_SIGNATURE } from "./support/lifecycle-events.js";
 
 const certificateUrl = new URL(
   "./fixtures/TEST_ONLY_receiver.test.cert.pem",
@@ -101,7 +102,7 @@ describe("real pinned HTTPS transport", () => {
           invoiceId: "inv-real-https",
           customerId: "customer-real-https",
           eventId: "event-real-https",
-          signature: "signature-real-https",
+          signature: TEST_SIGNATURE,
           outerInstructionIndex: 0,
           innerInstructionIndex: null,
           mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",

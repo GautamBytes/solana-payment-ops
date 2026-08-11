@@ -1,0 +1,329 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { after, before, describe, it } from "node:test";
+import {
+  buildSpdxDocument,
+  classifyPublishedVersion,
+  environmentWithoutNpmCredentials,
+  loadReleaseManifest,
+  parseReleaseManifest,
+  verifyReleaseGitState,
+  verifyFixtureDigests,
+  verifyNpmOwnership,
+  verifyReleasePackageManifest,
+} from "../release-lib.mjs";
+
+let directory;
+
+before(async () => {
+  directory = await mkdtemp(join(tmpdir(), "payops-release-test-"));
+});
+
+after(async () => {
+  await rm(directory, { recursive: true, force: true });
+});
+
+describe("release manifest validation", () => {
+  it("accepts the exact dependency-ordered v0.1.0 bundle", async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL("../../release/manifests/0.1.0.json", import.meta.url),
+        "utf8",
+      ),
+    );
+
+    assert.equal(parseReleaseManifest(manifest, "v0.1.0").packages.length, 6);
+  });
+
+  it("rejects bundle mismatch, duplicates, unsafe paths, order, and versions", () => {
+    const base = releaseManifest();
+    assert.throws(
+      () =>
+        parseReleaseManifest({ ...base, bundleVersion: "v0.1.1" }, "v0.1.0"),
+      /bundle/i,
+    );
+    assert.throws(
+      () =>
+        parseReleaseManifest(
+          { ...base, packages: [base.packages[0], base.packages[0]] },
+          "v0.1.0",
+        ),
+      /exact package order/i,
+    );
+    assert.throws(
+      () =>
+        parseReleaseManifest(
+          {
+            ...base,
+            packages: [
+              { ...base.packages[0], path: "../outside" },
+              ...base.packages.slice(1),
+            ],
+          },
+          "v0.1.0",
+        ),
+      /exact package order/i,
+    );
+    assert.throws(
+      () =>
+        parseReleaseManifest(
+          {
+            ...base,
+            packages: [
+              base.packages[1],
+              base.packages[0],
+              ...base.packages.slice(2),
+            ],
+          },
+          "v0.1.0",
+        ),
+      /exact package order/i,
+    );
+    assert.throws(
+      () =>
+        parseReleaseManifest(
+          {
+            ...base,
+            packages: [
+              { ...base.packages[0], version: "0.1.1" },
+              ...base.packages.slice(1),
+            ],
+          },
+          "v0.1.0",
+        ),
+      /version/i,
+    );
+  });
+
+  it("rejects an unsafe tag before resolving a manifest path", async () => {
+    await assert.rejects(
+      loadReleaseManifest(directory, "../../package"),
+      /canonical/i,
+    );
+  });
+
+  it("rejects a missing exact release manifest", async () => {
+    await assert.rejects(loadReleaseManifest(directory, "v0.1.0"), /missing/i);
+  });
+
+  it("rejects package metadata that differs from the release manifest", () => {
+    const item = releaseManifest().packages[0];
+    assert.doesNotThrow(() =>
+      verifyReleasePackageManifest(item, {
+        name: "@payops/contracts",
+        version: "0.1.0",
+      }),
+    );
+    assert.throws(
+      () =>
+        verifyReleasePackageManifest(item, {
+          name: "@payops/contracts",
+          version: "0.1.1",
+        }),
+      /metadata mismatch/i,
+    );
+  });
+});
+
+describe("fixture digest validation", () => {
+  it("accepts exact bytes and rejects missing or changed fixtures", async () => {
+    const fixtures = join(directory, "fixtures");
+    await mkdir(fixtures);
+    const bytes = '{"fixtureVersion":"0.1"}\n';
+    await writeFile(join(fixtures, "case.json"), bytes);
+    const manifest = {
+      cases: [
+        {
+          file: "case.json",
+          sha256: createHash("sha256").update(bytes).digest("hex"),
+        },
+      ],
+    };
+    await verifyFixtureDigests(manifest, fixtures);
+    await writeFile(join(fixtures, "case.json"), `${bytes} `);
+    await assert.rejects(verifyFixtureDigests(manifest, fixtures), /digest/i);
+    manifest.cases[0].file = "missing.json";
+    await assert.rejects(verifyFixtureDigests(manifest, fixtures), /fixture/i);
+  });
+});
+
+describe("npm scope ownership evidence", () => {
+  it("requires the authenticated account to own the scope", () => {
+    const run = (_command, args) =>
+      args[0] === "whoami" ? "gautam\n" : '{"gautam":"owner"}\n';
+
+    assert.throws(
+      () => verifyNpmOwnership("@payops", undefined, run),
+      /missing/i,
+    );
+    assert.throws(
+      () => verifyNpmOwnership("@payops", "someone-else", run),
+      /does not match/i,
+    );
+    assert.doesNotThrow(() => verifyNpmOwnership("@payops", "gautam", run));
+    assert.throws(
+      () =>
+        verifyNpmOwnership("@payops", "gautam", (_command, args) =>
+          args[0] === "whoami" ? "gautam\n" : '{"gautam":"developer"}\n',
+        ),
+      /owner/i,
+    );
+  });
+
+  it("removes publication credentials from unprivileged child steps", () => {
+    const environment = environmentWithoutNpmCredentials({
+      NODE_AUTH_TOKEN: "node-token",
+      NPM_TOKEN: "npm-token",
+      PATH: "/usr/bin",
+    });
+
+    assert.deepEqual(environment, { PATH: "/usr/bin" });
+  });
+});
+
+describe("release source and resumable publication", () => {
+  it("requires a clean exact tagged checkout", () => {
+    assert.doesNotThrow(() => verifyReleaseGitState("", "abc", "abc"));
+    assert.throws(
+      () => verifyReleaseGitState(" M package.json", "abc", "abc"),
+      /clean/i,
+    );
+    assert.throws(
+      () => verifyReleaseGitState("", "abc", "def"),
+      /checked-out commit/i,
+    );
+  });
+
+  it("publishes only missing versions and accepts only matching bytes", () => {
+    assert.equal(
+      classifyPublishedVersion(
+        { status: 1, stdout: "", stderr: "npm error code E404" },
+        "sha512-local",
+      ),
+      "publish",
+    );
+    assert.equal(
+      classifyPublishedVersion(
+        { status: 0, stdout: '"sha512-local"\n', stderr: "" },
+        "sha512-local",
+      ),
+      "already-published",
+    );
+    assert.throws(
+      () =>
+        classifyPublishedVersion(
+          { status: 0, stdout: '"sha512-other"\n', stderr: "" },
+          "sha512-local",
+        ),
+      /different bytes/i,
+    );
+    assert.throws(
+      () =>
+        classifyPublishedVersion(
+          { status: 1, stdout: "", stderr: "npm error code E401" },
+          "sha512-local",
+        ),
+      /inspect/i,
+    );
+  });
+});
+
+describe("release SBOM", () => {
+  it("describes released tarballs and exact direct dependencies with valid purls", () => {
+    const document = buildSpdxDocument({
+      tag: "v0.1.0",
+      created: "2026-08-11T00:00:00.000Z",
+      repositoryUrl: "https://github.com/GautamBytes/solana-payment-ops",
+      packages: [
+        {
+          name: "@payops/contracts",
+          version: "0.1.0",
+          license: "Apache-2.0",
+          dependencies: { zod: "4.4.3" },
+          artifact: {
+            file: "payops-contracts-0.1.0.tgz",
+            sha256: "a".repeat(64),
+            sha512: "b".repeat(128),
+          },
+        },
+        {
+          name: "@payops/core",
+          version: "0.1.0",
+          license: "Apache-2.0",
+          dependencies: {
+            "@payops/contracts": "workspace:^0.1.0",
+            zod: "4.4.3",
+          },
+          artifact: {
+            file: "payops-core-0.1.0.tgz",
+            sha256: "c".repeat(64),
+            sha512: "d".repeat(128),
+          },
+        },
+      ],
+    });
+
+    assert.deepEqual(document.documentDescribes, [
+      "SPDXRef-Package-payops-contracts-0.1.0",
+      "SPDXRef-Package-payops-core-0.1.0",
+    ]);
+    assert.ok(
+      document.packages.some((item) =>
+        item.externalRefs?.some(
+          (reference) =>
+            reference.referenceLocator === "pkg:npm/%40payops/contracts@0.1.0",
+        ),
+      ),
+    );
+    assert.ok(
+      document.packages.some((item) =>
+        item.externalRefs?.some(
+          (reference) => reference.referenceLocator === "pkg:npm/zod@4.4.3",
+        ),
+      ),
+    );
+    assert.ok(
+      document.relationships.some(
+        (relationship) =>
+          relationship.spdxElementId === "SPDXRef-Package-payops-core-0.1.0" &&
+          relationship.relationshipType === "DEPENDS_ON" &&
+          relationship.relatedSpdxElement ===
+            "SPDXRef-Package-payops-contracts-0.1.0",
+      ),
+    );
+    assert.equal(
+      JSON.stringify(document).includes("workspace:%5E0.1.0"),
+      false,
+    );
+  });
+});
+
+function releaseManifest() {
+  return {
+    schemaVersion: "0.1",
+    bundleVersion: "v0.1.0",
+    packages: [
+      {
+        name: "@payops/contracts",
+        version: "0.1.0",
+        path: "packages/contracts",
+      },
+      { name: "@payops/core", version: "0.1.0", path: "packages/core" },
+      {
+        name: "@payops/ingestion",
+        version: "0.1.0",
+        path: "packages/ingestion",
+      },
+      { name: "@payops/webhooks", version: "0.1.0", path: "packages/webhooks" },
+      {
+        name: "@payops/reconciliation",
+        version: "0.1.0",
+        path: "packages/reconciliation",
+      },
+      { name: "@payops/pilot", version: "0.1.0", path: "packages/pilot" },
+    ],
+  };
+}

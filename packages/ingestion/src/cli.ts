@@ -1,7 +1,4 @@
-#!/usr/bin/env node
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { address } from "@solana/kit";
 import { stringifyCanonical } from "@payops/core";
 import { createCanonicalSnapshot } from "./archive/canonical-snapshot.js";
@@ -451,12 +448,4 @@ export async function runCli(
     output(dependencies, { error: safe });
     return safe.retryable ? 1 : 2;
   }
-}
-
-const entryPath = process.argv[1];
-if (
-  entryPath !== undefined &&
-  resolve(entryPath) === fileURLToPath(import.meta.url)
-) {
-  process.exitCode = await runCli(process.argv.slice(2));
 }

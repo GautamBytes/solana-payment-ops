@@ -1,0 +1,421 @@
+{
+  "$defs": {
+    "__schema0": {
+      "maxLength": 44,
+      "minLength": 32,
+      "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+      "type": "string"
+    },
+    "__schema1": {
+      "enum": [
+        "confirmed",
+        "finalized"
+      ],
+      "type": "string"
+    },
+    "__schema2": {
+      "maxLength": 88,
+      "minLength": 64,
+      "pattern": "^[1-9A-HJ-NP-Za-km-z]{64,88}$",
+      "type": "string"
+    },
+    "__schema3": {
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "__schema4": {
+      "additionalProperties": false,
+      "properties": {
+        "accounts": {
+          "items": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "type": "array"
+        },
+        "data": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "programIdIndex": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "stackHeight": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/__schema3"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "programIdIndex",
+        "accounts",
+        "data"
+      ],
+      "type": "object"
+    },
+    "__schema5": {
+      "additionalProperties": false,
+      "properties": {
+        "accountIndex": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "mint": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "owner": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "programId": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "uiTokenAmount": {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "type": "string"
+            },
+            "decimals": {
+              "$ref": "#/$defs/__schema3"
+            }
+          },
+          "required": [
+            "amount",
+            "decimals"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "accountIndex",
+        "mint",
+        "uiTokenAmount"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/GautamBytes/solana-payment-ops/v0.1.0/packages/contracts/schemas/payment-fixture.v0.1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectation": {
+      "additionalProperties": false,
+      "properties": {
+        "amountBaseUnits": {
+          "maxLength": 20,
+          "pattern": "^(0|[1-9][0-9]{0,77})$",
+          "type": "string"
+        },
+        "cluster": {
+          "const": "mainnet-beta",
+          "type": "string"
+        },
+        "decimals": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "destinationTokenAccount": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "mint": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "recipientOwner": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "reference": {
+          "$ref": "#/$defs/__schema0"
+        },
+        "requiredCommitment": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "tokenProgram": {
+          "$ref": "#/$defs/__schema0"
+        }
+      },
+      "required": [
+        "cluster",
+        "recipientOwner",
+        "destinationTokenAccount",
+        "mint",
+        "tokenProgram",
+        "amountBaseUnits",
+        "decimals",
+        "reference",
+        "requiredCommitment"
+      ],
+      "type": "object"
+    },
+    "fixtureVersion": {
+      "const": "0.1",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "rpcTransaction": {
+      "additionalProperties": false,
+      "properties": {
+        "blockTime": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cluster": {
+          "enum": [
+            "mainnet-beta",
+            "devnet",
+            "localnet"
+          ],
+          "type": "string"
+        },
+        "commitment": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "meta": {
+          "additionalProperties": false,
+          "properties": {
+            "err": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": {},
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "innerInstructions": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "index": {
+                        "$ref": "#/$defs/__schema3"
+                      },
+                      "instructions": {
+                        "items": {
+                          "$ref": "#/$defs/__schema4"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "index",
+                      "instructions"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "loadedAddresses": {
+              "additionalProperties": false,
+              "properties": {
+                "readonly": {
+                  "items": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "type": "array"
+                },
+                "writable": {
+                  "items": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "writable",
+                "readonly"
+              ],
+              "type": "object"
+            },
+            "postTokenBalances": {
+              "items": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "type": "array"
+            },
+            "preTokenBalances": {
+              "items": {
+                "$ref": "#/$defs/__schema5"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "err",
+            "preTokenBalances",
+            "postTokenBalances"
+          ],
+          "type": "object"
+        },
+        "signature": {
+          "$ref": "#/$defs/__schema2"
+        },
+        "slot": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "transaction": {
+          "additionalProperties": false,
+          "properties": {
+            "message": {
+              "additionalProperties": false,
+              "properties": {
+                "accountKeys": {
+                  "items": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "type": "array"
+                },
+                "addressTableLookups": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "accountKey": {
+                        "$ref": "#/$defs/__schema0"
+                      },
+                      "readonlyIndexes": {
+                        "items": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "writableIndexes": {
+                        "items": {
+                          "maximum": 255,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "accountKey",
+                      "writableIndexes",
+                      "readonlyIndexes"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "header": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "numReadonlySignedAccounts": {
+                      "$ref": "#/$defs/__schema3"
+                    },
+                    "numReadonlyUnsignedAccounts": {
+                      "$ref": "#/$defs/__schema3"
+                    },
+                    "numRequiredSignatures": {
+                      "$ref": "#/$defs/__schema3"
+                    }
+                  },
+                  "required": [
+                    "numRequiredSignatures",
+                    "numReadonlySignedAccounts",
+                    "numReadonlyUnsignedAccounts"
+                  ],
+                  "type": "object"
+                },
+                "instructions": {
+                  "items": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "type": "array"
+                },
+                "recentBlockhash": {
+                  "$ref": "#/$defs/__schema0"
+                }
+              },
+              "required": [
+                "header",
+                "accountKeys",
+                "addressTableLookups",
+                "instructions",
+                "recentBlockhash"
+              ],
+              "type": "object"
+            },
+            "signatures": {
+              "items": {
+                "$ref": "#/$defs/__schema2"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "signatures",
+            "message"
+          ],
+          "type": "object"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "const": "legacy",
+              "type": "string"
+            },
+            {
+              "const": 0,
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "required": [
+        "cluster",
+        "commitment",
+        "signature",
+        "slot",
+        "blockTime",
+        "version",
+        "transaction",
+        "meta"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "fixtureVersion",
+    "name",
+    "expectation",
+    "rpcTransaction"
+  ],
+  "title": "PayOps payment fixture v0.1",
+  "type": "object",
+  "x-payops-version": "0.1"
+}
