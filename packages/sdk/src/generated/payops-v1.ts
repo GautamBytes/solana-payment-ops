@@ -165,6 +165,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/invoices/{invoiceId}/checkout-links": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createCheckoutLink"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/invoices/{invoiceId}/payment-attempts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createMerchantPaymentAttempt"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/pay/{checkoutToken}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getPublicCheckout"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/pay/{checkoutToken}/quotes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createPublicPaymentAttempt"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/pay/{checkoutToken}/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getPublicCheckoutStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/merchant-wallets": {
     parameters: {
       query?: never;
@@ -333,7 +413,7 @@ export interface components {
           signature: string;
         };
     /** @enum {string} */
-    InvoiceStatus: "draft" | "issued" | "cancelled";
+    InvoiceStatus: "draft" | "issued" | "paid" | "cancelled";
     /** @enum {string} */
     InvoiceCurrency: "USD" | "EUR" | "GBP" | "INR";
     MinorUnits: string;
@@ -426,6 +506,65 @@ export interface components {
         | "merchant_error"
         | "other_reviewed";
     };
+    CheckoutLink: {
+      checkoutId: components["schemas"]["Uuid"];
+      /** Format: uri */
+      checkoutUrl: string;
+      createdAt: components["schemas"]["Timestamp"];
+    };
+    CreatePaymentAttemptInput: {
+      assetSymbol: components["schemas"]["AssetSymbol"];
+    };
+    /** @enum {string} */
+    PublicPaymentStatus:
+      | "awaiting_payment"
+      | "detected"
+      | "confirmed"
+      | "finalized"
+      | "paid"
+      | "expired"
+      | "confirmation_revoked"
+      | "exception";
+    PublicPaymentAttempt: {
+      publicAttemptId: components["schemas"]["Uuid"];
+      assetSymbol: components["schemas"]["AssetSymbol"];
+      mint: string;
+      amountTokens: string;
+      amountBaseUnits: string;
+      paymentUrl: string;
+      reference: string;
+      quoteExpiresAt: components["schemas"]["Timestamp"];
+      status: components["schemas"]["PublicPaymentStatus"];
+      statusUpdatedAt: components["schemas"]["Timestamp"];
+    };
+    PublicAsset: {
+      symbol: components["schemas"]["AssetSymbol"];
+      mint: string;
+      /** @constant */
+      decimals: 6;
+    };
+    /** @enum {string} */
+    PublicInvoiceStatus: "issued" | "overdue" | "paid" | "exception";
+    PublicCheckout: {
+      /** @constant */
+      schemaVersion: "0.1";
+      merchant: {
+        displayName: string;
+      };
+      invoice: {
+        publicReference: string;
+        currency: components["schemas"]["InvoiceCurrency"];
+        totalMinorUnits: components["schemas"]["MinorUnits"];
+        dueAt: components["schemas"]["Timestamp"];
+        status: components["schemas"]["PublicInvoiceStatus"];
+      };
+      acceptedAssets: components["schemas"]["PublicAsset"][];
+      currentAttempt: components["schemas"]["PublicPaymentAttempt"] | null;
+    };
+    PublicCheckoutStatus: {
+      invoiceStatus: components["schemas"]["PublicInvoiceStatus"];
+      currentAttempt: components["schemas"]["PublicPaymentAttempt"] | null;
+    };
   };
   responses: {
     /** @description Healthy */
@@ -498,6 +637,47 @@ export interface components {
         "application/json": components["schemas"]["WalletChallenge"];
       };
     };
+    /** @description Regenerable hosted checkout capability */
+    CheckoutLink: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["CheckoutLink"];
+      };
+    };
+    /** @description Exact Solana Pay payment request */
+    PaymentAttempt: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PublicPaymentAttempt"];
+      };
+    };
+    /** @description Minimized public checkout view */
+    PublicCheckout: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PublicCheckout"];
+      };
+    };
+    /** @description Current checkout settlement status */
+    PublicCheckoutStatus: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        ETag?: string;
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PublicCheckoutStatus"];
+      };
+    };
   };
   parameters: {
     Limit: number;
@@ -505,6 +685,7 @@ export interface components {
     IdempotencyKey: string;
     CustomerId: components["schemas"]["Uuid"];
     InvoiceId: components["schemas"]["Uuid"];
+    CheckoutToken: string;
     WalletId: components["schemas"]["Uuid"];
   };
   requestBodies: never;
@@ -810,6 +991,122 @@ export interface operations {
       403: components["responses"]["ApiError"];
       404: components["responses"]["ApiError"];
       409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  createCheckoutLink: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        invoiceId: components["parameters"]["InvoiceId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": Record<string, never>;
+      };
+    };
+    responses: {
+      201: components["responses"]["CheckoutLink"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  createMerchantPaymentAttempt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        invoiceId: components["parameters"]["InvoiceId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreatePaymentAttemptInput"];
+      };
+    };
+    responses: {
+      201: components["responses"]["PaymentAttempt"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  getPublicCheckout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        checkoutToken: components["parameters"]["CheckoutToken"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components["responses"]["PublicCheckout"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  createPublicPaymentAttempt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        checkoutToken: components["parameters"]["CheckoutToken"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreatePaymentAttemptInput"];
+      };
+    };
+    responses: {
+      201: components["responses"]["PaymentAttempt"];
+      400: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  getPublicCheckoutStatus: {
+    parameters: {
+      query?: never;
+      header?: {
+        "If-None-Match"?: string;
+      };
+      path: {
+        checkoutToken: components["parameters"]["CheckoutToken"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components["responses"]["PublicCheckoutStatus"];
+      /** @description Checkout status has not changed */
+      304: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      404: components["responses"]["ApiError"];
       429: components["responses"]["ApiError"];
     };
   };

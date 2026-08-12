@@ -57,6 +57,24 @@ describe("release manifest validation", () => {
     );
   });
 
+  it("accepts the dependency-ordered hosted checkout v0.3.0 bundle", async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL("../../release/manifests/0.3.0.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const parsed = parseReleaseManifest(manifest, "v0.3.0");
+    assert.deepEqual(
+      parsed.packages.map(({ name, version }) => [name, version]),
+      [
+        ["@payops/ingestion", "0.2.0"],
+        ["@payops/reconciliation", "0.2.0"],
+        ["@payops/sdk", "0.2.0"],
+      ],
+    );
+  });
+
   it("rejects bundle mismatch, duplicates, unsafe paths, order, and versions", () => {
     const base = releaseManifest();
     assert.throws(

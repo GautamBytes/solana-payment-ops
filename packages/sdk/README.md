@@ -81,13 +81,21 @@ const draft = await payops.createInvoice(
 const issued = await payops.issueInvoice(draft.id, {
   idempotencyKey: "invoice:order-42:issue",
 });
+const checkout = await payops.createCheckoutLink(issued.invoice.id);
+// Send checkout.checkoutUrl to the customer. The raw URL is a capability:
+// do not log it or place it in analytics.
+
+// A merchant backend can also create the exact request directly.
+const attempt = await payops.createPaymentAttempt(issued.invoice.id, {
+  assetSymbol: "USDC",
+});
 const page = await payops.listInvoices({ status: "issued", limit: 25 });
 ```
 
 Catch `PayOpsApiError` to handle stable `status`, `code`, and `requestId` fields without logging credentials or raw response bodies.
 
-Every mutation that can create a durable effect requires an explicit idempotency key. The client does not automatically retry requests, so callers retain control over payment-adjacent side effects. Requests have a 10-second default timeout and accept an `AbortSignal`.
+Invoice, customer, and wallet mutations require an explicit idempotency key. Checkout-link creation deterministically returns the active link; payment-attempt creation fails with `409` while an active attempt exists. The client never automatically retries requests, so callers retain control over payment-adjacent side effects. Requests have a 10-second default timeout and accept an `AbortSignal`.
 
 The API key is server-side credential material. Do not embed it in a browser or mobile application.
 
-PR 7 manages merchant wallets, customers, and invoice issuance. Hosted checkout links and automatic Solana payment detection arrive in PR 8; this SDK does not yet create payment requests or mark invoices paid.
+Hosted checkout links expose only minimized invoice data. PayOps creates exact USDC or USDT Solana Pay requests, tracks detected/confirmed/finalized states, and marks the invoice paid only from finalized matching transfer evidence.

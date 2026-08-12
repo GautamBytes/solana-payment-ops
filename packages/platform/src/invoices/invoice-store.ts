@@ -183,7 +183,7 @@ export class InvoiceStore {
     }
     if (
       input.status !== undefined &&
-      !["draft", "issued", "cancelled"].includes(input.status)
+      !["draft", "issued", "paid", "cancelled"].includes(input.status)
     ) {
       throw new InvoiceError("invalid_invoice_list");
     }
@@ -402,6 +402,8 @@ export class InvoiceStore {
           );
           if (row.status === "cancelled")
             throw new InvoiceError("invoice_already_cancelled");
+          if (row.status === "paid")
+            throw new InvoiceError("invoice_has_payment");
           const allocation = await transaction<{ present: boolean }[]>`
             SELECT EXISTS(
               SELECT 1
@@ -413,6 +415,25 @@ export class InvoiceStore {
             ) AS present
           `;
           if (allocation[0]?.present === true)
+            throw new InvoiceError("invoice_has_payment");
+          const hostedPayment = await transaction<{ present: boolean }[]>`
+            SELECT EXISTS(
+              SELECT 1 FROM payment_attempts
+              WHERE organization_id = ${input.organizationId}::uuid
+                AND invoice_id = ${row.id}::uuid
+                AND state IN (
+                  'created', 'quoted', 'awaiting_payment', 'detected',
+                  'confirmed', 'finalized', 'confirmation_revoked', 'allocated'
+                )
+              FOR UPDATE
+            ) OR EXISTS(
+              SELECT 1 FROM hosted_payment_allocations
+              WHERE organization_id = ${input.organizationId}::uuid
+                AND invoice_id = ${row.id}::uuid AND active
+              FOR UPDATE
+            ) AS present
+          `;
+          if (hostedPayment[0]?.present === true)
             throw new InvoiceError("invoice_has_payment");
           const previousState = row.status;
           const version = row.version + 1;

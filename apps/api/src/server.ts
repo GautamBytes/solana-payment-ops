@@ -1,10 +1,15 @@
 import {
   acceptBootstrapInvitation,
+  CheckoutStore,
+  CommercialFiatRateAdapter,
+  EcbReferenceRateAdapter,
   HttpSolanaAccountRpcPort,
   CustomerStore,
   IdempotencyStore,
   InvoiceStore,
   OrganizationDatabase,
+  PaymentAttemptService,
+  PythHermesPriceAdapter,
   RateLimitStore,
   type SolanaAccountRpcPort,
   type EmailDeliveryPort,
@@ -25,6 +30,8 @@ import { IdempotentRouteExecutor } from "./protocol/idempotent-route.js";
 import { registerMerchantWalletRoutes } from "./routes/merchant-wallets.js";
 import { registerCustomerRoutes } from "./routes/customers.js";
 import { registerInvoiceRoutes } from "./routes/invoices.js";
+import { registerCheckoutRoutes } from "./routes/public-checkout.js";
+import { CheckoutTokenKeyring } from "./security/public-token.js";
 
 export interface ApiServerDependencies {
   readonly emailDelivery: EmailDeliveryPort;
@@ -59,13 +66,14 @@ export function buildApiServer(
   const auth = createPayOpsAuth(config, dependencies.emailDelivery);
   const authContext = createAuthContextResolver(auth.auth, config.databaseUrl);
   const platformDatabase = new OrganizationDatabase(config.databaseUrl);
+  const solanaRpc =
+    dependencies.solanaRpc ??
+    new HttpSolanaAccountRpcPort({ endpoint: config.solanaRpcUrl });
   const walletStore = new WalletStore({
     database: platformDatabase,
     proofDomain: config.walletProofDomain,
     providerId: config.ingestionProviderId,
-    rpc:
-      dependencies.solanaRpc ??
-      new HttpSolanaAccountRpcPort({ endpoint: config.solanaRpcUrl }),
+    rpc: solanaRpc,
   });
   const idempotency = new IdempotentRouteExecutor(
     new IdempotencyStore(platformDatabase),
@@ -74,6 +82,25 @@ export function buildApiServer(
   const rateLimits = new RateLimitStore(platformDatabase, {
     limit: config.rateLimitMax,
     windowSeconds: config.rateLimitWindowSeconds,
+  });
+  const checkoutStore = new CheckoutStore(platformDatabase, config.databaseUrl);
+  const checkoutTokens = new CheckoutTokenKeyring(config.checkoutTokenKeys);
+  const paymentAttempts = new PaymentAttemptService({
+    database: platformDatabase,
+    providerId: config.ingestionProviderId,
+    environment: config.environment === "production" ? "production" : "test",
+    stablecoinPrices: new PythHermesPriceAdapter({
+      endpoint: config.pythHermesEndpoint,
+      accessToken: config.pythAccessToken,
+      feeds: config.pythFeedIds,
+    }),
+    fiatRates:
+      config.commercialFx === undefined
+        ? new EcbReferenceRateAdapter({ endpoint: config.ecbEndpoint })
+        : new CommercialFiatRateAdapter(config.commercialFx),
+    quoteHead: {
+      getFinalizedHead: async () => solanaRpc.getFinalizedHead(),
+    },
   });
 
   server.route({
@@ -209,11 +236,20 @@ export function buildApiServer(
     idempotency,
     rateLimits,
   });
+  registerCheckoutRoutes(server, {
+    auth: authContext,
+    checkouts: checkoutStore,
+    tokens: checkoutTokens,
+    paymentAttempts,
+    rateLimits,
+    checkoutOrigin: config.checkoutOrigin,
+  });
 
   server.addHook("onClose", async () => {
     await Promise.all([
       auth.close(),
       authContext.close(),
+      checkoutStore.close(),
       platformDatabase.close(),
     ]);
   });

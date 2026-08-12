@@ -1,0 +1,36 @@
+{
+  "name": "@payops/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "payops-worker": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/runner.d.ts",
+      "import": "./dist/runner.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "pnpm run test:unit && pnpm run test:dist",
+    "test:dist": "pnpm run build && node test/worker.esm-smoke.mjs",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@payops/ingestion": "workspace:^0.2.0",
+    "@payops/platform": "workspace:*",
+    "@payops/webhooks": "workspace:^0.1.0",
+    "postgres": "3.4.7"
+  },
+  "devDependencies": {
+    "@payops/reconciliation": "workspace:^0.1.0",
+    "@types/node": "22.20.1",
+    "vitest": "4.1.10"
+  }
+}

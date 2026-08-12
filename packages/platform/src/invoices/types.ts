@@ -2,7 +2,7 @@ import type { AssetSymbol } from "../wallets/asset-registry.js";
 
 export const INVOICE_CURRENCIES = ["USD", "EUR", "GBP", "INR"] as const;
 export type InvoiceCurrency = (typeof INVOICE_CURRENCIES)[number];
-export type InvoiceStatus = "draft" | "issued" | "cancelled";
+export type InvoiceStatus = "draft" | "issued" | "paid" | "cancelled";
 
 export interface InvoiceLineInput {
   readonly description: string;

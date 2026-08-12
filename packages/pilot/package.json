@@ -40,8 +40,8 @@
   },
   "dependencies": {
     "@payops/core": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.1.0",
-    "@payops/reconciliation": "workspace:^0.1.0",
+    "@payops/ingestion": "workspace:^0.2.0",
+    "@payops/reconciliation": "workspace:^0.2.0",
     "@payops/webhooks": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "postgres": "3.4.7",

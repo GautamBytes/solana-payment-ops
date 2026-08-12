@@ -110,6 +110,47 @@ describe("PayOps SDK", () => {
     expect(init?.body).toBe("{}");
   });
 
+  test("creates hosted checkout links and exact payment attempts", async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        json(
+          {
+            checkoutId: RESOURCE_ID,
+            checkoutUrl: "https://pay.example.com/pay/capability",
+            createdAt: "2026-08-12T12:00:00.000Z",
+          },
+          201,
+        ),
+      )
+      .mockResolvedValueOnce(
+        json({ publicAttemptId: RESOURCE_ID, assetSymbol: "USDC" }, 201),
+      );
+    const client = createPayOpsClient({
+      baseUrl: "https://api.example.com",
+      apiKey: "secret-key",
+      fetch,
+    });
+    await client.createCheckoutLink(RESOURCE_ID, { requestId: REQUEST_ID });
+    await client.createPaymentAttempt(
+      RESOURCE_ID,
+      { assetSymbol: "USDC" },
+      { requestId: REQUEST_ID },
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const [linkUrl, linkInit] = fetch.mock.calls[0] ?? [];
+    const [attemptUrl, attemptInit] = fetch.mock.calls[1] ?? [];
+    expect(String(linkUrl)).toBe(
+      `https://api.example.com/v1/invoices/${RESOURCE_ID}/checkout-links`,
+    );
+    expect(String(attemptUrl)).toBe(
+      `https://api.example.com/v1/invoices/${RESOURCE_ID}/payment-attempts`,
+    );
+    expect(linkInit?.body).toBe("{}");
+    expect(attemptInit?.body).toBe('{"assetSymbol":"USDC"}');
+    expect(new Headers(linkInit?.headers).get("idempotency-key")).toBeNull();
+  });
+
   test("rejects invalid identifiers and header injection before fetch", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const client = createPayOpsClient({

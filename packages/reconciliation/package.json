@@ -1,6 +1,6 @@
 {
   "name": "@payops/reconciliation",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Deterministic invoice reconciliation for finalized Solana payments",
   "type": "module",
   "license": "Apache-2.0",
@@ -44,7 +44,7 @@
     "postgres": "3.4.7"
   },
   "devDependencies": {
-    "@payops/ingestion": "workspace:*",
+    "@payops/ingestion": "workspace:^0.2.0",
     "vitest": "4.1.10"
   }
 }

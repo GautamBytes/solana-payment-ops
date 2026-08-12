@@ -78,6 +78,38 @@ describe("HttpSolanaRpc", () => {
     expect(redirect).toBe("error");
   });
 
+  it("propagates worker cancellation to an active RPC request", async () => {
+    const controller = new AbortController();
+    let observedSignal: AbortSignal | undefined;
+    const rpc = new HttpSolanaRpc(
+      {
+        cluster: "mainnet-beta",
+        endpoint: "https://rpc.invalid",
+        signal: controller.signal,
+      },
+      (async (_input, init) => {
+        observedSignal = init?.signal ?? undefined;
+        return new Promise<Response>((_resolve, reject) => {
+          observedSignal?.addEventListener(
+            "abort",
+            () => reject(new Error("aborted")),
+            {
+              once: true,
+            },
+          );
+        });
+      }) as typeof fetch,
+    );
+
+    const request = rpc.getSlot("confirmed");
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({
+      code: "rpc_transport_error",
+    });
+    expect(observedSignal?.aborted).toBe(true);
+  });
+
   it("requests a stable captured address head", async () => {
     const requests: CapturedRequest[] = [];
     const rpc = new HttpSolanaRpc(
