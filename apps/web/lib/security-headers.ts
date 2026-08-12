@@ -2,6 +2,7 @@ export function checkoutSecurityHeaders(input: {
   readonly nonce: string;
   readonly apiOrigin: string;
   readonly development: boolean;
+  readonly allowSameOriginForms?: boolean;
 }): Readonly<Record<string, string>> {
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.nonce)) {
     throw new TypeError("Checkout CSP nonce is invalid");
@@ -17,7 +18,9 @@ export function checkoutSecurityHeaders(input: {
     `connect-src 'self' ${apiOrigin}`,
     "object-src 'none'",
     "base-uri 'none'",
-    "form-action 'none'",
+    input.allowSameOriginForms === true
+      ? "form-action 'self'"
+      : "form-action 'none'",
     "frame-ancestors 'none'",
   ].join("; ");
   return {

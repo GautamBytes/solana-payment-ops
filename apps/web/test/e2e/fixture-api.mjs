@@ -37,6 +37,27 @@ const checkout = {
   ],
   currentAttempt: null,
 };
+const operationsException = {
+  id: "00000000-0000-4000-8000-000000000201",
+  invoiceId: "00000000-0000-4000-8000-000000000202",
+  attemptId: "00000000-0000-4000-8000-000000000203",
+  eventId: "payment-exception-201",
+  signature: "4Nd1mYfYhG9Q2WbLAh2R6eqn",
+  amountBaseUnits: "125500000",
+  assetSymbol: "USDC",
+  mint,
+  decimals: 6,
+  ruleCode: "wrong_amount",
+  ruleVersion: "1.0.0",
+  reviewState: "open",
+  assignedTo: null,
+  resolutionCode: null,
+  resolutionNote: null,
+  resolvedBy: null,
+  resolvedAt: null,
+  version: 1,
+  createdAt: "2026-08-12T10:00:00.000Z",
+};
 
 let state = resetState("static");
 
@@ -58,6 +79,44 @@ createServer(async (request, response) => {
     cors(response);
     response.writeHead(204).end();
     return;
+  }
+  if (url.pathname === "/v1/exceptions" && request.method === "GET") {
+    const requestedState = url.searchParams.get("state");
+    return json(response, 200, {
+      data:
+        requestedState === null ||
+        requestedState === state.exception.reviewState
+          ? [state.exception]
+          : [],
+      nextCursor: null,
+    });
+  }
+  if (
+    url.pathname === `/v1/exceptions/${operationsException.id}/assign` &&
+    request.method === "POST"
+  ) {
+    const body = await readJson(request);
+    state.exception = {
+      ...state.exception,
+      reviewState: "assigned",
+      assignedTo: body.assignee,
+      version: state.exception.version + 1,
+    };
+    return json(response, 200, state.exception);
+  }
+  if (url.pathname === "/v1/evidence-packs" && request.method === "POST") {
+    const body = await readJson(request);
+    return json(response, 201, {
+      id: "00000000-0000-4000-8000-000000000204",
+      invoiceId: body.invoiceId,
+    });
+  }
+  if (url.pathname === "/v1/exports" && request.method === "POST") {
+    const body = await readJson(request);
+    return json(response, 201, {
+      id: "00000000-0000-4000-8000-000000000205",
+      format: body.format,
+    });
   }
   if (url.pathname === `/pay/${token}` && request.method === "GET") {
     return json(response, 200, {
@@ -109,6 +168,7 @@ function resetState(scenario) {
     quoteCalls: 0,
     statusCalls: 0,
     keys: [],
+    exception: { ...operationsException },
   };
 }
 

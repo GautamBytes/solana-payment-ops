@@ -1,8 +1,11 @@
 import {
   acceptBootstrapInvitation,
   CheckoutStore,
+  AccountingExportService,
   CommercialFiatRateAdapter,
   EcbReferenceRateAdapter,
+  EvidencePackService,
+  ExceptionStore,
   HttpSolanaAccountRpcPort,
   CustomerStore,
   IdempotencyStore,
@@ -31,6 +34,7 @@ import { registerMerchantWalletRoutes } from "./routes/merchant-wallets.js";
 import { registerCustomerRoutes } from "./routes/customers.js";
 import { registerInvoiceRoutes } from "./routes/invoices.js";
 import { registerCheckoutRoutes } from "./routes/public-checkout.js";
+import { registerOperationRoutes } from "./routes/operations.js";
 import { CheckoutTokenKeyring } from "./security/public-token.js";
 
 export interface ApiServerDependencies {
@@ -102,6 +106,13 @@ export function buildApiServer(
       getFinalizedHead: async () => solanaRpc.getFinalizedHead(),
     },
   });
+  const evidencePacks =
+    config.evidenceSigning === undefined
+      ? undefined
+      : new EvidencePackService(platformDatabase, {
+          signingKeyId: config.evidenceSigning.keyId,
+          privateKeyPem: config.evidenceSigning.privateKeyPem,
+        });
 
   server.route({
     method: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -243,6 +254,14 @@ export function buildApiServer(
     paymentAttempts,
     rateLimits,
     checkoutOrigin: config.checkoutOrigin,
+  });
+  registerOperationRoutes(server, {
+    auth: authContext,
+    rateLimits,
+    idempotency,
+    exceptions: new ExceptionStore(platformDatabase),
+    ...(evidencePacks === undefined ? {} : { evidence: evidencePacks }),
+    exports: new AccountingExportService(platformDatabase),
   });
 
   server.addHook("onClose", async () => {

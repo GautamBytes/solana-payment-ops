@@ -31,6 +31,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         PAYOPS_API_ORIGIN: apiOrigin,
+        PAYOPS_WEB_ORIGIN: webOrigin,
         NEXT_PUBLIC_PAYOPS_API_ORIGIN: apiOrigin,
       },
     },

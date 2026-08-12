@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { generateKeyPairSigner } from "@solana/kit";
 import { runMigrations as runIngestionMigrations } from "@payops/ingestion";
 import { runMigrations as runReconciliationMigrations } from "@payops/reconciliation";
@@ -7,12 +7,16 @@ import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   CheckoutStore,
+  AccountingExportService,
+  ExceptionStore,
+  EvidencePackService,
   InvoiceStore,
   OrganizationDatabase,
   PaymentAttemptService,
   PaymentStatusProjector,
   QuoteExpiryService,
   runPlatformMigrations,
+  verifyEvidencePack,
   type StablecoinObservation,
 } from "../src/index.js";
 
@@ -112,6 +116,20 @@ describeDatabase("hosted payment status projection", () => {
     expect(evidence.invoice).toEqual({ status: "paid", version: 3 });
     expect(evidence.allocations).toBe(1);
     expect(evidence.exceptions).toBe(0);
+    expect(evidence.journals).toEqual([
+      {
+        source_type: "invoice_issued",
+        source_id: fixture.invoiceId,
+        debit: "100",
+        credit: "100",
+      },
+      {
+        source_type: "payment_received",
+        source_id: "hosted-event-1",
+        debit: "100",
+        credit: "100",
+      },
+    ]);
     expect(evidence.history).toEqual([
       "awaiting_payment",
       "detected",
@@ -146,6 +164,20 @@ describeDatabase("hosted payment status projection", () => {
     expect(evidence.invoice.status).toBe("issued");
     expect(evidence.allocations).toBe(0);
     expect(evidence.exceptions).toBe(1);
+    expect(evidence.journals).toEqual([
+      {
+        source_type: "invoice_issued",
+        source_id: fixture.invoiceId,
+        debit: "100",
+        credit: "100",
+      },
+      {
+        source_type: "unapplied_receipt",
+        source_id: "hosted-event-1",
+        debit: "100",
+        credit: "100",
+      },
+    ]);
     expect(evidence.events.map((event) => event.type)).toEqual(
       expect.arrayContaining([
         "payment.finalized",
@@ -159,6 +191,521 @@ describeDatabase("hosted payment status projection", () => {
         )!.payload,
       ) as { data: { code: string } },
     ).toMatchObject({ data: { code: "partial_payment" } });
+  });
+
+  it("does not recognize merchant cash for a wrong-destination transfer", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => {
+        await sql`
+          UPDATE normalized_transfers
+          SET destination_token_account = ${"2".repeat(32)}
+        `;
+      },
+    );
+    await project(new PaymentStatusProjector(database));
+    const evidence = await inspect(database);
+    expect(evidence.exceptions).toBe(1);
+    expect(evidence.journals).toEqual([
+      {
+        source_type: "invoice_issued",
+        source_id: fixture.invoiceId,
+        debit: "100",
+        credit: "100",
+      },
+    ]);
+  });
+
+  it("reports the actual transferred asset for a wrong-asset exception", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "1000000");
+    const actualMint = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => {
+        await sql`
+          UPDATE normalized_transfers SET mint = ${actualMint}, decimals = 6
+        `;
+      },
+    );
+    await project(new PaymentStatusProjector(database));
+    const [exception] = await new ExceptionStore(database).list({
+      organizationId,
+      actorId: "merchant-operator",
+      limit: 10,
+      state: "open",
+    });
+    expect(exception).toMatchObject({
+      assetSymbol: "USDT",
+      mint: actualMint,
+      decimals: 6,
+      ruleCode: "wrong_asset",
+    });
+    for (const statement of [
+      (sql: Parameters<Parameters<typeof database.transaction>[1]>[0]) => sql`
+        UPDATE hosted_payment_exceptions
+        SET asset_symbol = NULL
+        WHERE id = ${exception!.id}
+      `,
+      (sql: Parameters<Parameters<typeof database.transaction>[1]>[0]) => sql`
+        UPDATE hosted_payment_exceptions
+        SET mint = ${"2".repeat(32)}, asset_symbol = NULL
+        WHERE id = ${exception!.id}
+      `,
+      (sql: Parameters<Parameters<typeof database.transaction>[1]>[0]) => sql`
+        UPDATE hosted_payment_exceptions
+        SET decimals = 9
+        WHERE id = ${exception!.id}
+      `,
+    ]) {
+      await expect(
+        database.transaction(
+          { organizationId, actorId: "merchant-operator" },
+          statement,
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+    }
+  });
+
+  it("assigns and resolves an exception with optimistic locking and append-only history", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999900");
+    await project(new PaymentStatusProjector(database));
+    const store = new ExceptionStore(database);
+    const [created] = await store.list({
+      organizationId,
+      actorId: "merchant-operator",
+      limit: 10,
+      state: "open",
+    });
+    expect(created).toMatchObject({
+      invoiceId: fixture.invoiceId,
+      assetSymbol: "USDC",
+      mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      decimals: 6,
+      ruleCode: "partial_payment",
+      reviewState: "open",
+      version: 1,
+    });
+
+    const assigned = await store.assign({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      assignee: "finance@example.com",
+      expectedVersion: 1,
+      note: "Review against the customer remittance.",
+      now: new Date("2026-08-12T12:06:00.000Z"),
+    });
+    expect(assigned).toMatchObject({
+      reviewState: "assigned",
+      assignedTo: "finance@example.com",
+      version: 2,
+    });
+    await expect(
+      store.resolve({
+        organizationId,
+        actorKind: "session",
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+        resolutionCode: "leave_unapplied",
+        note: "Receipt retained as unapplied cash pending customer instruction.",
+        expectedVersion: 1,
+        now: new Date("2026-08-12T12:07:00.000Z"),
+      }),
+    ).rejects.toMatchObject({ code: "exception_version_conflict" });
+    const investigating = await store.startInvestigation({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      reasonCode: "operator_review",
+      expectedVersion: 2,
+      now: new Date("2026-08-12T12:07:00.000Z"),
+    });
+    expect(investigating).toMatchObject({
+      reviewState: "investigating",
+      version: 3,
+    });
+    const escalated = await store.escalate({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      reasonCode: "specialist_review",
+      expectedVersion: 3,
+      now: new Date("2026-08-12T12:08:00.000Z"),
+    });
+    expect(escalated).toMatchObject({ reviewState: "escalated", version: 4 });
+    await expect(
+      store.startInvestigation({
+        organizationId,
+        actorKind: "session",
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+        reasonCode: "operator_review",
+        expectedVersion: 4,
+        now: new Date("2026-08-12T12:08:30.000Z"),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_exception_transition" });
+    const reassigned = await store.assign({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      assignee: "specialist@example.com",
+      expectedVersion: 4,
+      now: new Date("2026-08-12T12:08:45.000Z"),
+    });
+    expect(reassigned).toMatchObject({
+      reviewState: "escalated",
+      assignedTo: "specialist@example.com",
+      version: 5,
+    });
+    const resolved = await store.resolve({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      resolutionCode: "leave_unapplied",
+      note: "Receipt retained as unapplied cash pending customer instruction.",
+      expectedVersion: 5,
+      now: new Date("2026-08-12T12:09:00.000Z"),
+    });
+    expect(resolved).toMatchObject({
+      reviewState: "resolved",
+      resolutionCode: "leave_unapplied",
+      resolvedBy: "merchant-operator",
+      version: 6,
+    });
+    await expect(
+      store.assign({
+        organizationId,
+        actorKind: "session",
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+        assignee: "other@example.com",
+        expectedVersion: 6,
+        now: new Date("2026-08-12T12:10:00.000Z"),
+      }),
+    ).rejects.toMatchObject({ code: "exception_closed" });
+    const reopened = await store.reopen({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-operator",
+      exceptionId: created!.id,
+      reasonCode: "new_evidence",
+      note: "Customer supplied additional remittance evidence.",
+      expectedVersion: 6,
+      now: new Date("2026-08-12T12:11:00.000Z"),
+    });
+    expect(reopened).toMatchObject({
+      reviewState: "open",
+      assignedTo: null,
+      resolutionCode: null,
+      resolvedBy: null,
+      version: 7,
+    });
+    await expect(
+      store.history({
+        organizationId,
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+      }),
+    ).resolves.toMatchObject([
+      {
+        sequence: 1,
+        eventType: "assigned",
+        fromState: "open",
+        toState: "assigned",
+      },
+      {
+        sequence: 2,
+        eventType: "investigation_started",
+        fromState: "assigned",
+        toState: "investigating",
+      },
+      {
+        sequence: 3,
+        eventType: "escalated",
+        fromState: "investigating",
+        toState: "escalated",
+      },
+      {
+        sequence: 4,
+        eventType: "assigned",
+        fromState: "escalated",
+        toState: "escalated",
+      },
+      {
+        sequence: 5,
+        eventType: "resolved",
+        fromState: "escalated",
+        toState: "resolved",
+      },
+      {
+        sequence: 6,
+        eventType: "reopened",
+        fromState: "resolved",
+        toState: "open",
+      },
+    ]);
+  });
+
+  it("rolls back an exception update when idempotency completion fails", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999900");
+    await project(new PaymentStatusProjector(database));
+    const store = new ExceptionStore(database);
+    const [created] = await store.list({
+      organizationId,
+      actorId: "merchant-operator",
+      limit: 10,
+      state: "open",
+    });
+    await expect(
+      store.assign({
+        organizationId,
+        actorKind: "session",
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+        assignee: "finance@example.com",
+        expectedVersion: 1,
+        now: new Date("2026-08-12T12:06:00.000Z"),
+        idempotency: {
+          complete: async () => {
+            throw new Error("forced idempotency failure");
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: "exception_store_unavailable" });
+    await expect(
+      store.list({
+        organizationId,
+        actorId: "merchant-operator",
+        limit: 10,
+        state: "open",
+      }),
+    ).resolves.toEqual([expect.objectContaining({ version: 1 })]);
+    await expect(
+      store.history({
+        organizationId,
+        actorId: "merchant-operator",
+        exceptionId: created!.id,
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("generates immutable canonical JSON and human-readable signed evidence", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await project(new PaymentStatusProjector(database));
+    const keyPair = generateKeyPairSync("ed25519");
+    const privateKeyPem = keyPair.privateKey
+      .export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const publicKeyPem = keyPair.publicKey
+      .export({ type: "spki", format: "pem" })
+      .toString();
+    const service = new EvidencePackService(database, {
+      signingKeyId: "evidence-key-2026-08",
+      privateKeyPem,
+    });
+    const pack = await service.generate({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-accountant",
+      invoiceId: fixture.invoiceId,
+      now: new Date("2026-08-12T12:10:00.000Z"),
+    });
+    const manifest = JSON.parse(
+      new TextDecoder().decode(pack.manifestBytes),
+    ) as {
+      schemaVersion: string;
+      invoice: { id: string; publicReference: string };
+      chainEvents: unknown[];
+      allocations: unknown[];
+      journals: unknown[];
+      webhooks: {
+        events: unknown[];
+        eventCount: number;
+        deliveryCount: number;
+        attemptCount: number;
+      };
+    };
+    expect(manifest).toMatchObject({
+      schemaVersion: "0.1",
+      invoice: { id: fixture.invoiceId, publicReference: "INV-PROJECTION" },
+      chainEvents: [
+        expect.objectContaining({
+          eventId: "hosted-event-1",
+          cluster: "mainnet-beta",
+          transaction: expect.objectContaining({
+            digest: expect.stringMatching(/^[0-9a-f]{64}$/u),
+            rawBodyIncluded: false,
+          }),
+          observation: expect.objectContaining({ slot: "123456" }),
+          lifecycle: expect.objectContaining({
+            finalizedAt: expect.any(String),
+          }),
+        }),
+      ],
+      allocations: [expect.objectContaining({ ruleCode: "exact_match" })],
+      webhooks: { eventCount: 2, deliveryCount: 0, attemptCount: 0 },
+    });
+    expect(manifest.journals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceType: "invoice_issued" }),
+        expect.objectContaining({ sourceType: "payment_received" }),
+      ]),
+    );
+    expect(new TextDecoder().decode(pack.pdfBytes).startsWith("%PDF-1.4")).toBe(
+      true,
+    );
+    expect(verifyEvidencePack(pack, publicKeyPem)).toBe(true);
+    const tampered = {
+      ...pack,
+      manifestBytes: new TextEncoder().encode(
+        new TextDecoder()
+          .decode(pack.manifestBytes)
+          .replace("INV-PROJECTION", "INV-TAMPERED"),
+      ),
+    };
+    expect(verifyEvidencePack(tampered, publicKeyPem)).toBe(false);
+    expect(
+      verifyEvidencePack(
+        { ...pack, pdfBytes: new TextEncoder().encode("tampered pdf") },
+        publicKeyPem,
+      ),
+    ).toBe(false);
+    await expect(inspect(database)).resolves.toMatchObject({
+      events: expect.arrayContaining([
+        expect.objectContaining({ type: "evidence.ready" }),
+      ]),
+    });
+    await expect(
+      database.transaction(
+        { organizationId, actorId: "test" },
+        async (sql) =>
+          sql`UPDATE evidence_packs SET signing_key_id = 'tampered'`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("includes chain provenance for an exception-only payment", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999900");
+    await project(new PaymentStatusProjector(database));
+    const keyPair = generateKeyPairSync("ed25519");
+    const service = new EvidencePackService(database, {
+      signingKeyId: "evidence-key-2026-08",
+      privateKeyPem: keyPair.privateKey
+        .export({ type: "pkcs8", format: "pem" })
+        .toString(),
+    });
+    const pack = await service.generate({
+      organizationId,
+      actorKind: "session",
+      actorId: "merchant-accountant",
+      invoiceId: fixture.invoiceId,
+      now: new Date("2026-08-12T12:10:00.000Z"),
+    });
+    const manifest = JSON.parse(
+      new TextDecoder().decode(pack.manifestBytes),
+    ) as {
+      chainEvents: { eventId: string; currentState: string }[];
+      allocations: unknown[];
+      exceptions: { ruleCode: string }[];
+    };
+    expect(manifest.chainEvents).toEqual([
+      expect.objectContaining({
+        eventId: "hosted-event-1",
+        currentState: "finalized",
+      }),
+    ]);
+    expect(manifest.allocations).toEqual([]);
+    expect(manifest.exceptions).toEqual([
+      expect.objectContaining({ ruleCode: "partial_payment" }),
+    ]);
+  });
+
+  it("exports payment attempts separately from allocation rows", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await project(new PaymentStatusProjector(database));
+    const service = new AccountingExportService(database);
+    const common = {
+      organizationId,
+      actorKind: "session" as const,
+      actorId: "merchant-accountant",
+      fromTime: new Date("2026-08-12T00:00:00.000Z"),
+      throughTime: new Date("2026-08-13T00:00:00.000Z"),
+      now: new Date("2026-08-13T00:01:00.000Z"),
+    };
+    const payments = await service.generate({
+      ...common,
+      format: "payments_csv",
+    });
+    const allocations = await service.generate({
+      ...common,
+      format: "allocations_csv",
+    });
+    const paymentCsv = new TextDecoder().decode(payments.contentBytes);
+    const allocationCsv = new TextDecoder().decode(allocations.contentBytes);
+    expect(paymentCsv).toContain("Payment Attempt ID,Public Payment ID");
+    expect(paymentCsv).toContain(fixture.attempt.publicAttemptId);
+    expect(allocationCsv).toContain("Allocation ID,Invoice ID");
+    expect(paymentCsv).not.toBe(allocationCsv);
+  });
+
+  it("rolls back evidence, audit, and outbox when idempotency completion fails", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await project(new PaymentStatusProjector(database));
+    const keyPair = generateKeyPairSync("ed25519");
+    const service = new EvidencePackService(database, {
+      signingKeyId: "evidence-key-2026-08",
+      privateKeyPem: keyPair.privateKey
+        .export({ type: "pkcs8", format: "pem" })
+        .toString(),
+    });
+    await expect(
+      service.generate({
+        organizationId,
+        actorKind: "session",
+        actorId: "merchant-accountant",
+        invoiceId: fixture.invoiceId,
+        now: new Date("2026-08-12T12:10:00.000Z"),
+        auditRequestId: randomUUID(),
+        idempotency: {
+          status: 201,
+          responseBody: (pack) => ({ id: pack.id }),
+          committer: {
+            complete: async () => {
+              throw new Error("forced idempotency failure");
+            },
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: "evidence_store_unavailable" });
+    await expect(
+      database.transaction({ organizationId, actorId: "test" }, async (sql) => {
+        const [row] = await sql<
+          { packs: number; events: number; audits: number }[]
+        >`
+            SELECT
+              (SELECT count(*) FROM evidence_packs)::integer AS packs,
+              (SELECT count(*) FROM webhook_events
+                WHERE event_type = 'evidence.ready')::integer AS events,
+              (SELECT count(*) FROM audit_events
+                WHERE action = 'evidence.generate')::integer AS audits
+          `;
+        return row;
+      }),
+    ).resolves.toEqual({ packs: 0, events: 0, audits: 0 });
   });
 
   it("fails closed when a transfer carries extra references", async () => {
@@ -476,6 +1023,20 @@ async function seedChainEvent(
         ) RETURNING id::text
       `;
       await sql`
+        INSERT INTO discovered_signatures (
+          watch_target_id, provider_id, signature, slot, block_time,
+          confirmation_status, representation_class, raw_transaction_id,
+          parse_digest, finality_state, observed_at
+        )
+        SELECT target.id, 'provider-mainnet', ${identity.signature}, 123456,
+          1786536030, ${state === "finalized" ? "finalized" : "confirmed"},
+          'parsed', ${raw[0]!.id}::bigint,
+          ${identity.signature === "1".repeat(64) ? "f".repeat(64) : "a".repeat(64)},
+          ${state}, '2026-08-12T12:00:31.000Z'
+        FROM watch_targets AS target
+        WHERE target.address = ${fixture.tokenAccount}
+      `;
+      await sql`
         INSERT INTO normalized_transfers (
           chain_event_id, parser_version, program_id, source_token_account,
           source_account_index, mint, destination_token_account,
@@ -531,6 +1092,24 @@ async function inspect(database: OrganizationDatabase) {
       const [exceptionCount] = await sql<{ count: number }[]>`
         SELECT count(*)::integer AS count FROM hosted_payment_exceptions
       `;
+      const journals = await sql<
+        {
+          source_type: string;
+          source_id: string;
+          debit: string;
+          credit: string;
+        }[]
+      >`
+        SELECT entry.source_type, entry.source_id,
+          sum(line.debit_minor_units)::text AS debit,
+          sum(line.credit_minor_units)::text AS credit
+        FROM journal_entries AS entry
+        JOIN journal_lines AS line
+          ON line.organization_id = entry.organization_id
+          AND line.journal_entry_id = entry.id
+        GROUP BY entry.id
+        ORDER BY entry.created_at, entry.id
+      `;
       return {
         projection: projection!,
         invoice: invoice!,
@@ -538,6 +1117,7 @@ async function inspect(database: OrganizationDatabase) {
         events,
         allocations: allocationCount!.count,
         exceptions: exceptionCount!.count,
+        journals,
       };
     },
   );

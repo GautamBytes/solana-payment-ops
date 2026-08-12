@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import postgres from "postgres";
 import { runMigrations as runIngestionMigrations } from "@payops/ingestion";
 import { runMigrations as runReconciliationMigrations } from "@payops/reconciliation";
@@ -83,7 +84,7 @@ describeDatabase("coordinated migrations", () => {
 
     const migrations = await scoped!<{ name: string }[]>`
       SELECT name FROM payops_schema_migrations
-      WHERE name LIKE '400%'
+      WHERE name LIKE '40%'
       ORDER BY name
     `;
     expect(migrations.map(({ name }) => name)).toEqual([
@@ -96,6 +97,7 @@ describeDatabase("coordinated migrations", () => {
       "4007_hosted_reconciliation_and_projections",
       "4008_worker_jobs",
       "4009_payment_attempt_idempotency",
+      "4010_merchant_operations",
     ]);
     const attemptColumns = await scoped!<{ name: string; nullable: string }[]>`
       SELECT column_name AS name, is_nullable AS nullable
@@ -155,15 +157,184 @@ describeDatabase("coordinated migrations", () => {
           "payment_projections",
           "payment_status_history",
           "hosted_payment_allocations",
+          "exception_case_events",
+          "ledger_accounts",
+          "journal_entries",
+          "journal_lines",
+          "ledger_reconciliations",
+          "evidence_packs",
+          "accounting_exports",
         ]})
       ORDER BY relname
     `;
-    expect(tenantTables).toHaveLength(8);
+    expect(tenantTables).toHaveLength(15);
     expect(
       tenantTables.every(({ rowSecurity, forced }) => rowSecurity && forced),
     ).toBe(true);
   });
+
+  test("preserves legacy closed exceptions with explicit unknown provenance", async () => {
+    await runIngestionMigrations(schemaDatabaseUrl!);
+    await runReconciliationMigrations(schemaDatabaseUrl!);
+    const priorNames = [
+      "4001_identity_organizations",
+      "4002_tenant_scope_existing_data",
+      "4003_merchants_customers_invoices",
+      "4004_idempotency_and_audit",
+      "4005_public_checkouts_and_rates",
+      "4006_quotes_and_payment_attempts",
+      "4007_hosted_reconciliation_and_projections",
+      "4008_worker_jobs",
+      "4009_payment_attempt_idempotency",
+    ];
+    await runMigrationSet(
+      schemaDatabaseUrl!,
+      await Promise.all(
+        priorNames.map(async (name) => ({
+          name,
+          sql: await readFile(
+            new URL(`../migrations/${name}.sql`, import.meta.url),
+            "utf8",
+          ),
+        })),
+      ),
+    );
+    await seedLegacyResolvedException();
+    await runMigrationSet(schemaDatabaseUrl!, [
+      {
+        name: "4010_merchant_operations",
+        sql: await readFile(
+          new URL(
+            "../migrations/4010_merchant_operations.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      },
+    ]);
+
+    const rows = await scoped!<
+      {
+        resolution_code: string;
+        resolution_note: string;
+        resolved_by: string;
+        resolved_at: Date;
+      }[]
+    >`
+      SELECT resolution_code, resolution_note, resolved_by, resolved_at
+      FROM hosted_payment_exceptions
+    `;
+    expect(rows).toEqual([
+      {
+        resolution_code: "legacy_resolution_unknown",
+        resolution_note:
+          "Migrated from a pre-audit exception state; original resolution metadata is unavailable.",
+        resolved_by: "system:migration-4010",
+        resolved_at: new Date("2026-08-01T00:00:00.000Z"),
+      },
+    ]);
+  });
 });
+
+async function seedLegacyResolvedException(): Promise<void> {
+  const organizationId = "00000000-0000-4000-8000-000000000001";
+  const customerId = "00000000-0000-4000-8000-000000000101";
+  const walletId = "00000000-0000-4000-8000-000000000102";
+  const invoiceId = "00000000-0000-4000-8000-000000000103";
+  const checkoutId = "00000000-0000-4000-8000-000000000104";
+  const attemptId = "00000000-0000-4000-8000-000000000105";
+  const exceptionId = "00000000-0000-4000-8000-000000000106";
+  await scoped!`SELECT set_config('payops.organization_id', ${organizationId}, false)`;
+  await scoped!`
+    INSERT INTO customers (id, organization_id, display_name, metadata)
+    VALUES (${customerId}::uuid, ${organizationId}::uuid, 'Legacy buyer', '{}')
+  `;
+  await scoped!`
+    INSERT INTO merchant_wallets (
+      id, organization_id, address, cluster, status, verified_at
+    ) VALUES (
+      ${walletId}::uuid, ${organizationId}::uuid,
+      '11111111111111111111111111111111', 'mainnet-beta', 'active', now()
+    )
+  `;
+  await scoped!`
+    INSERT INTO merchant_invoices (
+      id, organization_id, public_reference, customer_id,
+      settlement_wallet_id, accepted_asset_symbols, currency, status,
+      subtotal_minor_units, tax_minor_units, total_minor_units, due_at
+    ) VALUES (
+      ${invoiceId}::uuid, ${organizationId}::uuid, 'INV-LEGACY',
+      ${customerId}::uuid, ${walletId}::uuid, ARRAY['USDC']::text[],
+      'USD', 'issued', 100, 0, 100, now()
+    )
+  `;
+  await scoped!`
+    INSERT INTO public_checkouts (
+      id, organization_id, invoice_id, public_nonce, derivation_key_id, state
+    ) VALUES (
+      ${checkoutId}::uuid, ${organizationId}::uuid, ${invoiceId}::uuid,
+      ${Buffer.alloc(32, 1)}, 'legacy', 'active'
+    )
+  `;
+  await scoped!`
+    INSERT INTO payment_attempts (
+      id, public_attempt_id, organization_id, invoice_id, checkout_id,
+      asset_symbol, reference_address, recipient_address, mint,
+      recipient_token_account, state
+    ) VALUES (
+      ${attemptId}::uuid, '00000000-0000-4000-8000-000000000107'::uuid,
+      ${organizationId}::uuid, ${invoiceId}::uuid, ${checkoutId}::uuid,
+      'USDC', ${"2".repeat(32)}, ${"3".repeat(32)}, ${"4".repeat(32)},
+      ${"5".repeat(32)}, 'exception'
+    )
+  `;
+  await scoped!`
+    INSERT INTO rpc_providers (
+      id, cluster, endpoint_env, endpoint_label, active, created_at
+    ) VALUES ('legacy-provider', 'mainnet-beta', 'LEGACY_RPC', 'legacy', true, now())
+  `;
+  const raw = await scoped!<{ id: string }[]>`
+    INSERT INTO raw_transactions (
+      provider_id, signature, commitment, digest, canonical_body, body,
+      byte_length, retrieved_at
+    ) VALUES (
+      'legacy-provider', ${"6".repeat(64)}, 'finalized', ${"a".repeat(64)},
+      '{}', '{}'::jsonb, 2, now()
+    ) RETURNING id::text
+  `;
+  const event = await scoped!<{ id: string }[]>`
+    INSERT INTO chain_events (
+      event_id, cluster, signature, outer_instruction_index,
+      inner_instruction_index, raw_transaction_id, current_state
+    ) VALUES (
+      'legacy-event', 'mainnet-beta', ${"6".repeat(64)}, 0, -1,
+      ${raw[0]!.id}::bigint, 'finalized'
+    ) RETURNING id::text
+  `;
+  await scoped!`
+    INSERT INTO normalized_transfers (
+      chain_event_id, parser_version, program_id, source_token_account,
+      source_account_index, mint, destination_token_account,
+      destination_account_index, authority, amount_base_units, decimals
+    ) VALUES (
+      ${event[0]!.id}::bigint, '1.0.0', ${"7".repeat(32)}, ${"8".repeat(32)},
+      0, ${"4".repeat(32)}, ${"5".repeat(32)}, 1, ${"9".repeat(32)}, 100, 6
+    )
+  `;
+  await scoped!`
+    INSERT INTO hosted_payment_exceptions (
+      id, organization_id, invoice_id, attempt_id, chain_event_id,
+      parser_version, event_id, signature, outer_instruction_index,
+      inner_instruction_index, amount_base_units, rule_code, rule_version,
+      review_state, created_at
+    ) VALUES (
+      ${exceptionId}::uuid, ${organizationId}::uuid, ${invoiceId}::uuid,
+      ${attemptId}::uuid, ${event[0]!.id}::bigint, '1.0.0', 'legacy-event',
+      ${"6".repeat(64)}, 0, NULL, 100, 'wrong_amount', '1.0.0', 'resolved',
+      '2026-08-01T00:00:00.000Z'
+    )
+  `;
+}
 
 function withSearchPath(urlString: string, schemaName: string): string {
   const url = new URL(urlString);

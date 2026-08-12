@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { generateKeyPairSync } from "node:crypto";
 import { parseApiConfig } from "../src/config.js";
 
 const validEnvironment = {
@@ -52,6 +53,46 @@ describe("API configuration", () => {
       }),
     ).toThrow(
       expect.objectContaining({ code: "invalid_commercial_fx_configuration" }),
+    );
+  });
+
+  test("loads an exact PKCS8 evidence signing key and rejects partial configuration", () => {
+    const key = generateKeyPairSync("ed25519")
+      .privateKey.export({ type: "pkcs8", format: "pem" })
+      .toString();
+    expect(
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_EVIDENCE_SIGNING_KEY_ID: "evidence-2026-08",
+        PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64:
+          Buffer.from(key).toString("base64"),
+      }).evidenceSigning,
+    ).toEqual({ keyId: "evidence-2026-08", privateKeyPem: key });
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_EVIDENCE_SIGNING_KEY_ID: "evidence-2026-08",
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "invalid_evidence_signing_configuration",
+      }),
+    );
+  });
+
+  test("requires evidence signing in production", () => {
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_ENVIRONMENT: "production",
+        PAYOPS_PUBLIC_API_ORIGIN: "https://api.example.com",
+        PAYOPS_CHECKOUT_ORIGIN: "https://pay.example.com",
+        PAYOPS_TRUSTED_ORIGINS: "https://app.example.com",
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "missing_evidence_signing_configuration",
+      }),
     );
   });
 

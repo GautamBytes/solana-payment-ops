@@ -13,6 +13,10 @@ import {
   canonicalJson,
   type IdempotencyResponseCommitter,
 } from "../idempotency/idempotency-store.js";
+import {
+  ensureDefaultLedgerAccounts,
+  postJournalEntry,
+} from "../operations/ledger-store.js";
 import { assetBySymbol, type AssetSymbol } from "../wallets/asset-registry.js";
 import {
   assertExpectedTotals,
@@ -337,6 +341,34 @@ export class InvoiceStore {
           `;
           if (updated.length !== 1)
             throw new InvoiceError("invoice_state_conflict");
+          await ensureDefaultLedgerAccounts(transaction, {
+            organizationId: input.organizationId,
+            actorId: input.actorId,
+            now: input.now,
+          });
+          await postJournalEntry(transaction, {
+            organizationId: input.organizationId,
+            actorKind: input.actorKind,
+            actorId: input.actorId,
+            sourceType: "invoice_issued",
+            sourceId: row.id,
+            sourceVersion: version,
+            functionalCurrency: parseCurrency(row.currency),
+            description: `Issued invoice ${row.public_reference}`,
+            occurredAt: input.now,
+            lines: [
+              {
+                accountCode: "ACCOUNTS_RECEIVABLE",
+                debitMinorUnits: row.total_minor_units,
+                creditMinorUnits: "0",
+              },
+              {
+                accountCode: "INVOICE_CLEARING",
+                debitMinorUnits: "0",
+                creditMinorUnits: row.total_minor_units,
+              },
+            ],
+          });
           const event: LifecycleEvent = {
             type: "invoice.issued",
             statusAtOccurrence: "issued",
@@ -453,6 +485,36 @@ export class InvoiceStore {
           `;
           if (updated.length !== 1)
             throw new InvoiceError("invoice_state_conflict");
+          if (previousState === "issued") {
+            await ensureDefaultLedgerAccounts(transaction, {
+              organizationId: input.organizationId,
+              actorId: input.actorId,
+              now: input.now,
+            });
+            await postJournalEntry(transaction, {
+              organizationId: input.organizationId,
+              actorKind: input.actorKind,
+              actorId: input.actorId,
+              sourceType: "invoice_cancelled",
+              sourceId: row.id,
+              sourceVersion: version,
+              functionalCurrency: parseCurrency(row.currency),
+              description: `Cancelled invoice ${row.public_reference}`,
+              occurredAt: input.now,
+              lines: [
+                {
+                  accountCode: "INVOICE_CLEARING",
+                  debitMinorUnits: row.total_minor_units,
+                  creditMinorUnits: "0",
+                },
+                {
+                  accountCode: "ACCOUNTS_RECEIVABLE",
+                  debitMinorUnits: "0",
+                  creditMinorUnits: row.total_minor_units,
+                },
+              ],
+            });
+          }
           const event: LifecycleEvent = {
             type: "invoice.cancelled",
             statusAtOccurrence: "cancelled",

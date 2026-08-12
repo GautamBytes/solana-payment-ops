@@ -83,6 +83,7 @@ const platformMigrationFiles = [
   "4007_hosted_reconciliation_and_projections",
   "4008_worker_jobs",
   "4009_payment_attempt_idempotency",
+  "4010_merchant_operations",
 ] as const;
 
 export async function runPlatformMigrations(

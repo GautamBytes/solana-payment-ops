@@ -26,6 +26,10 @@ export interface ApiConfig {
     readonly endpoint: string;
     readonly accessToken: string;
   }>;
+  readonly evidenceSigning?: Readonly<{
+    readonly keyId: string;
+    readonly privateKeyPem: string;
+  }>;
   readonly emailDeliveryMode: "test" | "production";
   readonly rateLimitMax: number;
   readonly rateLimitWindowSeconds: number;
@@ -136,6 +140,10 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   }
 
   const commercialFx = parseCommercialFx(environment);
+  const evidenceSigning = parseEvidenceSigning(
+    environment,
+    deploymentEnvironment,
+  );
   return Object.freeze({
     databaseUrl: required(environment, "DATABASE_URL"),
     environment: deploymentEnvironment,
@@ -160,6 +168,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     }),
     ecbEndpoint: required(environment, "PAYOPS_ECB_ENDPOINT"),
     ...(commercialFx === undefined ? {} : { commercialFx }),
+    ...(evidenceSigning === undefined ? {} : { evidenceSigning }),
     emailDeliveryMode,
     rateLimitMax: boundedInteger(
       environment.PAYOPS_RATE_LIMIT_MAX,
@@ -174,6 +183,46 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       3_600,
     ),
   });
+}
+
+function parseEvidenceSigning(
+  environment: NodeJS.ProcessEnv,
+  deploymentEnvironment: PayOpsEnvironment,
+): ApiConfig["evidenceSigning"] {
+  const keyId = environment.PAYOPS_EVIDENCE_SIGNING_KEY_ID;
+  const encoded = environment.PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64;
+  if (keyId === undefined && encoded === undefined) {
+    if (deploymentEnvironment === "production") {
+      throw new ConfigError("missing_evidence_signing_configuration");
+    }
+    return undefined;
+  }
+  if (
+    typeof keyId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(keyId) ||
+    typeof encoded !== "string" ||
+    encoded.length < 64 ||
+    encoded.length > 16_384 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)
+  ) {
+    throw new ConfigError("invalid_evidence_signing_configuration");
+  }
+  let privateKeyPem: string;
+  try {
+    const bytes = Buffer.from(encoded, "base64");
+    if (bytes.toString("base64") !== encoded)
+      throw new Error("noncanonical base64");
+    privateKeyPem = bytes.toString("utf8");
+    if (
+      !privateKeyPem.startsWith("-----BEGIN PRIVATE KEY-----\n") ||
+      !privateKeyPem.endsWith("-----END PRIVATE KEY-----\n")
+    ) {
+      throw new Error("invalid PKCS8 PEM");
+    }
+  } catch {
+    throw new ConfigError("invalid_evidence_signing_configuration");
+  }
+  return Object.freeze({ keyId, privateKeyPem });
 }
 
 function parseCommercialFx(

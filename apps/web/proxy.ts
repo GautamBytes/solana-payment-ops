@@ -12,6 +12,7 @@ export function proxy(request: NextRequest): NextResponse {
     nonce,
     apiOrigin,
     development: process.env.NODE_ENV === "development",
+    allowSameOriginForms: request.nextUrl.pathname.startsWith("/operations"),
   });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
@@ -26,4 +27,4 @@ export function proxy(request: NextRequest): NextResponse {
   return response;
 }
 
-export const config = { matcher: ["/pay/:path*"] };
+export const config = { matcher: ["/pay/:path*", "/operations/:path*"] };

@@ -604,6 +604,401 @@
           "429": { "$ref": "#/components/responses/ApiError" }
         }
       }
+    },
+    "/v1/exceptions": {
+      "get": {
+        "operationId": "listPaymentExceptions",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/ExceptionReviewState" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment exception page",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data", "nextCursor"],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PaymentException"
+                      }
+                    },
+                    "nextCursor": { "type": ["string", "null"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/history": {
+      "get": {
+        "operationId": "getPaymentExceptionHistory",
+        "parameters": [{ "$ref": "#/components/parameters/ExceptionId" }],
+        "responses": {
+          "200": {
+            "description": "Append-only exception history",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ExceptionCaseEvent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/assign": {
+      "post": {
+        "operationId": "assignPaymentException",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExceptionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignExceptionInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exception assigned",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentException" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/resolve": {
+      "post": {
+        "operationId": "resolvePaymentException",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExceptionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResolveExceptionInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exception resolved",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentException" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/investigate": {
+      "post": {
+        "operationId": "startPaymentExceptionInvestigation",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExceptionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionExceptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/PaymentException" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/escalate": {
+      "post": {
+        "operationId": "escalatePaymentException",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExceptionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionExceptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/PaymentException" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exceptions/{exceptionId}/reopen": {
+      "post": {
+        "operationId": "reopenPaymentException",
+        "parameters": [
+          { "$ref": "#/components/parameters/ExceptionId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionExceptionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/PaymentException" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/evidence-packs": {
+      "post": {
+        "operationId": "createEvidencePack",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvidencePackInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signed evidence generated",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EvidencePack" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/evidence-packs/{evidencePackId}/verification": {
+      "get": {
+        "operationId": "getEvidencePackVerification",
+        "parameters": [{ "$ref": "#/components/parameters/EvidencePackId" }],
+        "responses": {
+          "200": {
+            "description": "Historical verification material for this evidence pack",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceVerification"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/evidence-packs/{evidencePackId}": {
+      "get": {
+        "operationId": "downloadEvidencePack",
+        "parameters": [
+          { "$ref": "#/components/parameters/EvidencePackId" },
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["json", "pdf"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exact signed manifest or human-readable PDF",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "X-PayOps-Manifest-Digest": {
+                "$ref": "#/components/headers/ManifestDigest"
+              },
+              "X-PayOps-Signature": {
+                "$ref": "#/components/headers/EvidenceSignature"
+              },
+              "X-PayOps-Signing-Key-Id": {
+                "$ref": "#/components/headers/EvidenceSigningKeyId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "type": "string", "format": "binary" }
+              },
+              "application/pdf": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exports": {
+      "post": {
+        "operationId": "createAccountingExport",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccountingExportInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Accounting export generated",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AccountingExport" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/exports/{exportId}": {
+      "get": {
+        "operationId": "downloadAccountingExport",
+        "parameters": [{ "$ref": "#/components/parameters/ExportId" }],
+        "responses": {
+          "200": {
+            "description": "Exact CSV export bytes",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "X-PayOps-Content-Digest": {
+                "$ref": "#/components/headers/ContentDigest"
+              }
+            },
+            "content": {
+              "text/csv": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
     }
   },
   "components": {
@@ -619,6 +1014,22 @@
       "RequestId": {
         "description": "Canonical request UUID",
         "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "ManifestDigest": {
+        "description": "SHA-256 digest of the exact signed JSON manifest bytes",
+        "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "EvidenceSignature": {
+        "description": "Base64url Ed25519 signature over the exact manifest bytes",
+        "schema": { "type": "string", "minLength": 86, "maxLength": 86 }
+      },
+      "EvidenceSigningKeyId": {
+        "description": "Identifier for the historical evidence signing key",
+        "schema": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "ContentDigest": {
+        "description": "SHA-256 digest of the exact downloaded artifact bytes",
+        "schema": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     },
     "parameters": {
@@ -673,6 +1084,24 @@
       },
       "WalletId": {
         "name": "walletId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "ExceptionId": {
+        "name": "exceptionId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "EvidencePackId": {
+        "name": "evidencePackId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
+      "ExportId": {
+        "name": "exportId",
         "in": "path",
         "required": true,
         "schema": { "$ref": "#/components/schemas/Uuid" }
@@ -731,6 +1160,17 @@
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Invoice" }
+          }
+        }
+      },
+      "PaymentException": {
+        "description": "Updated payment exception",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PaymentException" }
           }
         }
       },
@@ -835,6 +1275,275 @@
               "type": ["string", "number", "boolean", "null"]
             }
           }
+        }
+      },
+      "ExceptionReviewState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "assigned",
+          "investigating",
+          "escalated",
+          "resolved",
+          "ignored"
+        ]
+      },
+      "PaymentException": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "invoiceId",
+          "attemptId",
+          "eventId",
+          "signature",
+          "amountBaseUnits",
+          "assetSymbol",
+          "mint",
+          "decimals",
+          "ruleCode",
+          "ruleVersion",
+          "reviewState",
+          "assignedTo",
+          "resolutionCode",
+          "resolutionNote",
+          "resolvedBy",
+          "resolvedAt",
+          "version",
+          "createdAt"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "invoiceId": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Uuid" },
+              { "type": "null" }
+            ]
+          },
+          "attemptId": { "$ref": "#/components/schemas/Uuid" },
+          "eventId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "signature": { "type": "string", "minLength": 64, "maxLength": 128 },
+          "amountBaseUnits": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$"
+          },
+          "assetSymbol": {
+            "anyOf": [
+              { "type": "string", "enum": ["USDC", "USDT"] },
+              { "type": "null" }
+            ]
+          },
+          "mint": { "type": "string", "minLength": 32, "maxLength": 64 },
+          "decimals": { "type": "integer", "minimum": 0, "maximum": 18 },
+          "ruleCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "ruleVersion": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "reviewState": {
+            "$ref": "#/components/schemas/ExceptionReviewState"
+          },
+          "assignedTo": { "type": ["string", "null"], "maxLength": 128 },
+          "resolutionCode": { "type": ["string", "null"], "maxLength": 64 },
+          "resolutionNote": { "type": ["string", "null"], "maxLength": 2000 },
+          "resolvedBy": { "type": ["string", "null"], "maxLength": 128 },
+          "resolvedAt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Timestamp" },
+              { "type": "null" }
+            ]
+          },
+          "version": { "type": "integer", "minimum": 1 },
+          "createdAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "ExceptionCaseEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "sequence",
+          "eventType",
+          "fromState",
+          "toState",
+          "actorId",
+          "reasonCode",
+          "note",
+          "occurredAt"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "sequence": { "type": "integer", "minimum": 1 },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "assigned",
+              "investigation_started",
+              "escalated",
+              "resolved",
+              "ignored",
+              "reopened"
+            ]
+          },
+          "fromState": { "$ref": "#/components/schemas/ExceptionReviewState" },
+          "toState": { "$ref": "#/components/schemas/ExceptionReviewState" },
+          "actorId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "reasonCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "note": { "type": ["string", "null"], "maxLength": 2000 },
+          "occurredAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AssignExceptionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assignee", "expectedVersion"],
+        "properties": {
+          "assignee": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "note": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "expectedVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ResolveExceptionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resolutionCode", "note", "expectedVersion"],
+        "properties": {
+          "resolutionCode": {
+            "type": "string",
+            "enum": [
+              "leave_unapplied",
+              "reject_payment",
+              "mark_duplicate",
+              "ignore"
+            ]
+          },
+          "note": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "expectedVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "TransitionExceptionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reasonCode", "expectedVersion"],
+        "properties": {
+          "reasonCode": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "note": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "expectedVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "CreateEvidencePackInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invoiceId"],
+        "properties": { "invoiceId": { "$ref": "#/components/schemas/Uuid" } }
+      },
+      "EvidencePack": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "invoiceId",
+          "schemaVersion",
+          "manifestDigest",
+          "signature",
+          "signingKeyId",
+          "generatedAt",
+          "jsonUrl",
+          "pdfUrl",
+          "verificationUrl"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "invoiceId": { "$ref": "#/components/schemas/Uuid" },
+          "schemaVersion": { "type": "string", "const": "0.1" },
+          "manifestDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "signature": { "type": "string", "minLength": 86, "maxLength": 86 },
+          "signingKeyId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "generatedAt": { "$ref": "#/components/schemas/Timestamp" },
+          "jsonUrl": { "type": "string", "pattern": "^/v1/evidence-packs/" },
+          "pdfUrl": { "type": "string", "pattern": "^/v1/evidence-packs/" },
+          "verificationUrl": {
+            "type": "string",
+            "pattern": "^/v1/evidence-packs/"
+          }
+        }
+      },
+      "EvidenceVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidencePackId",
+          "algorithm",
+          "digestAlgorithm",
+          "manifestDigest",
+          "signature",
+          "signingKeyId",
+          "publicKeyPem"
+        ],
+        "properties": {
+          "evidencePackId": { "$ref": "#/components/schemas/Uuid" },
+          "algorithm": { "type": "string", "const": "Ed25519" },
+          "digestAlgorithm": { "type": "string", "const": "SHA-256" },
+          "manifestDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "signature": { "type": "string", "minLength": 86, "maxLength": 86 },
+          "signingKeyId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "publicKeyPem": {
+            "type": "string",
+            "minLength": 80,
+            "maxLength": 4096
+          }
+        }
+      },
+      "AccountingExportFormat": {
+        "type": "string",
+        "enum": [
+          "payments_csv",
+          "invoices_csv",
+          "allocations_csv",
+          "journals_csv",
+          "quickbooks_csv"
+        ]
+      },
+      "CreateAccountingExportInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["format", "fromTime", "throughTime"],
+        "properties": {
+          "format": { "$ref": "#/components/schemas/AccountingExportFormat" },
+          "fromTime": { "$ref": "#/components/schemas/Timestamp" },
+          "throughTime": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "AccountingExport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "format",
+          "fromTime",
+          "throughTime",
+          "contentDigest",
+          "rowCount",
+          "generatedAt",
+          "downloadUrl"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "format": { "$ref": "#/components/schemas/AccountingExportFormat" },
+          "fromTime": { "$ref": "#/components/schemas/Timestamp" },
+          "throughTime": { "$ref": "#/components/schemas/Timestamp" },
+          "contentDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "rowCount": { "type": "integer", "minimum": 0 },
+          "generatedAt": { "$ref": "#/components/schemas/Timestamp" },
+          "downloadUrl": { "type": "string", "pattern": "^/v1/exports/" }
         }
       },
       "OrganizationContext": {
