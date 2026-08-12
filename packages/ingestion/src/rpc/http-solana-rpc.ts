@@ -37,6 +37,7 @@ export interface HttpSolanaRpcConfig {
   readonly cluster: SolanaCluster;
   readonly endpoint: string;
   readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
 }
 
 function toRpcNumber(value: bigint): number {
@@ -60,6 +61,7 @@ export class HttpSolanaRpc implements SolanaRpcPort {
   readonly #endpoint: string;
   readonly #fetch: typeof fetch;
   readonly #timeoutMs: number;
+  readonly #signal: AbortSignal | undefined;
   #requestId = 0;
 
   public constructor(config: HttpSolanaRpcConfig, fetchImpl = fetch) {
@@ -92,6 +94,7 @@ export class HttpSolanaRpc implements SolanaRpcPort {
     this.#cluster = config.cluster;
     this.#fetch = fetchImpl;
     this.#timeoutMs = config.timeoutMs ?? 20_000;
+    this.#signal = config.signal;
   }
 
   async #call(method: string, params: readonly unknown[]): Promise<unknown> {
@@ -108,7 +111,13 @@ export class HttpSolanaRpc implements SolanaRpcPort {
           params,
         }),
         redirect: "error",
-        signal: AbortSignal.timeout(this.#timeoutMs),
+        signal:
+          this.#signal === undefined
+            ? AbortSignal.timeout(this.#timeoutMs)
+            : AbortSignal.any([
+                this.#signal,
+                AbortSignal.timeout(this.#timeoutMs),
+              ]),
       });
     } catch (cause) {
       throw new IngestionError(

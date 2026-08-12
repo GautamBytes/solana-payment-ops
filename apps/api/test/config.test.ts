@@ -5,6 +5,7 @@ const validEnvironment = {
   DATABASE_URL: "postgres://payops:payops@127.0.0.1:55432/payops_test",
   PAYOPS_ENVIRONMENT: "local",
   PAYOPS_PUBLIC_API_ORIGIN: "http://127.0.0.1:3000",
+  PAYOPS_CHECKOUT_ORIGIN: "http://127.0.0.1:3001",
   PAYOPS_TRUSTED_ORIGINS: "http://127.0.0.1:3000",
   PAYOPS_WALLET_PROOF_DOMAIN: "payops.local",
   PAYOPS_SOLANA_CLUSTER: "mainnet-beta",
@@ -13,6 +14,13 @@ const validEnvironment = {
   BETTER_AUTH_SECRETS:
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
   PAYOPS_EMAIL_DELIVERY_MODE: "test",
+  PAYOPS_CHECKOUT_TOKEN_KEYS:
+    "checkout-v1:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+  PAYOPS_PYTH_HERMES_ENDPOINT: "https://pyth.example/hermes",
+  PAYOPS_PYTH_ACCESS_TOKEN: "test-provider-secret",
+  PAYOPS_PYTH_USDC_FEED_ID: "a".repeat(64),
+  PAYOPS_PYTH_USDT_FEED_ID: "b".repeat(64),
+  PAYOPS_ECB_ENDPOINT: "https://data.example/service",
 };
 
 describe("API configuration", () => {
@@ -24,6 +32,27 @@ describe("API configuration", () => {
       rateLimitMax: 600,
       rateLimitWindowSeconds: 60,
     });
+  });
+
+  test("enables authenticated commercial FX only when both values are present", () => {
+    expect(
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_COMMERCIAL_FX_ENDPOINT: "https://fx.example/v1/latest",
+        PAYOPS_COMMERCIAL_FX_TOKEN: "commercial-provider-token",
+      }).commercialFx,
+    ).toEqual({
+      endpoint: "https://fx.example/v1/latest",
+      accessToken: "commercial-provider-token",
+    });
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_COMMERCIAL_FX_ENDPOINT: "https://fx.example/v1/latest",
+      }),
+    ).toThrow(
+      expect.objectContaining({ code: "invalid_commercial_fx_configuration" }),
+    );
   });
 
   test.each([

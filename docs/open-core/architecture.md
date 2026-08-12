@@ -22,6 +22,20 @@ application-owned payment intent and PostgreSQL webhook receiver using public
 package exports only. `@payops/pilot` composes the same libraries into a
 read-only historical audit.
 
-Open Core v0.1 has no hosted API, authentication, checkout UI, quote engine, or
-merchant dashboard. Those concerns remain outside this release so the parser,
-contracts, evidence, and delivery semantics can be reused independently.
+The hosted product composes those boundaries without changing their evidence
+rules:
+
+```text
+merchant API -> capability checkout -> exact Pyth quote -> Solana Pay request
+  -> ingestion/finality -> deterministic reconciliation -> paid or exception
+  -> signed webhook + public status projection
+```
+
+Checkout tokens are bearer capabilities and are never stored raw. Quotes are
+immutable and use integer/rational arithmetic with one final round-up to token
+base units. Confirmed transfers remain provisional; only finalized, exact
+matches can mark a merchant invoice paid.
+
+Open Core v0.1 remains independent of the hosted API, authentication, checkout
+UI, and quote engine, so its parser, contracts, evidence, and delivery semantics
+can be reused by other Solana applications.

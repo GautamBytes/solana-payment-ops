@@ -519,7 +519,10 @@ function onlyKeys(
 }
 
 function parseStatus(value: unknown): InvoiceStatus | undefined {
-  return value === "draft" || value === "issued" || value === "cancelled"
+  return value === "draft" ||
+    value === "issued" ||
+    value === "paid" ||
+    value === "cancelled"
     ? value
     : undefined;
 }

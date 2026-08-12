@@ -78,6 +78,11 @@ const platformMigrationFiles = [
   "4002_tenant_scope_existing_data",
   "4003_merchants_customers_invoices",
   "4004_idempotency_and_audit",
+  "4005_public_checkouts_and_rates",
+  "4006_quotes_and_payment_attempts",
+  "4007_hosted_reconciliation_and_projections",
+  "4008_worker_jobs",
+  "4009_payment_attempt_idempotency",
 ] as const;
 
 export async function runPlatformMigrations(

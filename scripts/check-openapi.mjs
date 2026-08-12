@@ -26,6 +26,20 @@ const expectedStatuses = new Map([
     "POST /v1/invoices/{invoiceId}/cancel",
     ["200", "400", "401", "403", "404", "409", "429"],
   ],
+  [
+    "POST /v1/invoices/{invoiceId}/checkout-links",
+    ["201", "400", "401", "403", "404", "429", "503"],
+  ],
+  [
+    "POST /v1/invoices/{invoiceId}/payment-attempts",
+    ["201", "400", "401", "403", "404", "409", "429", "503"],
+  ],
+  ["GET /pay/{checkoutToken}", ["200", "404", "429"]],
+  [
+    "POST /pay/{checkoutToken}/quotes",
+    ["201", "400", "403", "404", "409", "429", "503"],
+  ],
+  ["GET /pay/{checkoutToken}/status", ["200", "304", "404", "429"]],
   ["GET /v1/merchant-wallets", ["200", "401", "403", "429"]],
   ["POST /v1/merchant-wallets", ["201", "400", "401", "403", "409", "429"]],
   ["POST /v1/merchant-wallets/challenges", ["201", "400", "401", "403", "429"]],
@@ -98,6 +112,9 @@ for (const key of [
   "GET /health/live",
   "GET /health/ready",
   "POST /v1/auth/bootstrap/accept",
+  "GET /pay/{checkoutToken}",
+  "POST /pay/{checkoutToken}/quotes",
+  "GET /pay/{checkoutToken}/status",
 ]) {
   if (JSON.stringify(operations.get(key)?.security) !== "[]") {
     fail(`${key} must explicitly disable inherited authentication`);

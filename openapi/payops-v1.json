@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PayOps Merchant API",
-    "version": "0.2.0",
-    "description": "Organization-scoped Solana stablecoin invoicing. Checkout and payment detection are intentionally outside this release."
+    "version": "0.3.0",
+    "description": "Organization-scoped Solana stablecoin invoicing with hosted exact-amount Solana Pay checkout and finalized payment status."
   },
   "servers": [{ "url": "https://api.example.com" }],
   "security": [{ "sessionCookie": [] }, { "apiKey": [] }],
@@ -333,6 +333,118 @@
         }
       }
     },
+    "/v1/invoices/{invoiceId}/checkout-links": {
+      "post": {
+        "operationId": "createCheckoutLink",
+        "parameters": [{ "$ref": "#/components/parameters/InvoiceId" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": false }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/CheckoutLink" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/invoices/{invoiceId}/payment-attempts": {
+      "post": {
+        "operationId": "createMerchantPaymentAttempt",
+        "parameters": [{ "$ref": "#/components/parameters/InvoiceId" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentAttemptInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/PaymentAttempt" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/pay/{checkoutToken}": {
+      "get": {
+        "operationId": "getPublicCheckout",
+        "security": [],
+        "parameters": [{ "$ref": "#/components/parameters/CheckoutToken" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/PublicCheckout" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/pay/{checkoutToken}/quotes": {
+      "post": {
+        "operationId": "createPublicPaymentAttempt",
+        "security": [],
+        "parameters": [{ "$ref": "#/components/parameters/CheckoutToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentAttemptInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "$ref": "#/components/responses/PaymentAttempt" },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/pay/{checkoutToken}/status": {
+      "get": {
+        "operationId": "getPublicCheckoutStatus",
+        "security": [],
+        "parameters": [
+          { "$ref": "#/components/parameters/CheckoutToken" },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "schema": { "type": "string", "maxLength": 128 }
+          }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/PublicCheckoutStatus" },
+          "304": {
+            "description": "Checkout status has not changed",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "ETag": { "schema": { "type": "string" } }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
     "/v1/merchant-wallets": {
       "get": {
         "operationId": "listMerchantWallets",
@@ -548,6 +660,17 @@
         "required": true,
         "schema": { "$ref": "#/components/schemas/Uuid" }
       },
+      "CheckoutToken": {
+        "name": "checkoutToken",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      },
       "WalletId": {
         "name": "walletId",
         "in": "path",
@@ -630,6 +753,51 @@
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/WalletChallenge" }
+          }
+        }
+      },
+      "CheckoutLink": {
+        "description": "Regenerable hosted checkout capability",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/CheckoutLink" }
+          }
+        }
+      },
+      "PaymentAttempt": {
+        "description": "Exact Solana Pay payment request",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PublicPaymentAttempt" }
+          }
+        }
+      },
+      "PublicCheckout": {
+        "description": "Minimized public checkout view",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PublicCheckout" }
+          }
+        }
+      },
+      "PublicCheckoutStatus": {
+        "description": "Current checkout settlement status",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+          "ETag": { "schema": { "type": "string" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/PublicCheckoutStatus" }
           }
         }
       }
@@ -872,7 +1040,7 @@
       },
       "InvoiceStatus": {
         "type": "string",
-        "enum": ["draft", "issued", "cancelled"]
+        "enum": ["draft", "issued", "paid", "cancelled"]
       },
       "InvoiceCurrency": {
         "type": "string",
@@ -1116,6 +1284,169 @@
               "commercial_terms_changed",
               "merchant_error",
               "other_reviewed"
+            ]
+          }
+        }
+      },
+      "CheckoutLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["checkoutId", "checkoutUrl", "createdAt"],
+        "properties": {
+          "checkoutId": { "$ref": "#/components/schemas/Uuid" },
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "createdAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "CreatePaymentAttemptInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assetSymbol"],
+        "properties": {
+          "assetSymbol": { "$ref": "#/components/schemas/AssetSymbol" }
+        }
+      },
+      "PublicPaymentStatus": {
+        "type": "string",
+        "enum": [
+          "awaiting_payment",
+          "detected",
+          "confirmed",
+          "finalized",
+          "paid",
+          "expired",
+          "confirmation_revoked",
+          "exception"
+        ]
+      },
+      "PublicPaymentAttempt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publicAttemptId",
+          "assetSymbol",
+          "mint",
+          "amountTokens",
+          "amountBaseUnits",
+          "paymentUrl",
+          "reference",
+          "quoteExpiresAt",
+          "status",
+          "statusUpdatedAt"
+        ],
+        "properties": {
+          "publicAttemptId": { "$ref": "#/components/schemas/Uuid" },
+          "assetSymbol": { "$ref": "#/components/schemas/AssetSymbol" },
+          "mint": { "type": "string", "minLength": 32, "maxLength": 44 },
+          "amountTokens": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,6})?$"
+          },
+          "amountBaseUnits": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$"
+          },
+          "paymentUrl": {
+            "type": "string",
+            "pattern": "^solana:",
+            "maxLength": 2048
+          },
+          "reference": { "type": "string", "minLength": 32, "maxLength": 44 },
+          "quoteExpiresAt": { "$ref": "#/components/schemas/Timestamp" },
+          "status": { "$ref": "#/components/schemas/PublicPaymentStatus" },
+          "statusUpdatedAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "PublicAsset": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["symbol", "mint", "decimals"],
+        "properties": {
+          "symbol": { "$ref": "#/components/schemas/AssetSymbol" },
+          "mint": { "type": "string", "minLength": 32, "maxLength": 44 },
+          "decimals": { "type": "integer", "const": 6 }
+        }
+      },
+      "PublicInvoiceStatus": {
+        "type": "string",
+        "enum": ["issued", "overdue", "paid", "exception"]
+      },
+      "PublicCheckout": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "merchant",
+          "invoice",
+          "acceptedAssets",
+          "currentAttempt"
+        ],
+        "properties": {
+          "schemaVersion": { "const": "0.1" },
+          "merchant": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["displayName"],
+            "properties": {
+              "displayName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            }
+          },
+          "invoice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "publicReference",
+              "currency",
+              "totalMinorUnits",
+              "dueAt",
+              "status"
+            ],
+            "properties": {
+              "publicReference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "currency": { "$ref": "#/components/schemas/InvoiceCurrency" },
+              "totalMinorUnits": { "$ref": "#/components/schemas/MinorUnits" },
+              "dueAt": { "$ref": "#/components/schemas/Timestamp" },
+              "status": { "$ref": "#/components/schemas/PublicInvoiceStatus" }
+            }
+          },
+          "acceptedAssets": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": { "$ref": "#/components/schemas/PublicAsset" }
+          },
+          "currentAttempt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/PublicPaymentAttempt" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "PublicCheckoutStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["invoiceStatus", "currentAttempt"],
+        "properties": {
+          "invoiceStatus": {
+            "$ref": "#/components/schemas/PublicInvoiceStatus"
+          },
+          "currentAttempt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/PublicPaymentAttempt" },
+              { "type": "null" }
             ]
           }
         }

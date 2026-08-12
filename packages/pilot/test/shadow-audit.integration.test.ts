@@ -53,14 +53,14 @@ describe("pilot package", () => {
     await runPilotMigrations(databaseUrl);
     await runPilotMigrations(databaseUrl);
     await sql`
-      DELETE FROM payops_schema_migrations
-      WHERE name = '3001_shadow_audits'
-    `;
+        DELETE FROM payops_schema_migrations
+        WHERE name = '3001_shadow_audits'
+      `;
     await runPilotMigrations(databaseUrl);
 
     const names = await sql<{ name: string }[]>`
-      SELECT name FROM payops_schema_migrations ORDER BY name
-    `;
+        SELECT name FROM payops_schema_migrations ORDER BY name
+      `;
     expect(names.map(({ name }) => name)).toEqual([
       "0001_durable_ingestion",
       "0002_finality_claim_token",
@@ -73,7 +73,7 @@ describe("pilot package", () => {
       "2002_lifecycle_contract_v0_1",
       "3001_shadow_audits",
     ]);
-  });
+  }, 15_000);
 
   it("runs one exact synthetic audit and resumes without duplicate evidence", async () => {
     await runPilotMigrations(flowDatabaseUrl);

@@ -20,7 +20,7 @@ const packages = [
   },
   {
     name: "@payops/ingestion",
-    version: "0.1.1",
+    version: "0.2.0",
     path: "packages/ingestion",
     roots: ["dist/", "migrations/"],
   },
@@ -32,7 +32,7 @@ const packages = [
   },
   {
     name: "@payops/reconciliation",
-    version: "0.1.1",
+    version: "0.2.0",
     path: "packages/reconciliation",
     roots: ["dist/", "migrations/", "examples/"],
   },
@@ -44,7 +44,7 @@ const packages = [
   },
   {
     name: "@payops/sdk",
-    version: "0.1.0",
+    version: "0.2.0",
     path: "packages/sdk",
     roots: ["dist/"],
   },
@@ -144,9 +144,14 @@ try {
       packedManifest.dependencies ?? {},
     )) {
       if (name.startsWith("@payops/")) {
+        const dependency = packages.find((item) => item.name === name);
+        const releaseLine = dependency?.version
+          .split(".")
+          .slice(0, 2)
+          .join(".");
         assert(
-          range === "^0.1.0",
-          `${definition.name}: ${name} must pack as ^0.1.0`,
+          releaseLine !== undefined && range === `^${releaseLine}.0`,
+          `${definition.name}: ${name} must pack as the released minor line`,
         );
       }
     }

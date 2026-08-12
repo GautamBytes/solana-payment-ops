@@ -1,0 +1,51 @@
+:root {
+  --paper: #f3f5f2;
+  --surface: #ffffff;
+  --ledger-ink: #14213d;
+  --muted-ink: #556070;
+  --rail-blue: #3156d9;
+  --verified-teal: #087f72;
+  --caution-amber: #a95c05;
+  --failure-red: #b42318;
+  --hairline: #d5dbd5;
+  --soft-blue: #eef2ff;
+  --soft-teal: #e8f5f1;
+  --shadow: 0 22px 70px rgb(20 33 61 / 0.1);
+  --display: "Archivo Variable", "Arial Narrow", sans-serif;
+  --body:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--paper);
+  color: var(--ledger-ink);
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+button,
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+input {
+  font: inherit;
+}
+:focus-visible {
+  outline: 3px solid #6f89ee;
+  outline-offset: 3px;
+}
+::selection {
+  background: #ccd7ff;
+  color: var(--ledger-ink);
+}

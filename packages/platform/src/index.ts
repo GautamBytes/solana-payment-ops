@@ -122,3 +122,70 @@ export {
   type InvoiceStatus,
 } from "./invoices/types.js";
 export { InvoiceStore } from "./invoices/invoice-store.js";
+export {
+  buildSolanaPayUrl,
+  PaymentAttemptError,
+  PaymentAttemptService,
+  type PaymentAttemptErrorCode,
+  type PublicPaymentAttempt,
+  type QuoteHeadPort,
+} from "./payments/attempt-service.js";
+export {
+  PaymentStatusProjector,
+  type ProjectionBatchResult,
+  type ProjectionResult,
+} from "./payments/status-projector.js";
+export {
+  CheckoutStore,
+  CheckoutStoreError,
+  type CheckoutRecord,
+  type CheckoutStoreErrorCode,
+  type PublicCheckoutAttempt,
+  type PublicCheckoutView,
+} from "./checkouts/checkout-store.js";
+export {
+  evaluateQuoteInputs,
+  QuotePolicyError,
+  type QuotePolicyErrorCode,
+  type QuotePolicyInput,
+  type ValidatedQuoteInputs,
+} from "./quotes/quote-policy.js";
+export {
+  QuoteProviderError,
+  type QuoteProviderErrorCode,
+} from "./quotes/provider-http.js";
+export { PythHermesPriceAdapter } from "./quotes/pyth-hermes-adapter.js";
+export { EcbReferenceRateAdapter } from "./quotes/ecb-adapter.js";
+export { CommercialFiatRateAdapter } from "./quotes/commercial-fx-adapter.js";
+export {
+  calculateQuote,
+  reproduceQuote,
+  QuoteMathError,
+  type QuoteCalculation,
+  type QuoteCalculationInput,
+  type QuoteMathErrorCode,
+} from "./quotes/quote-math.js";
+export {
+  QuoteStore,
+  QuoteStoreError,
+  type QuoteStoreErrorCode,
+  type CreateQuoteInput,
+  type StoredPaymentQuote,
+  type StoredQuoteBundle,
+} from "./quotes/quote-store.js";
+export { QuoteExpiryService } from "./quotes/quote-expiry-service.js";
+export type {
+  FiatObservation,
+  FiatRatePort,
+  QuoteAssetSymbol,
+  QuoteCurrency,
+  StablecoinObservation,
+  StablecoinPricePort,
+} from "./quotes/types.js";
+export {
+  WORKER_JOB_NAMES,
+  WorkerJobStore,
+  type WorkerJobCursor,
+  type WorkerJobLease,
+  type WorkerJobName,
+} from "./worker/job-store.js";

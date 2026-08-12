@@ -8,6 +8,11 @@ export type CreateCustomerInput = components["schemas"]["CreateCustomerInput"];
 export type Invoice = components["schemas"]["Invoice"];
 export type CreateInvoiceInput = components["schemas"]["CreateInvoiceInput"];
 export type CancelInvoiceInput = components["schemas"]["CancelInvoiceInput"];
+export type CheckoutLink = components["schemas"]["CheckoutLink"];
+export type CreatePaymentAttemptInput =
+  components["schemas"]["CreatePaymentAttemptInput"];
+export type PublicPaymentAttempt =
+  components["schemas"]["PublicPaymentAttempt"];
 export type InvoiceIssuedSnapshot =
   components["schemas"]["InvoiceIssuedSnapshot"];
 export type MerchantWallet = components["schemas"]["MerchantWallet"];
@@ -79,6 +84,15 @@ export interface PayOpsClient {
     input: CancelInvoiceInput,
     options: MutationOptions,
   ): Promise<Invoice>;
+  createCheckoutLink(
+    invoiceId: string,
+    options?: RequestOptions,
+  ): Promise<CheckoutLink>;
+  createPaymentAttempt(
+    invoiceId: string,
+    input: CreatePaymentAttemptInput,
+    options?: RequestOptions,
+  ): Promise<PublicPaymentAttempt>;
   listMerchantWallets(
     options?: RequestOptions,
   ): Promise<{ readonly data: readonly MerchantWallet[] }>;
@@ -284,6 +298,20 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
         input,
         requestOptions,
         requestOptions.idempotencyKey,
+      ),
+    createCheckoutLink: (invoiceId, requestOptions = {}) =>
+      request<CheckoutLink>(
+        "POST",
+        `/v1/invoices/${pathId(invoiceId)}/checkout-links`,
+        {},
+        requestOptions,
+      ),
+    createPaymentAttempt: (invoiceId, input, requestOptions = {}) =>
+      request<PublicPaymentAttempt>(
+        "POST",
+        `/v1/invoices/${pathId(invoiceId)}/payment-attempts`,
+        input,
+        requestOptions,
       ),
     listMerchantWallets: (requestOptions = {}) =>
       request<{ readonly data: readonly MerchantWallet[] }>(

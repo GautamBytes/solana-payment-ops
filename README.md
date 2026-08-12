@@ -16,14 +16,15 @@ independently.
 
 ## Open Core v0.1
 
-The release contains six installable Apache-2.0 packages:
+The release contains seven installable Apache-2.0 packages:
 
 - `@payops/contracts`: strict lifecycle contracts and JSON Schemas;
 - `@payops/core`: Solana transaction parsing, verification, and 25 fixtures;
 - `@payops/ingestion`: durable RPC ingestion and finality tracking;
 - `@payops/reconciliation`: deterministic invoice matching and exceptions;
 - `@payops/webhooks`: transactional signed webhook delivery and verification;
-- `@payops/pilot`: resumable, read-only merchant shadow audits.
+- `@payops/pilot`: resumable, read-only merchant shadow audits;
+- `@payops/sdk`: typed, zero-retry merchant API client.
 
 PayOps Core:
 
@@ -90,8 +91,9 @@ produces private plus grant-safe reports without signing or moving funds.
 
 The [merchant API SDK guide](packages/sdk/README.md) covers invitation-only
 organization setup, verified Solana settlement wallets, USDC/USDT customer
-invoices, idempotent issuance, and typed backend integration. Hosted checkout
-and automatic payment detection remain the next product slice.
+invoices, hosted checkout links, exact payment requests, and typed backend
+integration. The hosted worker marks invoices paid only from finalized,
+matching Solana transfer evidence.
 
 The [open-core integration guide](docs/open-core/integration-guide.md) shows
 how to install the packages, replay the bundled corpus, verify a payment intent,
@@ -104,13 +106,21 @@ and consume a signed lifecycle event. The
 PayOps complements the
 [Solana Pay protocol](https://solana.com/docs/tools/solana-pay): Solana Pay
 constructs wallet-compatible requests, while PayOps verifies and reconciles
-the resulting chain evidence. Future hosted quoting may consume
-[Pyth Price Feeds](https://docs.pyth.network/price-feeds); no oracle or quote
-logic is part of Open Core v0.1.
+the resulting chain evidence. Hosted quoting consumes
+[Pyth Price Feeds](https://docs.pyth.network/price-feeds) with strict freshness,
+confidence, peg, and cross-rate controls. The reusable Open Core v0.1 packages
+remain independently usable without the hosted applications.
+
+Production USD invoices quote directly from the validated stablecoin price.
+Production EUR, GBP, and INR invoices additionally require an authenticated
+commercial FX adapter configured with `PAYOPS_COMMERCIAL_FX_ENDPOINT` and
+`PAYOPS_COMMERCIAL_FX_TOKEN`. The endpoint must return the exact normalized
+`0.1` rate envelope accepted by `CommercialFiatRateAdapter`. Without it,
+non-USD quoting fails closed; ECB data remains reference-only.
 
 ## What developers can build on it
 
-- hosted invoice checkout and automatic payment matching;
+- hosted invoice checkout and automatic payment matching (included);
 - finalized-payment webhooks with evidence attached;
 - wallet and treasury reconciliation;
 - accounting exports and exception queues;
