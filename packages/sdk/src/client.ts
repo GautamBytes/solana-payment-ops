@@ -20,6 +20,26 @@ export type WalletChallenge = components["schemas"]["WalletChallenge"];
 export type RegisterWalletInput = components["schemas"]["RegisterWalletInput"];
 export type ReplaceWalletInput = components["schemas"]["ReplaceWalletInput"];
 export type InvoiceStatus = components["schemas"]["InvoiceStatus"];
+export type ExceptionReviewState =
+  components["schemas"]["ExceptionReviewState"];
+export type PaymentException = components["schemas"]["PaymentException"];
+export type ExceptionCaseEvent = components["schemas"]["ExceptionCaseEvent"];
+export type AssignExceptionInput =
+  components["schemas"]["AssignExceptionInput"];
+export type ResolveExceptionInput =
+  components["schemas"]["ResolveExceptionInput"];
+export type TransitionExceptionInput =
+  components["schemas"]["TransitionExceptionInput"];
+export type CreateEvidencePackInput =
+  components["schemas"]["CreateEvidencePackInput"];
+export type EvidencePack = components["schemas"]["EvidencePack"];
+export type EvidenceVerification =
+  components["schemas"]["EvidenceVerification"];
+export type AccountingExportFormat =
+  components["schemas"]["AccountingExportFormat"];
+export type CreateAccountingExportInput =
+  components["schemas"]["CreateAccountingExportInput"];
+export type AccountingExport = components["schemas"]["AccountingExport"];
 export type IssuedInvoice = {
   readonly invoice: Invoice;
   readonly snapshot: InvoiceIssuedSnapshot;
@@ -55,9 +75,25 @@ export interface ListInvoicesOptions extends ListCustomersOptions {
   readonly customerId?: string;
 }
 
+export interface ListPaymentExceptionsOptions extends ListCustomersOptions {
+  readonly state?: ExceptionReviewState;
+}
+
 export interface Page<T> {
   readonly data: readonly T[];
   readonly nextCursor: string | null;
+}
+
+export interface EvidenceArtifactDownload {
+  readonly bytes: Uint8Array;
+  readonly manifestDigest: string;
+  readonly signature: string;
+  readonly signingKeyId: string;
+}
+
+export interface AccountingExportDownload {
+  readonly bytes: Uint8Array;
+  readonly contentDigest: string;
 }
 
 export interface PayOpsClient {
@@ -114,6 +150,59 @@ export interface PayOpsClient {
     input: ReplaceWalletInput,
     options: MutationOptions,
   ): Promise<MerchantWallet | WalletReplacement>;
+  listPaymentExceptions(
+    options?: ListPaymentExceptionsOptions,
+  ): Promise<Page<PaymentException>>;
+  getPaymentExceptionHistory(
+    exceptionId: string,
+    options?: RequestOptions,
+  ): Promise<{ readonly data: readonly ExceptionCaseEvent[] }>;
+  assignPaymentException(
+    exceptionId: string,
+    input: AssignExceptionInput,
+    options: MutationOptions,
+  ): Promise<PaymentException>;
+  resolvePaymentException(
+    exceptionId: string,
+    input: ResolveExceptionInput,
+    options: MutationOptions,
+  ): Promise<PaymentException>;
+  startPaymentExceptionInvestigation(
+    exceptionId: string,
+    input: TransitionExceptionInput,
+    options: MutationOptions,
+  ): Promise<PaymentException>;
+  escalatePaymentException(
+    exceptionId: string,
+    input: TransitionExceptionInput,
+    options: MutationOptions,
+  ): Promise<PaymentException>;
+  reopenPaymentException(
+    exceptionId: string,
+    input: TransitionExceptionInput,
+    options: MutationOptions,
+  ): Promise<PaymentException>;
+  createEvidencePack(
+    input: CreateEvidencePackInput,
+    options: MutationOptions,
+  ): Promise<EvidencePack>;
+  downloadEvidencePack(
+    evidencePackId: string,
+    format: "json" | "pdf",
+    options?: RequestOptions,
+  ): Promise<EvidenceArtifactDownload>;
+  getEvidencePackVerification(
+    evidencePackId: string,
+    options?: RequestOptions,
+  ): Promise<EvidenceVerification>;
+  createAccountingExport(
+    input: CreateAccountingExportInput,
+    options: MutationOptions,
+  ): Promise<AccountingExport>;
+  downloadAccountingExport(
+    exportId: string,
+    options?: RequestOptions,
+  ): Promise<AccountingExportDownload>;
 }
 
 export class PayOpsApiError extends Error {
@@ -139,6 +228,7 @@ export class PayOpsApiError extends Error {
 }
 
 const MAX_RESPONSE_BYTES = 1_048_576;
+const MAX_BINARY_RESPONSE_BYTES = 52_428_800;
 
 export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
   const baseUrl = exactHttpsOrigin(options.baseUrl);
@@ -220,6 +310,60 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
         });
       }
       return parsed as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function download(
+    path: string,
+    accept: string,
+    requestOptions: RequestOptions,
+  ): Promise<{ readonly bytes: Uint8Array; readonly headers: Headers }> {
+    const requestId = requestOptions.requestId ?? randomUUID();
+    if (!validUuid(requestId)) throw new TypeError("invalid_request_id");
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(
+      () =>
+        timeoutController.abort(
+          new DOMException("Request timed out", "TimeoutError"),
+        ),
+      timeoutMs,
+    );
+    const signal = requestOptions.signal
+      ? AbortSignal.any([requestOptions.signal, timeoutController.signal])
+      : timeoutController.signal;
+    const headers = new Headers({ Accept: accept, "X-Request-Id": requestId });
+    if (options.apiKey !== undefined) headers.set("X-API-Key", options.apiKey);
+    try {
+      const response = await fetchImplementation(new URL(path, baseUrl), {
+        method: "GET",
+        headers,
+        signal,
+        redirect: "error",
+      });
+      if (!response.ok) {
+        const parsed = await boundedJson(response);
+        const error = apiError(parsed);
+        throw new PayOpsApiError({
+          status: response.status,
+          code: error?.code ?? "invalid_error_response",
+          message: error?.message ?? "PayOps API request failed",
+          requestId: error?.requestId ?? response.headers.get("x-request-id"),
+          ...(error?.details === undefined ? {} : { details: error.details }),
+        });
+      }
+      const responseType = response.headers
+        .get("content-type")
+        ?.split(";", 1)[0]
+        ?.trim();
+      if (responseType !== accept) {
+        throw invalidApiResponse(response);
+      }
+      return {
+        bytes: await boundedBytes(response, MAX_BINARY_RESPONSE_BYTES),
+        headers: response.headers,
+      };
     } finally {
       clearTimeout(timeout);
     }
@@ -354,6 +498,126 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
         requestOptions,
         requestOptions.idempotencyKey,
       ),
+    listPaymentExceptions: (requestOptions = {}) =>
+      request<Page<PaymentException>>(
+        "GET",
+        withQuery("/v1/exceptions", requestOptions, [
+          "limit",
+          "cursor",
+          "state",
+        ]),
+        undefined,
+        requestOptions,
+      ),
+    getPaymentExceptionHistory: (exceptionId, requestOptions = {}) =>
+      request<{ readonly data: readonly ExceptionCaseEvent[] }>(
+        "GET",
+        `/v1/exceptions/${pathId(exceptionId)}/history`,
+        undefined,
+        requestOptions,
+      ),
+    assignPaymentException: (exceptionId, input, requestOptions) =>
+      request<PaymentException>(
+        "POST",
+        `/v1/exceptions/${pathId(exceptionId)}/assign`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    resolvePaymentException: (exceptionId, input, requestOptions) =>
+      request<PaymentException>(
+        "POST",
+        `/v1/exceptions/${pathId(exceptionId)}/resolve`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    startPaymentExceptionInvestigation: (exceptionId, input, requestOptions) =>
+      request<PaymentException>(
+        "POST",
+        `/v1/exceptions/${pathId(exceptionId)}/investigate`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    escalatePaymentException: (exceptionId, input, requestOptions) =>
+      request<PaymentException>(
+        "POST",
+        `/v1/exceptions/${pathId(exceptionId)}/escalate`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    reopenPaymentException: (exceptionId, input, requestOptions) =>
+      request<PaymentException>(
+        "POST",
+        `/v1/exceptions/${pathId(exceptionId)}/reopen`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    createEvidencePack: (input, requestOptions) =>
+      request<EvidencePack>(
+        "POST",
+        "/v1/evidence-packs",
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    downloadEvidencePack: (evidencePackId, format, requestOptions = {}) => {
+      if (format !== "json" && format !== "pdf")
+        throw new TypeError("invalid_evidence_format");
+      return download(
+        `/v1/evidence-packs/${pathId(evidencePackId)}?format=${format}`,
+        format === "json" ? "application/json" : "application/pdf",
+        requestOptions,
+      ).then(({ bytes, headers }) => ({
+        bytes,
+        manifestDigest: requiredResponseHeader(
+          headers,
+          "x-payops-manifest-digest",
+          /^[0-9a-f]{64}$/u,
+        ),
+        signature: requiredResponseHeader(
+          headers,
+          "x-payops-signature",
+          /^[A-Za-z0-9_-]{86}$/u,
+        ),
+        signingKeyId: requiredResponseHeader(
+          headers,
+          "x-payops-signing-key-id",
+          /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u,
+        ),
+      }));
+    },
+    getEvidencePackVerification: (evidencePackId, requestOptions = {}) =>
+      request<EvidenceVerification>(
+        "GET",
+        `/v1/evidence-packs/${pathId(evidencePackId)}/verification`,
+        undefined,
+        requestOptions,
+      ),
+    createAccountingExport: (input, requestOptions) =>
+      request<AccountingExport>(
+        "POST",
+        "/v1/exports",
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+      ),
+    downloadAccountingExport: (exportId, requestOptions = {}) =>
+      download(
+        `/v1/exports/${pathId(exportId)}`,
+        "text/csv",
+        requestOptions,
+      ).then(({ bytes, headers }) => ({
+        bytes,
+        contentDigest: requiredResponseHeader(
+          headers,
+          "x-payops-content-digest",
+          /^[0-9a-f]{64}$/u,
+        ),
+      })),
   };
   return Object.freeze(client);
 }
@@ -383,6 +647,7 @@ function withQuery(
     readonly limit?: unknown;
     readonly cursor?: unknown;
     readonly status?: unknown;
+    readonly state?: unknown;
     readonly customerId?: unknown;
   };
   if (
@@ -405,6 +670,18 @@ function withQuery(
   )
     throw new TypeError("invalid_invoice_status");
   if (
+    candidate.state !== undefined &&
+    ![
+      "open",
+      "assigned",
+      "investigating",
+      "escalated",
+      "resolved",
+      "ignored",
+    ].includes(String(candidate.state))
+  )
+    throw new TypeError("invalid_exception_state");
+  if (
     candidate.customerId !== undefined &&
     (typeof candidate.customerId !== "string" ||
       !validUuid(candidate.customerId))
@@ -422,6 +699,23 @@ function withQuery(
 function pathId(value: string): string {
   if (!validUuid(value)) throw new TypeError("invalid_resource_id");
   return encodeURIComponent(value);
+}
+
+function requiredResponseHeader(
+  headers: Headers,
+  name: string,
+  pattern: RegExp,
+): string {
+  const value = headers.get(name);
+  if (value === null || !pattern.test(value)) {
+    throw new PayOpsApiError({
+      status: 200,
+      code: "invalid_api_response",
+      message: "PayOps API returned invalid artifact metadata",
+      requestId: headers.get("x-request-id"),
+    });
+  }
+  return value;
 }
 
 async function boundedJson(response: Response): Promise<unknown> {
@@ -463,6 +757,63 @@ async function boundedJson(response: Response): Promise<unknown> {
   } finally {
     reader.releaseLock();
   }
+}
+
+async function boundedBytes(
+  response: Response,
+  maximum: number,
+): Promise<Uint8Array> {
+  const declaredLength = response.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    (!/^\d+$/u.test(declaredLength) || Number(declaredLength) > maximum)
+  ) {
+    await response.body?.cancel();
+    throw responseTooLarge(response);
+  }
+  const reader = response.body?.getReader();
+  if (reader === undefined) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const result = await reader.read();
+      if (result.done) break;
+      length += result.value.byteLength;
+      if (length > maximum) {
+        await reader.cancel();
+        throw responseTooLarge(response);
+      }
+      chunks.push(result.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+function responseTooLarge(response: Response): PayOpsApiError {
+  return new PayOpsApiError({
+    status: response.status,
+    code: "response_too_large",
+    message: "PayOps API response exceeded the size limit",
+    requestId: response.headers.get("x-request-id"),
+  });
+}
+
+function invalidApiResponse(response: Response): PayOpsApiError {
+  return new PayOpsApiError({
+    status: response.status,
+    code: "invalid_api_response",
+    message: "PayOps API returned an invalid response",
+    requestId: response.headers.get("x-request-id"),
+  });
 }
 
 function apiError(value: unknown): ApiErrorBody | null {

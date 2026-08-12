@@ -152,6 +152,28 @@ describeDatabase("invoice store", () => {
               WHERE event_id IN (SELECT id FROM webhook_events WHERE source_id = ${draft.id})
             `,
           ).resolves.toEqual([{ count: 2 }]);
+          await expect(
+            transaction<
+              { source_type: string; debit: string; credit: string }[]
+            >`
+              SELECT entry.source_type,
+                sum(line.debit_minor_units)::text AS debit,
+                sum(line.credit_minor_units)::text AS credit
+              FROM journal_entries AS entry
+              JOIN journal_lines AS line
+                ON line.organization_id = entry.organization_id
+                AND line.journal_entry_id = entry.id
+              WHERE entry.source_id = ${draft.id}
+              GROUP BY entry.id ORDER BY entry.occurred_at
+            `,
+          ).resolves.toEqual([
+            { source_type: "invoice_issued", debit: "17700", credit: "17700" },
+            {
+              source_type: "invoice_cancelled",
+              debit: "17700",
+              credit: "17700",
+            },
+          ]);
         },
       );
     } finally {

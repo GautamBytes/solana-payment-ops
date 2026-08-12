@@ -65,13 +65,16 @@ export async function verifyWalletProof(input: {
   const message = createWalletProofMessage(input.fields);
   let signatureValue: Uint8Array;
   try {
-    signatureValue = Buffer.from(input.signature, "base64url");
+    const decodedSignature = Buffer.from(input.signature, "base64url");
     if (
-      signatureValue.byteLength !== 64 ||
-      Buffer.from(signatureValue).toString("base64url") !== input.signature
+      decodedSignature.byteLength !== 64 ||
+      decodedSignature.toString("base64url") !== input.signature
     ) {
       throw new Error("invalid signature");
     }
+    // @solana/kit's verifier requires a plain Uint8Array. Passing Node's
+    // Buffer subclass can reject valid Ed25519 signatures for some byte values.
+    signatureValue = new Uint8Array(decodedSignature);
     const publicKey = await getPublicKeyFromAddress(
       address(input.fields.address),
     );

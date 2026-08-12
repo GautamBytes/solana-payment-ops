@@ -189,3 +189,38 @@ export {
   type WorkerJobLease,
   type WorkerJobName,
 } from "./worker/job-store.js";
+export {
+  EXCEPTION_REVIEW_STATES,
+  NON_FINANCIAL_RESOLUTION_CODES,
+  ExceptionStore,
+  ExceptionStoreError,
+  type ExceptionCaseEvent,
+  type ExceptionReviewState,
+  type NonFinancialResolutionCode,
+  type PaymentExceptionRecord,
+} from "./operations/exception-store.js";
+export {
+  ensureDefaultLedgerAccounts,
+  LedgerStore,
+  LedgerStoreError,
+  postJournalEntry,
+  type FunctionalCurrency,
+  type JournalLineInput,
+  type JournalRecord,
+  type JournalSourceType,
+  type LedgerReconciliationRecord,
+  type PostJournalInput,
+} from "./operations/ledger-store.js";
+export {
+  EvidencePackError,
+  EvidencePackService,
+  verifyEvidencePack,
+  type PaymentEvidencePack,
+} from "./operations/evidence-pack.js";
+export {
+  ACCOUNTING_EXPORT_FORMATS,
+  AccountingExportError,
+  AccountingExportService,
+  type AccountingExportFormat,
+  type AccountingExportRecord,
+} from "./operations/accounting-export.js";

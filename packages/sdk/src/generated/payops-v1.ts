@@ -309,6 +309,198 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/exceptions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["listPaymentExceptions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getPaymentExceptionHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/assign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["assignPaymentException"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["resolvePaymentException"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/investigate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["startPaymentExceptionInvestigation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/escalate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["escalatePaymentException"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exceptions/{exceptionId}/reopen": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["reopenPaymentException"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/evidence-packs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createEvidencePack"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/evidence-packs/{evidencePackId}/verification": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getEvidencePackVerification"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/evidence-packs/{evidencePackId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["downloadEvidencePack"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exports": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["createAccountingExport"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/exports/{exportId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["downloadAccountingExport"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -328,6 +520,119 @@ export interface components {
       details?: {
         [key: string]: string | number | boolean | null;
       };
+    };
+    /** @enum {string} */
+    ExceptionReviewState:
+      | "open"
+      | "assigned"
+      | "investigating"
+      | "escalated"
+      | "resolved"
+      | "ignored";
+    PaymentException: {
+      id: components["schemas"]["Uuid"];
+      invoiceId: components["schemas"]["Uuid"] | null;
+      attemptId: components["schemas"]["Uuid"];
+      eventId: string;
+      signature: string;
+      amountBaseUnits: string;
+      assetSymbol: ("USDC" | "USDT") | null;
+      mint: string;
+      decimals: number;
+      ruleCode: string;
+      ruleVersion: string;
+      reviewState: components["schemas"]["ExceptionReviewState"];
+      assignedTo: string | null;
+      resolutionCode: string | null;
+      resolutionNote: string | null;
+      resolvedBy: string | null;
+      resolvedAt: components["schemas"]["Timestamp"] | null;
+      version: number;
+      createdAt: components["schemas"]["Timestamp"];
+    };
+    ExceptionCaseEvent: {
+      id: components["schemas"]["Uuid"];
+      sequence: number;
+      /** @enum {string} */
+      eventType:
+        | "assigned"
+        | "investigation_started"
+        | "escalated"
+        | "resolved"
+        | "ignored"
+        | "reopened";
+      fromState: components["schemas"]["ExceptionReviewState"];
+      toState: components["schemas"]["ExceptionReviewState"];
+      actorId: string;
+      reasonCode: string;
+      note: string | null;
+      occurredAt: components["schemas"]["Timestamp"];
+    };
+    AssignExceptionInput: {
+      assignee: string;
+      note?: string;
+      expectedVersion: number;
+    };
+    ResolveExceptionInput: {
+      /** @enum {string} */
+      resolutionCode:
+        "leave_unapplied" | "reject_payment" | "mark_duplicate" | "ignore";
+      note: string;
+      expectedVersion: number;
+    };
+    TransitionExceptionInput: {
+      reasonCode: string;
+      note?: string;
+      expectedVersion: number;
+    };
+    CreateEvidencePackInput: {
+      invoiceId: components["schemas"]["Uuid"];
+    };
+    EvidencePack: {
+      id: components["schemas"]["Uuid"];
+      invoiceId: components["schemas"]["Uuid"];
+      /** @constant */
+      schemaVersion: "0.1";
+      manifestDigest: string;
+      signature: string;
+      signingKeyId: string;
+      generatedAt: components["schemas"]["Timestamp"];
+      jsonUrl: string;
+      pdfUrl: string;
+      verificationUrl: string;
+    };
+    EvidenceVerification: {
+      evidencePackId: components["schemas"]["Uuid"];
+      /** @constant */
+      algorithm: "Ed25519";
+      /** @constant */
+      digestAlgorithm: "SHA-256";
+      manifestDigest: string;
+      signature: string;
+      signingKeyId: string;
+      publicKeyPem: string;
+    };
+    /** @enum {string} */
+    AccountingExportFormat:
+      | "payments_csv"
+      | "invoices_csv"
+      | "allocations_csv"
+      | "journals_csv"
+      | "quickbooks_csv";
+    CreateAccountingExportInput: {
+      format: components["schemas"]["AccountingExportFormat"];
+      fromTime: components["schemas"]["Timestamp"];
+      throughTime: components["schemas"]["Timestamp"];
+    };
+    AccountingExport: {
+      id: components["schemas"]["Uuid"];
+      format: components["schemas"]["AccountingExportFormat"];
+      fromTime: components["schemas"]["Timestamp"];
+      throughTime: components["schemas"]["Timestamp"];
+      contentDigest: string;
+      rowCount: number;
+      generatedAt: components["schemas"]["Timestamp"];
+      downloadUrl: string;
     };
     OrganizationContext: {
       organizationId: components["schemas"]["Uuid"];
@@ -617,6 +922,16 @@ export interface components {
         "application/json": components["schemas"]["Invoice"];
       };
     };
+    /** @description Updated payment exception */
+    PaymentException: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["PaymentException"];
+      };
+    };
     /** @description Merchant wallet */
     MerchantWallet: {
       headers: {
@@ -687,11 +1002,22 @@ export interface components {
     InvoiceId: components["schemas"]["Uuid"];
     CheckoutToken: string;
     WalletId: components["schemas"]["Uuid"];
+    ExceptionId: components["schemas"]["Uuid"];
+    EvidencePackId: components["schemas"]["Uuid"];
+    ExportId: components["schemas"]["Uuid"];
   };
   requestBodies: never;
   headers: {
     /** @description Canonical request UUID */
     RequestId: components["schemas"]["Uuid"];
+    /** @description SHA-256 digest of the exact signed JSON manifest bytes */
+    ManifestDigest: string;
+    /** @description Base64url Ed25519 signature over the exact manifest bytes */
+    EvidenceSignature: string;
+    /** @description Identifier for the historical evidence signing key */
+    EvidenceSigningKeyId: string;
+    /** @description SHA-256 digest of the exact downloaded artifact bytes */
+    ContentDigest: string;
   };
   pathItems: never;
 }
@@ -1242,6 +1568,367 @@ export interface operations {
       403: components["responses"]["ApiError"];
       404: components["responses"]["ApiError"];
       409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  listPaymentExceptions: {
+    parameters: {
+      query?: {
+        limit?: components["parameters"]["Limit"];
+        cursor?: components["parameters"]["Cursor"];
+        state?: components["schemas"]["ExceptionReviewState"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Payment exception page */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PaymentException"][];
+            nextCursor: string | null;
+          };
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  getPaymentExceptionHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Append-only exception history */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["ExceptionCaseEvent"][];
+          };
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  assignPaymentException: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssignExceptionInput"];
+      };
+    };
+    responses: {
+      /** @description Exception assigned */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaymentException"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  resolvePaymentException: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResolveExceptionInput"];
+      };
+    };
+    responses: {
+      /** @description Exception resolved */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaymentException"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  startPaymentExceptionInvestigation: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TransitionExceptionInput"];
+      };
+    };
+    responses: {
+      200: components["responses"]["PaymentException"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  escalatePaymentException: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TransitionExceptionInput"];
+      };
+    };
+    responses: {
+      200: components["responses"]["PaymentException"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  reopenPaymentException: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        exceptionId: components["parameters"]["ExceptionId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TransitionExceptionInput"];
+      };
+    };
+    responses: {
+      200: components["responses"]["PaymentException"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  createEvidencePack: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateEvidencePackInput"];
+      };
+    };
+    responses: {
+      /** @description Signed evidence generated */
+      201: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidencePack"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  getEvidencePackVerification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        evidencePackId: components["parameters"]["EvidencePackId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historical verification material for this evidence pack */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidenceVerification"];
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  downloadEvidencePack: {
+    parameters: {
+      query: {
+        format: "json" | "pdf";
+      };
+      header?: never;
+      path: {
+        evidencePackId: components["parameters"]["EvidencePackId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Exact signed manifest or human-readable PDF */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "X-PayOps-Manifest-Digest": components["headers"]["ManifestDigest"];
+          "X-PayOps-Signature": components["headers"]["EvidenceSignature"];
+          "X-PayOps-Signing-Key-Id": components["headers"]["EvidenceSigningKeyId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": string;
+          "application/pdf": string;
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  createAccountingExport: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateAccountingExportInput"];
+      };
+    };
+    responses: {
+      /** @description Accounting export generated */
+      201: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccountingExport"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+    };
+  };
+  downloadAccountingExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        exportId: components["parameters"]["ExportId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Exact CSV export bytes */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "X-PayOps-Content-Digest": components["headers"]["ContentDigest"];
+          [name: string]: unknown;
+        };
+        content: {
+          "text/csv": string;
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
       429: components["responses"]["ApiError"];
     };
   };

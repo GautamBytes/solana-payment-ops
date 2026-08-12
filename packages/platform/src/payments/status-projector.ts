@@ -11,6 +11,12 @@ import type {
   OrganizationDatabase,
   OrganizationTransaction,
 } from "../db/organization-transaction.js";
+import {
+  ensureDefaultLedgerAccounts,
+  postJournalEntry,
+  type FunctionalCurrency,
+} from "../operations/ledger-store.js";
+import { ASSET_SYMBOLS, assetBySymbol } from "../wallets/asset-registry.js";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -190,11 +196,18 @@ interface ProjectionRootRow {
   readonly attempt_id: string;
   readonly public_attempt_id: string;
   readonly invoice_id: string;
+  readonly invoice_public_reference: string;
+  readonly settlement_wallet_id: string;
   readonly customer_id: string;
   readonly reference_address: string;
   readonly recipient_token_account: string;
   readonly expected_mint: string;
   readonly expected_amount_base_units: string;
+  readonly asset_symbol: "USDC" | "USDT";
+  readonly invoice_currency: FunctionalCurrency;
+  readonly invoice_minor_units: string;
+  readonly invoice_issued_at: Date;
+  readonly observation_slot: string | null;
   readonly quote_issued_at: Date;
   readonly latest_qualifying_at: Date;
   readonly invoice_status: "issued" | "paid";
@@ -226,11 +239,24 @@ async function lockProjectionRoot(
         ELSE NULL END AS block_time,
       attempt.id::text AS attempt_id,
       attempt.public_attempt_id::text AS public_attempt_id,
-      invoice.id::text AS invoice_id, invoice.customer_id::text AS customer_id,
+      invoice.id::text AS invoice_id,
+      invoice.public_reference AS invoice_public_reference,
+      invoice.settlement_wallet_id::text AS settlement_wallet_id,
+      invoice.customer_id::text AS customer_id,
       expectation.reference_address,
       expectation.recipient_token_account,
       expectation.mint AS expected_mint,
       expectation.amount_base_units::text AS expected_amount_base_units,
+      attempt.asset_symbol,
+      quote.invoice_currency,
+      quote.invoice_minor_units::text,
+      invoice.issued_at AS invoice_issued_at,
+      (
+        SELECT max(discovered.slot)::text
+        FROM discovered_signatures AS discovered
+        WHERE discovered.signature = event.signature
+          AND discovered.raw_transaction_id = raw.id
+      ) AS observation_slot,
       quote.issued_at AS quote_issued_at,
       expectation.latest_qualifying_at,
       invoice.status AS invoice_status, invoice.version AS invoice_version,
@@ -413,7 +439,7 @@ async function projectAllocation(
       parser_version, signature, outer_instruction_index,
       inner_instruction_index, mint,
       amount_base_units, rule_code, rule_version, active, created_at
-    ) VALUES (
+  ) VALUES (
       ${allocationId}::uuid, ${root.organization_id}::uuid,
       ${root.invoice_id}::uuid, ${root.attempt_id}::uuid,
       ${root.chain_event_db_id}::bigint, ${decision.eventId},
@@ -424,6 +450,8 @@ async function projectAllocation(
       ${decision.ruleVersion}, true, ${occurredAt.toISOString()}
     )
   `;
+  await ensureInvoiceIssuedJournal(sql, root);
+  await postReceiptJournal(sql, root, "payment_received", occurredAt);
   const invoiceRows = await sql<{ version: number }[]>`
     UPDATE merchant_invoices SET status = 'paid', version = version + 1,
       updated_at = ${occurredAt.toISOString()}
@@ -498,7 +526,8 @@ async function projectException(
       id, organization_id, invoice_id, attempt_id, chain_event_id, event_id,
       parser_version, signature, outer_instruction_index,
       inner_instruction_index,
-      amount_base_units, rule_code, rule_version, review_state, created_at
+      amount_base_units, rule_code, rule_version, review_state,
+      asset_symbol, mint, decimals, created_at
     ) VALUES (
       ${exceptionId}::uuid, ${root.organization_id}::uuid,
       ${decision.invoiceId}::uuid, ${root.attempt_id}::uuid,
@@ -507,9 +536,17 @@ async function projectException(
       ${decision.signature}, ${decision.outerInstructionIndex},
       ${decision.innerInstructionIndex}, ${decision.amountBaseUnits.toString()},
       ${decision.code}, ${decision.ruleVersion}, 'open',
+      ${symbolForMint(root.mint)}, ${root.mint}, ${root.decimals},
       ${occurredAt.toISOString()}
     )
   `;
+  await ensureInvoiceIssuedJournal(sql, root);
+  if (
+    root.mint === root.expected_mint &&
+    root.destination_token_account === root.recipient_token_account
+  ) {
+    await postReceiptJournal(sql, root, "unapplied_receipt", occurredAt);
+  }
   const next = await advanceProjection(
     sql,
     root,
@@ -555,6 +592,102 @@ async function projectException(
     occurredAt,
   );
   return changed(next);
+}
+
+function symbolForMint(mint: string): "USDC" | "USDT" | null {
+  return (
+    ASSET_SYMBOLS.find((symbol) => assetBySymbol(symbol).mint === mint) ?? null
+  );
+}
+
+async function postReceiptJournal(
+  sql: OrganizationTransaction,
+  root: ProjectionRootRow,
+  sourceType: "payment_received" | "unapplied_receipt",
+  occurredAt: Date,
+): Promise<void> {
+  if (root.observation_slot === null) {
+    throw new Error("Finalized payment is missing its observed slot");
+  }
+  await ensureDefaultLedgerAccounts(sql, {
+    organizationId: root.organization_id,
+    actorId: "payment-projector",
+    now: occurredAt,
+  });
+  const expected = BigInt(root.expected_amount_base_units);
+  const received = BigInt(root.amount_base_units);
+  const invoiceMinor = BigInt(root.invoice_minor_units);
+  const valuedMinor = (invoiceMinor * received + expected / 2n) / expected;
+  if (valuedMinor < 1n) {
+    throw new Error("Payment receipt valuation rounded below one minor unit");
+  }
+  await postJournalEntry(sql, {
+    organizationId: root.organization_id,
+    actorKind: "system",
+    actorId: "payment-projector",
+    sourceType,
+    sourceId: root.event_id,
+    sourceVersion: 1,
+    functionalCurrency: root.invoice_currency,
+    description:
+      sourceType === "payment_received"
+        ? `Finalized ${root.asset_symbol} invoice payment`
+        : `Finalized ${root.asset_symbol} receipt awaiting allocation`,
+    occurredAt,
+    lines: [
+      {
+        accountCode: `CASH_${root.asset_symbol}`,
+        debitMinorUnits: valuedMinor.toString(),
+        creditMinorUnits: "0",
+        tokenMint: root.mint,
+        tokenBaseUnits: received.toString(),
+        walletId: root.settlement_wallet_id,
+        chainSlot: root.observation_slot,
+      },
+      {
+        accountCode:
+          sourceType === "payment_received"
+            ? "ACCOUNTS_RECEIVABLE"
+            : "UNAPPLIED_CASH",
+        debitMinorUnits: "0",
+        creditMinorUnits: valuedMinor.toString(),
+      },
+    ],
+  });
+}
+
+async function ensureInvoiceIssuedJournal(
+  sql: OrganizationTransaction,
+  root: ProjectionRootRow,
+): Promise<void> {
+  await ensureDefaultLedgerAccounts(sql, {
+    organizationId: root.organization_id,
+    actorId: "payment-projector",
+    now: root.invoice_issued_at,
+  });
+  await postJournalEntry(sql, {
+    organizationId: root.organization_id,
+    actorKind: "system",
+    actorId: "payment-projector",
+    sourceType: "invoice_issued",
+    sourceId: root.invoice_id,
+    sourceVersion: root.invoice_version,
+    functionalCurrency: root.invoice_currency,
+    description: `Issued invoice ${root.invoice_public_reference}`,
+    occurredAt: root.invoice_issued_at,
+    lines: [
+      {
+        accountCode: "ACCOUNTS_RECEIVABLE",
+        debitMinorUnits: root.invoice_minor_units,
+        creditMinorUnits: "0",
+      },
+      {
+        accountCode: "INVOICE_CLEARING",
+        debitMinorUnits: "0",
+        creditMinorUnits: root.invoice_minor_units,
+      },
+    ],
+  });
 }
 
 async function advanceProjection(

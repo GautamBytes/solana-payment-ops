@@ -7,6 +7,26 @@ import {
 } from "../src/index.js";
 
 describe("wallet ownership proof", () => {
+  it("verifies a valid signature after base64url transport decoding", async () => {
+    const fields: WalletProofFields = {
+      domain: "payops.test",
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      address: "44QXWLMvVST4BgRNQEaNKU7JYHHayd4R68MwP9dKp3Np",
+      nonce: "9JD2UX_ZEkxNI-n_AApj1JftWZBklGGE3n9VpNiBk7A",
+      issuedAt: new Date("2026-08-12T00:00:02.000Z"),
+      expiresAt: new Date("2026-08-12T00:10:02.000Z"),
+    };
+
+    await expect(
+      verifyWalletProof({
+        fields,
+        signature:
+          "O-_9k6GptBwrWpMFW1ktdTYADWFWVCKnsy29rjWD7wP6LJuswXiHTqsEwCg4IYaSfAZ9O_0Cgi7Deea_oRNiAQ",
+        now: new Date("2026-08-12T00:05:00.000Z"),
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("verifies only the exact UTF-8 message and bound fields", async () => {
     const signer = await generateKeyPairSigner();
     const fields: WalletProofFields = {

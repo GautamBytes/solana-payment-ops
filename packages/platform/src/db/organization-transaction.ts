@@ -37,15 +37,20 @@ export class OrganizationDatabase {
   public async transaction<T>(
     context: OrganizationTransactionContext,
     operation: (transaction: OrganizationTransaction) => Promise<T>,
+    options: { readonly isolationLevel?: "repeatable read" } = {},
   ): Promise<T> {
     validateContext(context);
-    const result = await this.#sql.begin(async (transaction) => {
+    const run = async (transaction: OrganizationTransaction) => {
       await transaction`
         SELECT set_config('payops.organization_id', ${context.organizationId}, true),
           set_config('payops.actor_id', ${context.actorId}, true)
       `;
       return { value: await operation(transaction) };
-    });
+    };
+    const result =
+      options.isolationLevel === "repeatable read"
+        ? await this.#sql.begin("isolation level repeatable read", run)
+        : await this.#sql.begin(run);
     return result.value;
   }
 

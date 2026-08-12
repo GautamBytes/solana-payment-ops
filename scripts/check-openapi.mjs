@@ -51,6 +51,45 @@ const expectedStatuses = new Map([
     "POST /v1/merchant-wallets/{walletId}/replace",
     ["200", "202", "400", "401", "403", "404", "409", "429"],
   ],
+  ["GET /v1/exceptions", ["200", "400", "401", "403", "429"]],
+  [
+    "GET /v1/exceptions/{exceptionId}/history",
+    ["200", "401", "403", "404", "429"],
+  ],
+  [
+    "POST /v1/exceptions/{exceptionId}/assign",
+    ["200", "400", "401", "403", "404", "409", "429"],
+  ],
+  [
+    "POST /v1/exceptions/{exceptionId}/resolve",
+    ["200", "400", "401", "403", "404", "409", "429"],
+  ],
+  [
+    "POST /v1/exceptions/{exceptionId}/investigate",
+    ["200", "400", "401", "403", "404", "409", "429"],
+  ],
+  [
+    "POST /v1/exceptions/{exceptionId}/escalate",
+    ["200", "400", "401", "403", "404", "409", "429"],
+  ],
+  [
+    "POST /v1/exceptions/{exceptionId}/reopen",
+    ["200", "400", "401", "403", "404", "409", "429"],
+  ],
+  [
+    "POST /v1/evidence-packs",
+    ["201", "400", "401", "403", "404", "429", "503"],
+  ],
+  [
+    "GET /v1/evidence-packs/{evidencePackId}",
+    ["200", "401", "403", "404", "429"],
+  ],
+  [
+    "GET /v1/evidence-packs/{evidencePackId}/verification",
+    ["200", "401", "403", "404", "429"],
+  ],
+  ["POST /v1/exports", ["201", "400", "401", "403", "429"]],
+  ["GET /v1/exports/{exportId}", ["200", "401", "403", "404", "429"]],
 ]);
 const operations = new Map();
 const operationIds = new Set();
@@ -97,6 +136,13 @@ for (const key of [
   "POST /v1/invoices/{invoiceId}/cancel",
   "POST /v1/merchant-wallets",
   "POST /v1/merchant-wallets/{walletId}/replace",
+  "POST /v1/exceptions/{exceptionId}/assign",
+  "POST /v1/exceptions/{exceptionId}/resolve",
+  "POST /v1/exceptions/{exceptionId}/investigate",
+  "POST /v1/exceptions/{exceptionId}/escalate",
+  "POST /v1/exceptions/{exceptionId}/reopen",
+  "POST /v1/evidence-packs",
+  "POST /v1/exports",
 ]) {
   const parameters = operations.get(key)?.parameters ?? [];
   if (
@@ -120,7 +166,11 @@ for (const key of [
     fail(`${key} must explicitly disable inherited authentication`);
   }
 }
-for (const key of ["GET /v1/customers", "GET /v1/invoices"]) {
+for (const key of [
+  "GET /v1/customers",
+  "GET /v1/invoices",
+  "GET /v1/exceptions",
+]) {
   const parameters = operations.get(key)?.parameters ?? [];
   for (const name of ["Limit", "Cursor"]) {
     if (
