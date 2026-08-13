@@ -17,7 +17,7 @@
     "pilot": "pnpm --filter @payops/pilot exec payops-pilot",
     "schemas:check": "pnpm --filter @payops/contracts build && node scripts/check-json-schemas.mjs",
     "sdk:generate": "node scripts/generate-sdk.mjs",
-    "test": "pnpm -r test && node --test scripts/test/*.test.mjs",
+    "test": "pnpm -r --workspace-concurrency=1 test && node --test scripts/test/*.test.mjs",
     "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck"
   },

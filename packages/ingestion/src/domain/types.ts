@@ -11,6 +11,8 @@ export type FinalityState =
   | "failed"
   | "reverted"
   | "quarantined";
+export type FinalizedConsensusState = "pending" | "agreed" | "disagreed";
+export type RpcProviderRole = "primary" | "secondary";
 
 export type IngestionErrorCode =
   | "rpc_transport_error"
@@ -29,6 +31,7 @@ export type IngestionErrorCode =
   | "database_serialization_failure"
   | "cursor_compare_failed"
   | "finality_status_missing"
+  | "finality_provider_disagreement"
   | "finality_content_conflict"
   | "invalid_configuration"
   | "worker_busy";
@@ -100,6 +103,88 @@ export interface ProviderRecord {
   readonly cluster: SolanaCluster;
   readonly endpointEnv: string;
   readonly endpointLabel: string;
+}
+
+export interface SetProviderRoleInput {
+  readonly cluster: SolanaCluster;
+  readonly role: RpcProviderRole;
+  readonly providerId: string;
+  readonly now: Date;
+}
+
+export interface RpcProviderRoleRecord {
+  readonly organizationId: string;
+  readonly cluster: SolanaCluster;
+  readonly role: RpcProviderRole;
+  readonly providerId: string;
+  readonly createdAt: Date;
+}
+
+export interface FinalizedConsensusClaimed {
+  readonly kind: "claimed";
+  readonly organizationId: string;
+  readonly cluster: SolanaCluster;
+  readonly signature: string;
+  readonly generation: number;
+  readonly primaryProviderId: string;
+  readonly secondaryProviderId: string;
+  readonly claimToken: string;
+}
+
+export interface FinalizedConsensusSettled {
+  readonly kind: "settled";
+  readonly state: "agreed" | "disagreed";
+  readonly generation: number;
+}
+
+export type FinalizedConsensusClaim =
+  FinalizedConsensusClaimed | FinalizedConsensusSettled;
+
+export interface FinalizedProviderObservation {
+  readonly providerId: string;
+  readonly canonicalDigest: string | null;
+  readonly snapshotDigest: string | null;
+  readonly parsingDigest: string | null;
+  readonly transferIdentityDigest: string | null;
+  readonly statusSlot: bigint | null;
+  readonly slot: bigint | null;
+  readonly executionState: "succeeded" | "failed" | null;
+  readonly executionDigest: string | null;
+  readonly statusExecutionDigest: string | null;
+  readonly transactionExecutionDigest: string | null;
+  readonly finality: string | null;
+  readonly responseTimeMs: number;
+  readonly safeErrorCode: IngestionErrorCode | null;
+  readonly safeErrorRetryable: boolean | null;
+  readonly observedAt: Date;
+}
+
+export interface ClaimFinalizedConsensusInput {
+  readonly primaryProviderId: string;
+  readonly secondaryProviderId: string;
+  readonly signature: string;
+  readonly now: Date;
+}
+
+export interface CompleteFinalizedConsensusInput {
+  readonly claim: FinalizedConsensusClaimed;
+  readonly state: FinalizedConsensusState;
+  readonly observations: readonly FinalizedProviderObservation[];
+}
+
+export interface CompleteFinalizedConsensusResult {
+  readonly applied: boolean;
+  readonly state: FinalizedConsensusState;
+  readonly generation: number;
+}
+
+export interface FinalizedConsensusStore {
+  claimFinalizedConsensus(
+    input: ClaimFinalizedConsensusInput,
+  ): Promise<FinalizedConsensusClaim>;
+  completeFinalizedConsensus(
+    input: CompleteFinalizedConsensusInput,
+  ): Promise<CompleteFinalizedConsensusResult>;
 }
 
 export interface WatchTarget {

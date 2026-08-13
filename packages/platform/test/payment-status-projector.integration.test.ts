@@ -14,11 +14,18 @@ import {
   OrganizationDatabase,
   PaymentAttemptService,
   PaymentStatusProjector,
+  persistedProjectionConsensusEvaluator,
+  ProductionControlStore,
   QuoteExpiryService,
-  runPlatformMigrations,
+  type ProjectionConsensusInput,
   verifyEvidencePack,
+  type RpcProviderConfigurationIdentity,
   type StablecoinObservation,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -30,8 +37,50 @@ const admin = baseDatabaseUrl
   ? postgres(baseDatabaseUrl, { max: 1, onnotice: () => undefined })
   : undefined;
 const organizationId = "00000000-0000-4000-8000-000000000001";
+const projectionWorkerInstanceId = "00000000-0000-4000-8000-000000000098";
+const productionRpcIdentity = {
+  mode: "dual_provider",
+  cluster: "mainnet-beta",
+  primaryProviderId: "provider-mainnet",
+  primaryEndpointEnvironment: "TEST_RPC_URL",
+  primaryEndpointDigest: "a".repeat(64),
+  secondaryProviderId: "provider-secondary",
+  secondaryEndpointEnvironment: "SECONDARY_RPC",
+  secondaryEndpointDigest: "b".repeat(64),
+} as const satisfies RpcProviderConfigurationIdentity;
 const alternateSignature =
   "2Ana1pUpv2ZbMVkwF5FXapYeBEjdxDatLn7nvJkhgTSXbs59SyZSx866bXirPgj8QQVB57uxHJBG1YFvkRbFj4T";
+const forgerRole = `payops_shadow_forger_${process.pid}`;
+
+describe("persisted projection consensus evaluator", () => {
+  it.each([
+    ["pending", []],
+    ["pending", [{ state: "pending" }]],
+    ["agreed", [{ state: "agreed" }]],
+    ["disagreed", [{ state: "disagreed" }]],
+  ] as const)("maps the latest durable row to %s", async (expected, rows) => {
+    const transaction = (() => Promise.resolve(rows)) as unknown as Parameters<
+      typeof persistedProjectionConsensusEvaluator.getStatus
+    >[0];
+
+    await expect(
+      persistedProjectionConsensusEvaluator.getStatus(transaction, {
+        organizationId,
+        chainEventId: "1",
+        sourceEventId: "event-1",
+        attemptId: "attempt-1",
+        parserVersion: "1.0.0",
+        canonicalInputDigest: "a".repeat(64),
+        proposedClassification: "allocation",
+        proposedInvoiceId: "invoice-1",
+        proposedInvoiceStatus: "paid",
+        proposedJournalSource: "payment_received",
+        ruleCode: "exact_reference_match",
+        ruleVersion: "1.0.0",
+      }),
+    ).resolves.toBe(expected);
+  });
+});
 
 describeDatabase("hosted payment status projection", () => {
   let database: OrganizationDatabase;
@@ -39,6 +88,7 @@ describeDatabase("hosted payment status projection", () => {
 
   beforeAll(async () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
+    await admin!.unsafe(`CREATE ROLE ${forgerRole} NOLOGIN`);
   });
 
   beforeEach(async () => {
@@ -48,7 +98,11 @@ describeDatabase("hosted payment status projection", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
+    await admin!.unsafe(`GRANT USAGE ON SCHEMA ${schema} TO ${forgerRole}`);
+    await admin!.unsafe(
+      `GRANT SELECT, INSERT, UPDATE, DELETE ON ${schema}.shadow_projection_decisions TO ${forgerRole}`,
+    );
     database = new OrganizationDatabase(databaseUrl!, { max: 2 });
     checkoutStore = new CheckoutStore(database, databaseUrl!);
   });
@@ -57,13 +111,687 @@ describeDatabase("hosted payment status projection", () => {
     await checkoutStore?.close();
     await database?.close();
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
+    await admin!.unsafe(`DROP ROLE IF EXISTS ${forgerRole}`);
     await admin?.end();
+  });
+
+  it("persists one deterministic shadow proposal without authoritative effects", async () => {
+    const fixture = await seedAttempt(database, checkoutStore, {
+      activationMode: "shadow",
+    });
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    const projector = new PaymentStatusProjector(database);
+    const before = await inspect(database);
+
+    await expect(project(projector)).resolves.toEqual({
+      outcome: "proposed",
+      created: true,
+    });
+    await expect(project(projector)).resolves.toEqual({
+      outcome: "proposed",
+      created: false,
+    });
+
+    await expect(inspect(database)).resolves.toEqual(before);
+    const proposals = await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql<
+        {
+          source_event_id: string;
+          proposed_classification: string;
+          proposed_invoice_id: string | null;
+          proposed_invoice_status: string;
+          proposed_journal_source: string | null;
+          rule_code: string;
+          rule_version: string;
+          canonical_input_digest: string;
+          occurred_at: Date;
+        }[]
+      >`
+        SELECT source_event_id, proposed_classification,
+          proposed_invoice_id::text, proposed_invoice_status,
+          proposed_journal_source, rule_code, rule_version,
+          canonical_input_digest, occurred_at
+        FROM shadow_projection_decisions
+      `,
+    );
+    expect(proposals).toEqual([
+      {
+        source_event_id: "hosted-event-1",
+        proposed_classification: "allocation",
+        proposed_invoice_id: fixture.invoiceId,
+        proposed_invoice_status: "paid",
+        proposed_journal_source: "payment_received",
+        rule_code: "exact_match",
+        rule_version: "0.1",
+        canonical_input_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+        occurred_at: new Date("2026-08-12T12:05:00.000Z"),
+      },
+    ]);
+
+    await expect(
+      database.transaction(
+        { organizationId, actorId: "runtime" },
+        async (sql) => sql`
+          INSERT INTO shadow_projection_decisions (
+            id, organization_id, chain_event_id, source_event_id, attempt_id,
+            proposed_classification, proposed_invoice_id,
+            proposed_invoice_status, proposed_journal_source, rule_code,
+            rule_version, canonical_input_digest, occurred_at, created_at
+          )
+          SELECT ${randomUUID()}::uuid, organization_id, chain_event_id,
+            source_event_id, attempt_id, proposed_classification,
+            proposed_invoice_id, proposed_invoice_status,
+            proposed_journal_source, rule_code, rule_version,
+            ${"c".repeat(64)}, occurred_at, created_at
+          FROM shadow_projection_decisions
+        `,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await expect(
+      database.transaction(
+        { organizationId, actorId: "forger" },
+        async (sql) => {
+          await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+          await sql`
+            SELECT set_config(
+              'payops.production_control_operation',
+              'record_shadow_projection', true
+            )
+          `;
+          return sql`
+          INSERT INTO shadow_projection_decisions (
+            id, organization_id, chain_event_id, source_event_id, attempt_id,
+            proposed_classification, proposed_invoice_id,
+            proposed_invoice_status, proposed_journal_source, rule_code,
+            rule_version, canonical_input_digest, occurred_at, created_at
+          )
+          SELECT ${randomUUID()}::uuid, organization_id, chain_event_id,
+            source_event_id, attempt_id, proposed_classification,
+            proposed_invoice_id, proposed_invoice_status,
+            proposed_journal_source, rule_code, rule_version,
+            ${"b".repeat(64)}, occurred_at, created_at
+          FROM shadow_projection_decisions
+          `;
+        },
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await expect(
+      database.transaction(
+        { organizationId, actorId: "forger" },
+        async (sql) => sql`
+          UPDATE shadow_projection_decisions
+          SET canonical_input_digest = ${"b".repeat(64)}
+        `,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      database.transaction(
+        { organizationId, actorId: "forger" },
+        async (sql) => sql`DELETE FROM shadow_projection_decisions`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("does not let an existing shadow proposal starve later candidates or changed representations", async () => {
+    const fixture = await seedAttempt(database, checkoutStore, {
+      activationMode: "shadow",
+    });
+    await seedChainEvent(database, fixture, "finalized", "999901", {
+      eventId: "a-shadow-event",
+      signature: "1".repeat(64),
+    });
+    await seedChainEvent(database, fixture, "finalized", "999901", {
+      eventId: "z-shadow-event",
+      signature: alternateSignature,
+    });
+    const projector = new PaymentStatusProjector(database);
+    const batch = () =>
+      projector.projectAvailable({
+        organizationId,
+        actorId: "status-worker",
+        now: new Date("2026-08-12T12:05:00.000Z"),
+        limit: 1,
+      });
+
+    await expect(batch()).resolves.toEqual({ examined: 1, changed: 0 });
+    await expect(batch()).resolves.toEqual({ examined: 1, changed: 0 });
+    await expect(shadowProposalCounts(database)).resolves.toEqual([
+      { source_event_id: "a-shadow-event", count: 1 },
+      { source_event_id: "z-shadow-event", count: 1 },
+    ]);
+
+    await addParserRepresentation(database, "a-shadow-event", "2.0.0");
+    await expect(batch()).resolves.toEqual({ examined: 1, changed: 0 });
+    await expect(shadowProposalCounts(database)).resolves.toEqual([
+      { source_event_id: "a-shadow-event", count: 2 },
+      { source_event_id: "z-shadow-event", count: 1 },
+    ]);
+  });
+
+  it.each([
+    ["detected", "failed"],
+    ["confirmed", "reverted"],
+    ["confirmed", "quarantined"],
+  ] as const)(
+    "revokes a pre-control %s projection in shadow when its chain event is %s",
+    async (projectionStatus, chainState) => {
+      const fixture = await seedAttempt(database, checkoutStore, {
+        activationMode: "shadow",
+      });
+      await seedChainEvent(database, fixture, "detected", "999901");
+      await database.transaction(
+        { organizationId, actorId: "upgrade-fixture" },
+        async (sql) => {
+          await sql`
+            UPDATE payment_projections
+            SET public_status = ${projectionStatus},
+              source_state = ${projectionStatus}, version = 2,
+              updated_at = '2026-08-12T12:04:00.000Z'
+            WHERE organization_id = ${organizationId}::uuid
+          `;
+          await sql`
+            UPDATE payment_attempts
+            SET state = ${projectionStatus}, version = version + 1,
+              updated_at = '2026-08-12T12:04:00.000Z'
+            WHERE organization_id = ${organizationId}::uuid
+          `;
+        },
+      );
+      await setChainState(database, chainState);
+
+      await expect(
+        new PaymentStatusProjector(database).projectAvailable({
+          organizationId,
+          actorId: "status-worker",
+          now: new Date("2026-08-12T12:05:00.000Z"),
+          limit: 1,
+        }),
+      ).resolves.toEqual({ examined: 1, changed: 1 });
+      await expect(inspect(database)).resolves.toMatchObject({
+        projection: { public_status: "confirmation_revoked", version: 3 },
+      });
+    },
+  );
+
+  it("does not revoke a live projection from a non-primary mainnet source", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql`
+        UPDATE watch_targets SET provider_id = 'provider-other'
+        WHERE organization_id = ${organizationId}::uuid
+      `,
+    );
+    await seedChainEvent(database, fixture, "detected", "999901", {
+      eventId: "hosted-event-1",
+      signature: "1".repeat(64),
+      providerId: "provider-other",
+    });
+    await database.transaction(
+      { organizationId, actorId: "upgrade-fixture" },
+      async (sql) => {
+        await sql`
+          UPDATE payment_projections
+          SET public_status = 'confirmed', source_state = 'confirmed',
+            version = 2, updated_at = '2026-08-12T12:04:00.000Z'
+          WHERE organization_id = ${organizationId}::uuid
+        `;
+        await sql`
+          UPDATE payment_attempts
+          SET state = 'confirmed', version = version + 1,
+            updated_at = '2026-08-12T12:04:00.000Z'
+          WHERE organization_id = ${organizationId}::uuid
+        `;
+      },
+    );
+    await setChainState(database, "reverted");
+    const before = await inspect(database);
+
+    await expect(project(liveProjector(database))).resolves.toEqual({
+      outcome: "unchanged",
+    });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("blocks live finalized authority while persisted consensus is not agreed", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    const before = await inspect(database);
+    const projector = new PaymentStatusProjector(database, {
+      workerInstanceId: projectionWorkerInstanceId,
+      rpc: productionRpcIdentity,
+      consensus: {
+        getStatus: async (sql, input) => {
+          const rows = await sql<{ activation_mode: string }[]>`
+            SELECT activation_mode FROM organization_production_controls
+            WHERE organization_id = ${input.organizationId}::uuid
+          `;
+          expect(rows).toEqual([{ activation_mode: "live" }]);
+          expect(input).toMatchObject({
+            organizationId,
+            sourceEventId: "hosted-event-1",
+            parserVersion: "1.0.0",
+            proposedClassification: "allocation",
+            proposedInvoiceId: fixture.invoiceId,
+            proposedInvoiceStatus: "paid",
+            proposedJournalSource: "payment_received",
+            ruleCode: "exact_match",
+            ruleVersion: "0.1",
+          });
+          expect(input.attemptId).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+          );
+          expect(input.canonicalInputDigest).toMatch(/^[0-9a-f]{64}$/);
+          return "pending";
+        },
+      },
+    });
+
+    await expect(project(projector)).resolves.toEqual({
+      outcome: "unchanged",
+    });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("requires the projecting worker to match the active production provider pair", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql`
+        UPDATE worker_instances SET rpc_mode = 'single_provider',
+          secondary_provider_id = NULL, secondary_endpoint_env = NULL,
+          secondary_endpoint_digest = NULL
+        WHERE id = ${projectionWorkerInstanceId}::uuid
+      `,
+    );
+    const projector = new PaymentStatusProjector(database, {
+      workerInstanceId: projectionWorkerInstanceId,
+      rpc: productionRpcIdentity,
+      consensus: { getStatus: async () => "agreed" },
+    });
+    const before = await inspect(database);
+
+    await expect(project(projector)).resolves.toEqual({ outcome: "unchanged" });
+    await expect(inspect(database)).resolves.toEqual(before);
+
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql`
+        UPDATE worker_instances SET rpc_mode = 'dual_provider',
+          secondary_provider_id = 'provider-other',
+          secondary_endpoint_env = 'OTHER_RPC',
+          secondary_endpoint_digest = ${"c".repeat(64)}
+        WHERE id = ${projectionWorkerInstanceId}::uuid
+      `,
+    );
+    await expect(project(projector)).resolves.toEqual({ outcome: "unchanged" });
+    await expect(inspect(database)).resolves.toEqual(before);
+
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql`
+        UPDATE worker_instances SET secondary_provider_id = 'provider-secondary',
+          secondary_endpoint_env = 'SECONDARY_RPC',
+          secondary_endpoint_digest = ${"b".repeat(64)}
+        WHERE id = ${projectionWorkerInstanceId}::uuid
+      `,
+    );
+    await expect(project(projector)).resolves.toMatchObject({
+      outcome: "changed",
+      publicStatus: "paid",
+    });
+  });
+
+  it.each(["localnet", "devnet"] as const)(
+    "allows matching persisted single-provider %s live projection",
+    async (cluster) => {
+      const fixture = await seedAttempt(database, checkoutStore);
+      const rpc = await configureSingleProviderProjection(
+        database,
+        fixture,
+        cluster,
+      );
+      await seedChainEvent(database, fixture, "finalized", "999901", {
+        eventId: "hosted-event-1",
+        signature: "1".repeat(64),
+        cluster,
+        providerId: rpc.primaryProviderId,
+      });
+
+      await expect(
+        project(
+          new PaymentStatusProjector(database, {
+            workerInstanceId: projectionWorkerInstanceId,
+            rpc,
+          }),
+        ),
+      ).resolves.toMatchObject({ outcome: "changed", publicStatus: "paid" });
+      await expect(inspect(database)).resolves.toMatchObject({
+        invoice: { status: "paid" },
+        allocations: 1,
+      });
+    },
+  );
+
+  it("rejects matching persisted single-provider mainnet authority without side effects", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => sql`
+        UPDATE worker_instances SET rpc_mode = 'single_provider',
+          secondary_provider_id = NULL, secondary_endpoint_env = NULL,
+          secondary_endpoint_digest = NULL
+        WHERE id = ${projectionWorkerInstanceId}::uuid
+      `,
+    );
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: {
+            mode: "single_provider",
+            cluster: "mainnet-beta",
+            primaryProviderId: "provider-mainnet",
+            primaryEndpointEnvironment: "TEST_RPC_URL",
+            primaryEndpointDigest: "a".repeat(64),
+            secondaryProviderId: null,
+            secondaryEndpointEnvironment: null,
+            secondaryEndpointDigest: null,
+          },
+        }),
+      ),
+    ).resolves.toEqual({ outcome: "unchanged" });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("rejects single-provider projection when persisted and event provider contexts differ", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    const rpc = await configureSingleProviderProjection(
+      database,
+      fixture,
+      "localnet",
+    );
+    await seedChainEvent(database, fixture, "finalized", "999901", {
+      eventId: "hosted-event-1",
+      signature: "1".repeat(64),
+      cluster: "localnet",
+      providerId: "provider-other",
+    });
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc,
+        }),
+      ),
+    ).resolves.toEqual({ outcome: "unchanged" });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("rejects dual-mainnet projection from outside the configured primary provider", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901", {
+      eventId: "hosted-event-1",
+      signature: "1".repeat(64),
+      providerId: "provider-other",
+    });
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: productionRpcIdentity,
+          consensus: { getStatus: async () => "agreed" },
+        }),
+      ),
+    ).resolves.toEqual({ outcome: "unchanged" });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("uses persisted pending consensus by default and blocks authority", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await seedPersistedConsensus(database, "pending");
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: productionRpcIdentity,
+        }),
+      ),
+    ).resolves.toEqual({
+      outcome: "unchanged",
+    });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("ignores a legacy agreement after the configured provider pair rotates", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await seedPersistedConsensus(database, "agreed");
+    const input = await database.transaction(
+      { organizationId, actorId: "test" },
+      async (sql) => {
+        await sql`
+          INSERT INTO rpc_providers (
+            id, cluster, endpoint_env, endpoint_label, active, created_at
+          ) VALUES
+            ('rotated-primary', 'mainnet-beta', 'ROTATED_PRIMARY_RPC',
+              'rotated-primary', true, now()),
+            ('rotated-secondary', 'mainnet-beta', 'ROTATED_SECONDARY_RPC',
+              'rotated-secondary', true, now())
+        `;
+        await sql.unsafe(
+          "ALTER TABLE rpc_provider_roles DISABLE TRIGGER rpc_provider_roles_guard",
+        );
+        await sql`
+          UPDATE rpc_provider_roles SET provider_id = CASE role
+            WHEN 'primary' THEN 'rotated-primary'
+            ELSE 'rotated-secondary' END
+          WHERE organization_id = ${organizationId}::uuid
+            AND cluster = 'mainnet-beta'
+        `;
+        await sql.unsafe(
+          "ALTER TABLE rpc_provider_roles ENABLE TRIGGER rpc_provider_roles_guard",
+        );
+        const rows = await sql<{ id: string }[]>`
+          SELECT id::text FROM chain_events WHERE event_id = 'hosted-event-1'
+        `;
+        return {
+          organizationId,
+          chainEventId: rows[0]!.id,
+          sourceEventId: "hosted-event-1",
+          attemptId: fixture.attempt.publicAttemptId,
+          parserVersion: "1.0.0",
+          canonicalInputDigest: "a".repeat(64),
+          proposedClassification: "allocation" as const,
+          proposedInvoiceId: fixture.invoiceId,
+          proposedInvoiceStatus: "paid" as const,
+          proposedJournalSource: "payment_received" as const,
+          ruleCode: "exact_match",
+          ruleVersion: "0.1",
+        };
+      },
+    );
+
+    await expect(
+      database.transaction({ organizationId, actorId: "test" }, (sql) =>
+        persistedProjectionConsensusEvaluator.getStatus(sql, input),
+      ),
+    ).resolves.toBe("pending");
+  });
+
+  it("uses persisted agreed consensus by default for authority", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await seedPersistedConsensus(database, "agreed");
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: productionRpcIdentity,
+        }),
+      ),
+    ).resolves.toMatchObject({ outcome: "changed", publicStatus: "paid" });
+    await expect(inspect(database)).resolves.toMatchObject({
+      invoice: { status: "paid" },
+      allocations: 1,
+    });
+  });
+
+  it("uses persisted disagreement to block authoritative projection", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await seedPersistedConsensus(database, "disagreed");
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: productionRpcIdentity,
+        }),
+      ),
+    ).resolves.toEqual({
+      outcome: "unchanged",
+    });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("does not trust an agreed label with mismatched persisted components", async () => {
+    const fixture = await seedAttempt(database, checkoutStore);
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await seedPersistedConsensus(database, "agreed", {
+      mismatchedParsingDigest: true,
+    });
+    const before = await inspect(database);
+
+    await expect(
+      project(
+        new PaymentStatusProjector(database, {
+          workerInstanceId: projectionWorkerInstanceId,
+          rpc: productionRpcIdentity,
+        }),
+      ),
+    ).resolves.toEqual({
+      outcome: "unchanged",
+    });
+    await expect(inspect(database)).resolves.toEqual(before);
+  });
+
+  it("does not authorize a changed source representation with stale exact consensus", async () => {
+    const fixture = await seedAttempt(database, checkoutStore, {
+      activationMode: "shadow",
+    });
+    await seedChainEvent(database, fixture, "finalized", "999901");
+    await expect(
+      project(new PaymentStatusProjector(database)),
+    ).resolves.toEqual({ outcome: "proposed", created: true });
+    const staleAgreement = await database.transaction(
+      { organizationId, actorId: "consensus-fixture" },
+      async (sql) => {
+        const rows = await sql<
+          {
+            chain_event_id: string;
+            source_event_id: string;
+            attempt_id: string;
+            proposed_classification: "allocation" | "exception";
+            proposed_invoice_id: string | null;
+            proposed_invoice_status: "paid" | "unchanged";
+            proposed_journal_source:
+              "payment_received" | "unapplied_receipt" | null;
+            rule_code: string;
+            rule_version: string;
+            canonical_input_digest: string;
+          }[]
+        >`
+          SELECT chain_event_id::text, source_event_id, attempt_id::text,
+            proposed_classification, proposed_invoice_id::text,
+            proposed_invoice_status, proposed_journal_source, rule_code,
+            rule_version, canonical_input_digest
+          FROM shadow_projection_decisions
+        `;
+        return rows[0]!;
+      },
+    );
+    await new ProductionControlStore(database, {
+      evaluate: async () => healthyPromotionPrerequisites,
+    }).promoteLive({
+      organizationId,
+      actorKind: "system",
+      actorId: "test",
+      auditRequestId: randomUUID(),
+      expectedVersion: 1,
+      now: new Date(),
+    });
+    await addParserRepresentation(database, "hosted-event-1", "2.0.0");
+    const before = await inspect(database);
+    let evaluated: ProjectionConsensusInput | undefined;
+    const projector = new PaymentStatusProjector(database, {
+      workerInstanceId: projectionWorkerInstanceId,
+      rpc: productionRpcIdentity,
+      consensus: {
+        getStatus: async (_sql, input) => {
+          evaluated = input;
+          return input.organizationId === organizationId &&
+            input.chainEventId === staleAgreement.chain_event_id &&
+            input.sourceEventId === staleAgreement.source_event_id &&
+            input.parserVersion === "1.0.0" &&
+            input.canonicalInputDigest ===
+              staleAgreement.canonical_input_digest &&
+            input.attemptId === staleAgreement.attempt_id &&
+            input.proposedClassification ===
+              staleAgreement.proposed_classification &&
+            input.proposedInvoiceId === staleAgreement.proposed_invoice_id &&
+            input.proposedInvoiceStatus ===
+              staleAgreement.proposed_invoice_status &&
+            input.proposedJournalSource ===
+              staleAgreement.proposed_journal_source &&
+            input.ruleCode === staleAgreement.rule_code &&
+            input.ruleVersion === staleAgreement.rule_version
+            ? "agreed"
+            : "pending";
+        },
+      },
+    });
+
+    await expect(project(projector)).resolves.toEqual({ outcome: "unchanged" });
+    expect(evaluated).toMatchObject({
+      chainEventId: staleAgreement.chain_event_id,
+      sourceEventId: staleAgreement.source_event_id,
+      attemptId: staleAgreement.attempt_id,
+      parserVersion: "2.0.0",
+      proposedClassification: staleAgreement.proposed_classification,
+      proposedInvoiceId: staleAgreement.proposed_invoice_id,
+      proposedInvoiceStatus: staleAgreement.proposed_invoice_status,
+      proposedJournalSource: staleAgreement.proposed_journal_source,
+      ruleCode: staleAgreement.rule_code,
+      ruleVersion: staleAgreement.rule_version,
+    });
+    expect(evaluated!.canonicalInputDigest).not.toBe(
+      staleAgreement.canonical_input_digest,
+    );
+    await expect(inspect(database)).resolves.toEqual(before);
   });
 
   it("projects detected, confirmed, finalized, and paid exactly once", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "detected", "999901");
-    const projector = new PaymentStatusProjector(database);
+    const projector = liveProjector(database);
 
     await expect(project(projector)).resolves.toMatchObject({
       outcome: "changed",
@@ -157,7 +885,7 @@ describeDatabase("hosted payment status projection", () => {
   it("creates a durable exception instead of paying a wrong amount", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999900");
-    const result = await project(new PaymentStatusProjector(database));
+    const result = await project(liveProjector(database));
     expect(result).toMatchObject({ publicStatus: "exception" });
 
     const evidence = await inspect(database);
@@ -205,7 +933,7 @@ describeDatabase("hosted payment status projection", () => {
         `;
       },
     );
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const evidence = await inspect(database);
     expect(evidence.exceptions).toBe(1);
     expect(evidence.journals).toEqual([
@@ -230,7 +958,7 @@ describeDatabase("hosted payment status projection", () => {
         `;
       },
     );
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const [exception] = await new ExceptionStore(database).list({
       organizationId,
       actorId: "merchant-operator",
@@ -272,7 +1000,7 @@ describeDatabase("hosted payment status projection", () => {
   it("assigns and resolves an exception with optimistic locking and append-only history", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999900");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const store = new ExceptionStore(database);
     const [created] = await store.list({
       organizationId,
@@ -458,7 +1186,7 @@ describeDatabase("hosted payment status projection", () => {
   it("rolls back an exception update when idempotency completion fails", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999900");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const store = new ExceptionStore(database);
     const [created] = await store.list({
       organizationId,
@@ -502,7 +1230,7 @@ describeDatabase("hosted payment status projection", () => {
   it("generates immutable canonical JSON and human-readable signed evidence", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999901");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const keyPair = generateKeyPairSync("ed25519");
     const privateKeyPem = keyPair.privateKey
       .export({ type: "pkcs8", format: "pem" })
@@ -598,7 +1326,7 @@ describeDatabase("hosted payment status projection", () => {
   it("includes chain provenance for an exception-only payment", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999900");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const keyPair = generateKeyPairSync("ed25519");
     const service = new EvidencePackService(database, {
       signingKeyId: "evidence-key-2026-08",
@@ -635,7 +1363,7 @@ describeDatabase("hosted payment status projection", () => {
   it("exports payment attempts separately from allocation rows", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999901");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const service = new AccountingExportService(database);
     const common = {
       organizationId,
@@ -664,7 +1392,7 @@ describeDatabase("hosted payment status projection", () => {
   it("rolls back evidence, audit, and outbox when idempotency completion fails", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "finalized", "999901");
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const keyPair = generateKeyPairSync("ed25519");
     const service = new EvidencePackService(database, {
       signingKeyId: "evidence-key-2026-08",
@@ -721,7 +1449,7 @@ describeDatabase("hosted payment status projection", () => {
         `;
       },
     );
-    await project(new PaymentStatusProjector(database));
+    await project(liveProjector(database));
     const evidence = await inspect(database);
     expect(evidence.invoice.status).toBe("issued");
     expect(evidence.allocations).toBe(0);
@@ -740,7 +1468,7 @@ describeDatabase("hosted payment status projection", () => {
   it("revokes only non-final confirmation and keeps the attempt reusable", async () => {
     const fixture = await seedAttempt(database, checkoutStore);
     await seedChainEvent(database, fixture, "confirmed", "999901");
-    const projector = new PaymentStatusProjector(database);
+    const projector = liveProjector(database);
     await project(projector);
     await setChainState(database, "detected");
     await expect(project(projector)).resolves.toEqual({ outcome: "unchanged" });
@@ -770,7 +1498,7 @@ describeDatabase("hosted payment status projection", () => {
       eventId: "a-stable-event",
       signature: "1".repeat(64),
     });
-    const projector = new PaymentStatusProjector(database);
+    const projector = liveProjector(database);
     await projector.projectOne({
       organizationId,
       actorId: "status-worker",
@@ -810,7 +1538,7 @@ describeDatabase("hosted payment status projection", () => {
         `);
       },
     );
-    await expect(project(new PaymentStatusProjector(database))).rejects.toThrow(
+    await expect(project(liveProjector(database))).rejects.toThrow(
       "forced outbox failure",
     );
     const evidence = await inspect(database);
@@ -884,6 +1612,7 @@ async function project(projector: PaymentStatusProjector) {
 async function seedAttempt(
   database: OrganizationDatabase,
   checkoutStore: CheckoutStore,
+  options: { readonly activationMode?: "shadow" | "live" } = {},
 ) {
   const customerId = randomUUID();
   const walletId = randomUUID();
@@ -897,8 +1626,35 @@ async function seedAttempt(
       await sql`
         INSERT INTO rpc_providers (
           id, cluster, endpoint_env, endpoint_label, active, created_at
+        ) VALUES
+          ('provider-mainnet', 'mainnet-beta', 'TEST_RPC_URL',
+            'test', true, now()),
+          ('provider-secondary', 'mainnet-beta', 'SECONDARY_RPC',
+            'secondary', true, now()),
+          ('provider-other', 'mainnet-beta', 'OTHER_RPC',
+            'other', true, now())
+      `;
+      await sql`
+        INSERT INTO rpc_provider_roles (
+          organization_id, cluster, role, provider_id, created_at
+        ) VALUES
+          (${organizationId}::uuid, 'mainnet-beta', 'primary',
+            'provider-mainnet', now()),
+          (${organizationId}::uuid, 'mainnet-beta', 'secondary',
+            'provider-secondary', now())
+      `;
+      await sql`
+        INSERT INTO worker_instances (
+          id, state, build_revision, rpc_mode, rpc_cluster,
+          primary_provider_id, primary_endpoint_env, primary_endpoint_digest,
+          secondary_provider_id, secondary_endpoint_env,
+          secondary_endpoint_digest,
+          started_at, last_heartbeat_at
         ) VALUES (
-          'provider-mainnet', 'mainnet-beta', 'TEST_RPC_URL', 'test', true, now()
+          ${projectionWorkerInstanceId}::uuid, 'running', 'projection-test',
+          'dual_provider', 'mainnet-beta', 'provider-mainnet', 'TEST_RPC_URL',
+          ${"a".repeat(64)}, 'provider-secondary', 'SECONDARY_RPC',
+          ${"b".repeat(64)}, clock_timestamp(), clock_timestamp()
         )
       `;
       await sql`
@@ -981,12 +1737,54 @@ async function seedAttempt(
     now: new Date("2026-08-12T12:00:00.000Z"),
     signal: new AbortController().signal,
   });
+  if ((options.activationMode ?? "live") === "live") {
+    const promotion = await new ProductionControlStore(database, {
+      evaluate: async () => healthyPromotionPrerequisites,
+    }).promoteLive({
+      organizationId,
+      actorKind: "system",
+      actorId: "test",
+      auditRequestId: randomUUID(),
+      expectedVersion: 1,
+      now: new Date(),
+    });
+    expect(promotion.outcome).toBe("promoted");
+  }
   return {
     invoiceId,
     checkoutId,
     tokenAccount: String(tokenAccount.address),
     attempt,
   };
+}
+
+const healthyPromotionPrerequisites = {
+  completeWatchCoverage: true,
+  freshWorkerHeartbeat: true,
+  twoActiveProductionRpcRoles: true,
+  noOpenCriticalIncident: true,
+} as const;
+
+function liveProjector(database: OrganizationDatabase): PaymentStatusProjector {
+  return new PaymentStatusProjector(database, {
+    workerInstanceId: projectionWorkerInstanceId,
+    rpc: productionRpcIdentity,
+    consensus: {
+      getStatus: async (sql, input) => {
+        const rows = await sql<
+          { organization_id: string; activation_mode: string }[]
+        >`
+          SELECT organization_id::text, activation_mode
+          FROM organization_production_controls
+          WHERE organization_id = ${input.organizationId}::uuid
+        `;
+        expect(rows).toEqual([
+          { organization_id: organizationId, activation_mode: "live" },
+        ]);
+        return "agreed";
+      },
+    },
+  });
 }
 
 async function seedChainEvent(
@@ -997,8 +1795,12 @@ async function seedChainEvent(
   identity: {
     readonly eventId: string;
     readonly signature: string;
+    readonly cluster?: "mainnet-beta" | "devnet" | "localnet";
+    readonly providerId?: string;
   } = { eventId: "hosted-event-1", signature: "1".repeat(64) },
 ) {
+  const cluster = identity.cluster ?? "mainnet-beta";
+  const providerId = identity.providerId ?? "provider-mainnet";
   await database.transaction(
     { organizationId, actorId: "test" },
     async (sql) => {
@@ -1007,7 +1809,7 @@ async function seedChainEvent(
           provider_id, signature, commitment, digest, canonical_body, body,
           byte_length, retrieved_at
         ) VALUES (
-          'provider-mainnet', ${identity.signature}, 'confirmed',
+          ${providerId}, ${identity.signature}, 'confirmed',
           ${identity.signature === "1".repeat(64) ? "d".repeat(64) : "e".repeat(64)},
           '{"blockTime":1786536030}', '{"blockTime":1786536030}'::jsonb,
           24, '2026-08-12T12:00:30.000Z'
@@ -1018,7 +1820,7 @@ async function seedChainEvent(
           event_id, cluster, signature, outer_instruction_index,
           inner_instruction_index, raw_transaction_id, current_state
         ) VALUES (
-          ${identity.eventId}, 'mainnet-beta', ${identity.signature}, 2, -1,
+          ${identity.eventId}, ${cluster}, ${identity.signature}, 2, -1,
           ${raw[0]!.id}::bigint, ${state}
         ) RETURNING id::text
       `;
@@ -1028,13 +1830,15 @@ async function seedChainEvent(
           confirmation_status, representation_class, raw_transaction_id,
           parse_digest, finality_state, observed_at
         )
-        SELECT target.id, 'provider-mainnet', ${identity.signature}, 123456,
+        SELECT target.id, ${providerId}, ${identity.signature}, 123456,
           1786536030, ${state === "finalized" ? "finalized" : "confirmed"},
           'parsed', ${raw[0]!.id}::bigint,
           ${identity.signature === "1".repeat(64) ? "f".repeat(64) : "a".repeat(64)},
           ${state}, '2026-08-12T12:00:31.000Z'
         FROM watch_targets AS target
         WHERE target.address = ${fixture.tokenAccount}
+          AND target.provider_id = ${providerId}
+          AND target.cluster = ${cluster}
       `;
       await sql`
         INSERT INTO normalized_transfers (
@@ -1058,6 +1862,133 @@ async function seedChainEvent(
   );
 }
 
+async function configureSingleProviderProjection(
+  database: OrganizationDatabase,
+  fixture: Awaited<ReturnType<typeof seedAttempt>>,
+  cluster: "devnet" | "localnet",
+): Promise<RpcProviderConfigurationIdentity> {
+  const providerId = `provider-${cluster}`;
+  await database.transaction(
+    { organizationId, actorId: "test" },
+    async (sql) => {
+      await sql`
+        INSERT INTO rpc_providers (
+          id, cluster, endpoint_env, endpoint_label, active, created_at
+        ) VALUES (
+          ${providerId}, ${cluster}, 'NON_PRODUCTION_RPC_URL',
+          'non-production', true, clock_timestamp()
+        )
+      `;
+      await sql`
+        INSERT INTO rpc_provider_roles (
+          organization_id, cluster, role, provider_id, created_at
+        ) VALUES (
+          ${organizationId}::uuid, ${cluster}, 'primary', ${providerId},
+          clock_timestamp()
+        )
+      `;
+      await sql`
+        INSERT INTO watch_targets (
+          id, provider_id, cluster, address, cutover_slot, overlap_slots,
+          committed_head_slot, coverage, active, created_at, organization_id
+        ) VALUES (
+          ${`${cluster}-projection-watch`}, ${providerId}, ${cluster},
+          ${fixture.tokenAccount}, 0, 64, 0, 'complete', true,
+          clock_timestamp(), ${organizationId}::uuid
+        )
+      `;
+      await sql`
+        UPDATE worker_instances SET rpc_mode = 'single_provider',
+          rpc_cluster = ${cluster}, primary_provider_id = ${providerId},
+          primary_endpoint_env = 'NON_PRODUCTION_RPC_URL',
+          primary_endpoint_digest = ${"d".repeat(64)},
+          secondary_provider_id = NULL, secondary_endpoint_env = NULL,
+          secondary_endpoint_digest = NULL,
+          last_heartbeat_at = clock_timestamp()
+        WHERE id = ${projectionWorkerInstanceId}::uuid
+      `;
+    },
+  );
+  return {
+    mode: "single_provider",
+    cluster,
+    primaryProviderId: providerId,
+    primaryEndpointEnvironment: "NON_PRODUCTION_RPC_URL",
+    primaryEndpointDigest: "d".repeat(64),
+    secondaryProviderId: null,
+    secondaryEndpointEnvironment: null,
+    secondaryEndpointDigest: null,
+  };
+}
+
+async function seedPersistedConsensus(
+  database: OrganizationDatabase,
+  state: "pending" | "agreed" | "disagreed",
+  options: { readonly mismatchedParsingDigest?: boolean } = {},
+): Promise<void> {
+  await database.transaction(
+    { organizationId, actorId: "test" },
+    async (sql) => {
+      await sql`
+        INSERT INTO rpc_providers (
+          id, cluster, endpoint_env, endpoint_label, active, created_at
+        ) VALUES (
+          'provider-secondary', 'mainnet-beta', 'SECONDARY_TEST_RPC_URL',
+          'secondary-test', true, now()
+        ) ON CONFLICT (id) DO NOTHING
+      `;
+      await sql`
+        INSERT INTO rpc_provider_roles (
+          organization_id, cluster, role, provider_id, created_at
+        ) VALUES
+          (${organizationId}::uuid, 'mainnet-beta', 'primary',
+            'provider-mainnet', '2026-08-12T12:01:00.000Z'),
+          (${organizationId}::uuid, 'mainnet-beta', 'secondary',
+            'provider-secondary', '2026-08-12T12:01:00.000Z')
+        ON CONFLICT (organization_id, cluster, role) DO NOTHING
+      `;
+      const checks = await sql<{ id: string }[]>`
+        INSERT INTO rpc_consensus_checks (
+          organization_id, cluster, signature, generation,
+          primary_provider_id, secondary_provider_id, state,
+          claim_token, claimed_until, started_at, completed_at
+        ) VALUES (
+          ${organizationId}::uuid, 'mainnet-beta', ${"1".repeat(64)}, 1,
+          'provider-mainnet', 'provider-secondary', ${state},
+          '00000000-0000-4000-8000-000000000010'::uuid,
+          '2026-08-12T12:02:00.000Z', '2026-08-12T12:01:00.000Z',
+          ${state === "pending" ? null : "2026-08-12T12:01:30.000Z"}
+        ) RETURNING id::text
+      `;
+      if (state === "pending") return;
+      for (const [index, providerId] of [
+        "provider-mainnet",
+        "provider-secondary",
+      ].entries()) {
+        await sql`
+          INSERT INTO rpc_consensus_provider_observations (
+            organization_id, consensus_check_id, generation, provider_id,
+            canonical_digest, snapshot_digest, parsing_digest,
+            transfer_identity_digest, status_slot, slot, execution_state,
+            execution_digest, status_execution_digest,
+            transaction_execution_digest,
+            finality, response_time_ms, observed_at, created_at
+          ) VALUES (
+            ${organizationId}::uuid, ${checks[0]!.id}::bigint, 1, ${providerId},
+            ${state === "disagreed" && index === 1 ? "b".repeat(64) : "a".repeat(64)},
+            ${"c".repeat(64)},
+            ${options.mismatchedParsingDigest && index === 1 ? "0".repeat(64) : "d".repeat(64)},
+            ${"e".repeat(64)},
+            123456, 123456, 'succeeded', ${"f".repeat(64)},
+            ${"f".repeat(64)}, ${"f".repeat(64)}, 'finalized/finalized',
+            5, '2026-08-12T12:01:30.000Z', '2026-08-12T12:01:30.000Z'
+          )
+        `;
+      }
+    },
+  );
+}
+
 async function setChainState(database: OrganizationDatabase, state: string) {
   await database.transaction(
     { organizationId, actorId: "test" },
@@ -1067,6 +1998,47 @@ async function setChainState(database: OrganizationDatabase, state: string) {
         WHERE event_id = 'hosted-event-1'
       `;
     },
+  );
+}
+
+async function addParserRepresentation(
+  database: OrganizationDatabase,
+  eventId: string,
+  parserVersion: string,
+): Promise<void> {
+  await database.transaction(
+    { organizationId, actorId: "test" },
+    async (sql) => {
+      await sql`
+        INSERT INTO normalized_transfers (
+          chain_event_id, parser_version, program_id, source_token_account,
+          source_account_index, mint, destination_token_account,
+          destination_account_index, authority, amount_base_units, decimals,
+          unsupported_extra_accounts
+        )
+        SELECT transfer.chain_event_id, ${parserVersion}, transfer.program_id,
+          transfer.source_token_account, transfer.source_account_index,
+          transfer.mint, transfer.destination_token_account,
+          transfer.destination_account_index, transfer.authority,
+          transfer.amount_base_units, transfer.decimals,
+          transfer.unsupported_extra_accounts
+        FROM normalized_transfers AS transfer
+        JOIN chain_events AS event ON event.id = transfer.chain_event_id
+        WHERE event.event_id = ${eventId} AND transfer.parser_version = '1.0.0'
+      `;
+    },
+  );
+}
+
+async function shadowProposalCounts(database: OrganizationDatabase) {
+  return database.transaction(
+    { organizationId, actorId: "test" },
+    async (sql) => sql<{ source_event_id: string; count: number }[]>`
+      SELECT source_event_id, count(*)::integer AS count
+      FROM shadow_projection_decisions
+      GROUP BY source_event_id
+      ORDER BY source_event_id
+    `,
   );
 }
 

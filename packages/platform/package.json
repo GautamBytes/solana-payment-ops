@@ -19,7 +19,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "pnpm run test:unit && pnpm run test:dist",
     "test:dist": "pnpm run build && node test/package-artifact.esm-smoke.mjs",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --maxWorkers=1",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

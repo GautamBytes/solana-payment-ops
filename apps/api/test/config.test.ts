@@ -1,16 +1,26 @@
 import { describe, expect, test } from "vitest";
 import { generateKeyPairSync } from "node:crypto";
-import { parseApiConfig } from "../src/config.js";
+import { hasReadyRpcConfiguration, parseApiConfig } from "../src/config.js";
 
 const validEnvironment = {
   DATABASE_URL: "postgres://payops:payops@127.0.0.1:55432/payops_test",
+  PAYOPS_PRODUCTION_CONTROL_DATABASE_URL:
+    "postgres://payops_control:control@127.0.0.1:55432/payops_test",
+  PAYOPS_READINESS_VERIFIER_DATABASE_URL:
+    "postgres://payops_verifier:verifier@127.0.0.1:55432/payops_test",
   PAYOPS_ENVIRONMENT: "local",
   PAYOPS_PUBLIC_API_ORIGIN: "http://127.0.0.1:3000",
   PAYOPS_CHECKOUT_ORIGIN: "http://127.0.0.1:3001",
   PAYOPS_TRUSTED_ORIGINS: "http://127.0.0.1:3000",
   PAYOPS_WALLET_PROOF_DOMAIN: "payops.local",
   PAYOPS_SOLANA_CLUSTER: "mainnet-beta",
+  PAYOPS_RPC_MODE: "dual_provider",
+  PAYOPS_RPC_PRIMARY_PROVIDER_ID: "mainnet-primary",
+  PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: "PAYOPS_SOLANA_RPC_URL",
   PAYOPS_SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com",
+  PAYOPS_RPC_SECONDARY_PROVIDER_ID: "mainnet-secondary",
+  PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: "PAYOPS_SECONDARY_SOLANA_RPC_URL",
+  PAYOPS_SECONDARY_SOLANA_RPC_URL: "https://secondary.mainnet.example",
   PAYOPS_INGESTION_PROVIDER_ID: "mainnet-primary",
   BETTER_AUTH_SECRETS:
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
@@ -32,7 +42,142 @@ describe("API configuration", () => {
     expect(config).toMatchObject({
       rateLimitMax: 600,
       rateLimitWindowSeconds: 60,
+      rpc: {
+        mode: "dual_provider",
+        cluster: "mainnet-beta",
+        primary: {
+          providerId: "mainnet-primary",
+          endpointEnvironment: "PAYOPS_SOLANA_RPC_URL",
+        },
+      },
     });
+  });
+
+  test("parses distinct production mainnet providers", () => {
+    const key = generateKeyPairSync("ed25519")
+      .privateKey.export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const config = parseApiConfig({
+      ...validEnvironment,
+      PAYOPS_ENVIRONMENT: "production",
+      PAYOPS_PUBLIC_API_ORIGIN: "https://api.example.com",
+      PAYOPS_CHECKOUT_ORIGIN: "https://pay.example.com",
+      PAYOPS_TRUSTED_ORIGINS: "https://app.example.com",
+      PAYOPS_RPC_MODE: "dual_provider",
+      PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: "MAINNET_PRIMARY_RPC_URL",
+      MAINNET_PRIMARY_RPC_URL: "https://primary.rpc.example/v1",
+      PAYOPS_RPC_SECONDARY_PROVIDER_ID: "mainnet-secondary",
+      PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: "MAINNET_SECONDARY_RPC_URL",
+      MAINNET_SECONDARY_RPC_URL: "https://secondary.rpc.example/v1",
+      PAYOPS_EVIDENCE_SIGNING_KEY_ID: "evidence-2026-08",
+      PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64:
+        Buffer.from(key).toString("base64"),
+    });
+    expect(config.rpc).toMatchObject({
+      mode: "dual_provider",
+      primary: { providerId: "mainnet-primary" },
+      secondary: { providerId: "mainnet-secondary" },
+    });
+  });
+
+  test("requires distinct production database principals", () => {
+    const key = generateKeyPairSync("ed25519")
+      .privateKey.export({ type: "pkcs8", format: "pem" })
+      .toString();
+    const production = {
+      ...validEnvironment,
+      PAYOPS_ENVIRONMENT: "production",
+      PAYOPS_PUBLIC_API_ORIGIN: "https://api.example.com",
+      PAYOPS_CHECKOUT_ORIGIN: "https://pay.example.com",
+      PAYOPS_TRUSTED_ORIGINS: "https://app.example.com",
+      PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: "MAINNET_PRIMARY_RPC_URL",
+      MAINNET_PRIMARY_RPC_URL: "https://primary.rpc.example/v1",
+      PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: "MAINNET_SECONDARY_RPC_URL",
+      MAINNET_SECONDARY_RPC_URL: "https://secondary.rpc.example/v1",
+      PAYOPS_EVIDENCE_SIGNING_KEY_ID: "evidence-2026-08",
+      PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64:
+        Buffer.from(key).toString("base64"),
+    };
+    expect(() =>
+      parseApiConfig({
+        ...production,
+        PAYOPS_PRODUCTION_CONTROL_DATABASE_URL: production.DATABASE_URL,
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "unsafe_production_database_role_configuration",
+      }),
+    );
+    expect(() =>
+      parseApiConfig({
+        ...production,
+        PAYOPS_READINESS_VERIFIER_DATABASE_URL:
+          production.PAYOPS_PRODUCTION_CONTROL_DATABASE_URL,
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "unsafe_production_database_role_configuration",
+      }),
+    );
+  });
+
+  test.each([
+    ["PAYOPS_RPC_MODE", "single_provider"],
+    ["PAYOPS_RPC_SECONDARY_PROVIDER_ID", "mainnet-primary"],
+    ["PAYOPS_RPC_SECONDARY_ENDPOINT_ENV", "MAINNET_PRIMARY_RPC_URL"],
+  ])("rejects unsafe production provider configuration %s", (name, value) => {
+    const key = generateKeyPairSync("ed25519")
+      .privateKey.export({ type: "pkcs8", format: "pem" })
+      .toString();
+    expect(() =>
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_ENVIRONMENT: "production",
+        PAYOPS_PUBLIC_API_ORIGIN: "https://api.example.com",
+        PAYOPS_CHECKOUT_ORIGIN: "https://pay.example.com",
+        PAYOPS_TRUSTED_ORIGINS: "https://app.example.com",
+        PAYOPS_RPC_MODE: "dual_provider",
+        PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: "MAINNET_PRIMARY_RPC_URL",
+        MAINNET_PRIMARY_RPC_URL: "https://primary.rpc.example/v1",
+        PAYOPS_RPC_SECONDARY_PROVIDER_ID: "mainnet-secondary",
+        PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: "MAINNET_SECONDARY_RPC_URL",
+        MAINNET_SECONDARY_RPC_URL: "https://secondary.rpc.example/v1",
+        PAYOPS_EVIDENCE_SIGNING_KEY_ID: "evidence-2026-08",
+        PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64:
+          Buffer.from(key).toString("base64"),
+        [name]: value,
+      }),
+    ).toThrow(expect.objectContaining({ code: expect.any(String) }));
+  });
+
+  test("never treats a manually supplied single-provider mainnet identity as ready", () => {
+    const config = parseApiConfig(validEnvironment);
+    expect(
+      hasReadyRpcConfiguration({
+        ...config,
+        rpc: {
+          mode: "single_provider",
+          cluster: "mainnet-beta",
+          primary: config.rpc.primary,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  test("reads required and optional configuration from own properties only", () => {
+    const inheritedOnly = Object.create(validEnvironment) as NodeJS.ProcessEnv;
+    expect(() => parseApiConfig(inheritedOnly)).toThrow(
+      expect.objectContaining({ code: "missing_configuration" }),
+    );
+
+    const inheritedSecret = Object.assign(
+      Object.create({ PAYOPS_SOLANA_RPC_URL: "https://evil.example" }),
+      validEnvironment,
+    ) as NodeJS.ProcessEnv;
+    delete inheritedSecret.PAYOPS_SOLANA_RPC_URL;
+    expect(() => parseApiConfig(inheritedSecret)).toThrow(
+      expect.objectContaining({ code: "missing_configuration" }),
+    );
   });
 
   test("enables authenticated commercial FX only when both values are present", () => {
@@ -88,6 +233,12 @@ describe("API configuration", () => {
         PAYOPS_PUBLIC_API_ORIGIN: "https://api.example.com",
         PAYOPS_CHECKOUT_ORIGIN: "https://pay.example.com",
         PAYOPS_TRUSTED_ORIGINS: "https://app.example.com",
+        PAYOPS_RPC_MODE: "dual_provider",
+        PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: "MAINNET_PRIMARY_RPC_URL",
+        MAINNET_PRIMARY_RPC_URL: "https://primary.rpc.example/v1",
+        PAYOPS_RPC_SECONDARY_PROVIDER_ID: "mainnet-secondary",
+        PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: "MAINNET_SECONDARY_RPC_URL",
+        MAINNET_SECONDARY_RPC_URL: "https://secondary.rpc.example/v1",
       }),
     ).toThrow(
       expect.objectContaining({

@@ -1,9 +1,19 @@
 export {
   MigrationError,
+  migrationChecksum,
+  PLATFORM_MIGRATION_NAMES,
+  platformMigrationMetadata,
   runMigrationSet,
   runPlatformMigrations,
   type MigrationDefinition,
+  type MigrationMetadata,
 } from "./db/migrate.js";
+export {
+  bootstrapProductionDatabaseRoles,
+  ProductionRoleBootstrapError,
+  type ProductionDatabasePrincipals,
+  type ProductionDatabaseRoles,
+} from "./db/production-role-bootstrap.js";
 export { betterAuthSchema } from "./auth/better-auth-schema.js";
 export {
   acceptBootstrapInvitation,
@@ -132,9 +142,46 @@ export {
 } from "./payments/attempt-service.js";
 export {
   PaymentStatusProjector,
+  persistedProjectionConsensusEvaluator,
+  type ProjectionConsensusEvaluator,
+  type ProjectionConsensusInput,
+  type ProjectionConsensusStatus,
   type ProjectionBatchResult,
   type ProjectionResult,
 } from "./payments/status-projector.js";
+export {
+  ProductionControlError,
+  ProductionControlStore,
+  persistedProductionPromotionEvaluator,
+  type OrganizationActivationMode,
+  type OrganizationProductionStatus,
+  type ProductionPromotionEvaluator,
+  type ProductionPromotionIdempotency,
+  type PromotionBlocker,
+  type PromotionEvaluation,
+  type PromotionPrerequisites,
+  type PromotionResult,
+} from "./operations/production-control.js";
+export {
+  OPERATIONAL_INCIDENT_KINDS,
+  OPERATIONAL_MEASUREMENT_KINDS,
+  OperationalHealthError,
+  OperationalHealthStore,
+  type OperationalActorKind,
+  type OperationalHealthSnapshot,
+  type OperationalIncident,
+  type OperationalIncidentCursor,
+  type OperationalIncidentEvent,
+  type OperationalIncidentHistoryCursor,
+  type OperationalIncidentIdempotency,
+  type OperationalIncidentKind,
+  type OperationalIncidentSeverity,
+  type OperationalIncidentState,
+  type OperationalMeasurement,
+  type OperationalMeasurementKind,
+  type OperationalPage,
+  type OperationalResolutionCode,
+} from "./operations/operational-health.js";
 export {
   CheckoutStore,
   CheckoutStoreError,
@@ -184,11 +231,27 @@ export type {
 } from "./quotes/types.js";
 export {
   WORKER_JOB_NAMES,
+  WORKER_FAILURE_CLASSES,
   WorkerJobStore,
   type WorkerJobCursor,
   type WorkerJobLease,
   type WorkerJobName,
+  type WorkerFailureClass,
+  type WorkerInstance,
+  type WorkerJobReadinessFact,
+  type WorkerReadiness,
 } from "./worker/job-store.js";
+export {
+  parseRpcProviderConfiguration,
+  rpcProviderConfigurationIdentity,
+  RpcProviderConfigurationError,
+  type DeploymentEnvironment,
+  type ResolvedRpcProvider,
+  type RpcCluster,
+  type RpcDeploymentMode,
+  type RpcProviderConfiguration,
+  type RpcProviderConfigurationIdentity,
+} from "./config/rpc-provider.js";
 export {
   EXCEPTION_REVIEW_STATES,
   NON_FINANCIAL_RESOLUTION_CODES,

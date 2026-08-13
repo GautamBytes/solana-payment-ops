@@ -4,9 +4,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
+  acknowledgeOperationalIncident,
   assignPaymentException,
   createAccountingExport,
   createEvidencePack,
+  OperationsApiError,
+  promoteProductionLive,
+  resolveOperationalIncident,
   resolvePaymentException,
   type AccountingExportFormat,
 } from "../../lib/operations-api";
@@ -60,6 +64,79 @@ export async function exportAccountingAction(
     idempotencyKey: idempotencyKey(formData),
   });
   redirect(`/operations/download/export/${result.id}`);
+}
+
+export async function acknowledgeIncidentAction(
+  formData: FormData,
+): Promise<void> {
+  await operationalMutation(async () =>
+    acknowledgeOperationalIncident(await authCookie(), {
+      incidentId: field(formData, "incidentId", 36),
+      expectedVersion: version(formData),
+      idempotencyKey: idempotencyKey(formData),
+    }),
+  );
+  redirect("/operations?notice=incident_acknowledged");
+}
+
+export async function resolveIncidentAction(formData: FormData): Promise<void> {
+  await operationalMutation(async () =>
+    resolveOperationalIncident(await authCookie(), {
+      incidentId: field(formData, "incidentId", 36),
+      expectedVersion: version(formData),
+      idempotencyKey: idempotencyKey(formData),
+    }),
+  );
+  redirect("/operations?notice=incident_resolved");
+}
+
+export async function promoteProductionAction(
+  formData: FormData,
+): Promise<void> {
+  if (field(formData, "confirmed", 4) !== "true") {
+    throw new Error("promotion_confirmation_required");
+  }
+  await operationalMutation(async () =>
+    promoteProductionLive(await authCookie(), {
+      confirmed: true,
+      expectedVersion: version(formData),
+      idempotencyKey: idempotencyKey(formData),
+    }),
+  );
+  redirect("/operations?notice=production_live");
+}
+
+async function operationalMutation(operation: () => Promise<unknown>) {
+  try {
+    await operation();
+    revalidatePath("/operations");
+  } catch (error) {
+    if (error instanceof OperationsApiError) {
+      if (
+        [
+          "incident_version_conflict",
+          "production_control_version_conflict",
+          "idempotency_conflict",
+        ].includes(error.code)
+      ) {
+        redirect("/operations?notice=mutation_conflict");
+      }
+      if (error.code === "promotion_blocked") {
+        redirect("/operations?notice=promotion_blocked");
+      }
+      if (
+        [
+          "authentication_required",
+          "forbidden",
+          "owner_session_required",
+          "fresh_owner_session_required",
+        ].includes(error.code)
+      ) {
+        redirect("/operations?notice=authorization_required");
+      }
+    }
+    throw error;
+  }
 }
 
 async function authCookie(): Promise<string> {

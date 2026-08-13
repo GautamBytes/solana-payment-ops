@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { LifecycleEvent } from "@payops/contracts";
 import {
   reconcileEvent,
@@ -11,11 +11,18 @@ import type {
   OrganizationDatabase,
   OrganizationTransaction,
 } from "../db/organization-transaction.js";
+import type { RpcProviderConfigurationIdentity } from "../config/rpc-provider.js";
+import { canonicalJson } from "../idempotency/idempotency-store.js";
 import {
   ensureDefaultLedgerAccounts,
   postJournalEntry,
   type FunctionalCurrency,
 } from "../operations/ledger-store.js";
+import {
+  lockOrganizationActivationMode,
+  persistShadowProjectionDecision,
+  type ShadowProjectionDecisionInput,
+} from "../operations/production-control.js";
 import { ASSET_SYMBOLS, assetBySymbol } from "../wallets/asset-registry.js";
 
 const uuidPattern =
@@ -45,17 +52,143 @@ export interface ProjectionBatchResult {
 
 export type ProjectionResult =
   | { readonly outcome: "not_found" | "unchanged" }
+  | { readonly outcome: "proposed"; readonly created: boolean }
   | {
       readonly outcome: "changed";
       readonly publicStatus: PublicStatus;
       readonly version: number;
     };
 
+export type ProjectionConsensusStatus = "pending" | "agreed" | "disagreed";
+
+export interface ProjectionConsensusInput {
+  readonly organizationId: string;
+  readonly chainEventId: string;
+  readonly sourceEventId: string;
+  readonly attemptId: string;
+  readonly parserVersion: string;
+  readonly canonicalInputDigest: string;
+  readonly proposedClassification: "allocation" | "exception";
+  readonly proposedInvoiceId: string | null;
+  readonly proposedInvoiceStatus: "paid" | "unchanged";
+  readonly proposedJournalSource:
+    "payment_received" | "unapplied_receipt" | null;
+  readonly ruleCode: string;
+  readonly ruleVersion: string;
+}
+
+export interface ProjectionConsensusEvaluator {
+  getStatus(
+    transaction: OrganizationTransaction,
+    input: ProjectionConsensusInput,
+  ): Promise<ProjectionConsensusStatus>;
+}
+
+export const persistedProjectionConsensusEvaluator: ProjectionConsensusEvaluator =
+  {
+    async getStatus(transaction, input) {
+      const rows = await transaction<{ state: ProjectionConsensusStatus }[]>`
+        SELECT CASE
+          WHEN consensus.state = 'disagreed' THEN 'disagreed'
+          WHEN consensus.state = 'agreed' AND (
+            SELECT count(*) = 2
+              AND count(*) FILTER (
+                WHERE observation.provider_id IN (
+                  consensus.primary_provider_id, consensus.secondary_provider_id
+                )
+                  AND observation.canonical_digest IS NOT NULL
+                  AND observation.safe_error_code IS NULL
+                  AND observation.finality = 'finalized/finalized'
+              ) = 2
+              AND min(observation.canonical_digest)
+                = max(observation.canonical_digest)
+              AND min(observation.snapshot_digest)
+                = max(observation.snapshot_digest)
+              AND min(observation.parsing_digest)
+                = max(observation.parsing_digest)
+              AND min(observation.transfer_identity_digest)
+                = max(observation.transfer_identity_digest)
+              AND min(observation.slot) = max(observation.slot)
+              AND min(observation.execution_state)
+                = max(observation.execution_state)
+              AND min(observation.execution_digest)
+                = max(observation.execution_digest)
+            FROM rpc_consensus_provider_observations AS observation
+            WHERE observation.organization_id = consensus.organization_id
+              AND observation.consensus_check_id = consensus.id
+              AND observation.generation = consensus.generation
+          ) THEN 'agreed'
+          ELSE 'pending'
+        END AS state
+        FROM chain_events AS event
+        JOIN rpc_consensus_checks AS consensus
+          ON consensus.organization_id = ${input.organizationId}::uuid
+          AND consensus.cluster = event.cluster
+          AND consensus.signature = event.signature
+        JOIN rpc_provider_roles AS primary_role
+          ON primary_role.organization_id = consensus.organization_id
+          AND primary_role.cluster = consensus.cluster
+          AND primary_role.role = 'primary'
+          AND primary_role.provider_id = consensus.primary_provider_id
+        JOIN rpc_providers AS primary_provider
+          ON primary_provider.id = primary_role.provider_id
+          AND primary_provider.cluster = primary_role.cluster
+          AND primary_provider.active
+        JOIN rpc_provider_roles AS secondary_role
+          ON secondary_role.organization_id = consensus.organization_id
+          AND secondary_role.cluster = consensus.cluster
+          AND secondary_role.role = 'secondary'
+          AND secondary_role.provider_id = consensus.secondary_provider_id
+        JOIN rpc_providers AS secondary_provider
+          ON secondary_provider.id = secondary_role.provider_id
+          AND secondary_provider.cluster = secondary_role.cluster
+          AND secondary_provider.active
+        WHERE event.id::text = ${input.chainEventId}
+          AND event.event_id = ${input.sourceEventId}
+        ORDER BY consensus.generation DESC
+        LIMIT 1
+      `;
+      const state = rows[0]?.state;
+      return state === "agreed" || state === "disagreed" ? state : "pending";
+    },
+  };
+
 export class PaymentStatusProjector {
   readonly #database: OrganizationDatabase;
+  readonly #shadowDatabase: OrganizationDatabase;
+  readonly #consensus: ProjectionConsensusEvaluator;
+  readonly #workerInstanceId: string | undefined;
+  readonly #rpc: RpcProviderConfigurationIdentity | undefined;
 
-  public constructor(database: OrganizationDatabase) {
+  public constructor(
+    database: OrganizationDatabase,
+    options: {
+      readonly consensus?: ProjectionConsensusEvaluator;
+      readonly shadowDatabase?: OrganizationDatabase;
+      readonly workerInstanceId?: string;
+      readonly rpc?: RpcProviderConfigurationIdentity;
+    } = {},
+  ) {
     this.#database = database;
+    this.#shadowDatabase = options.shadowDatabase ?? database;
+    this.#consensus =
+      options.consensus ?? persistedProjectionConsensusEvaluator;
+    if (
+      options.workerInstanceId !== undefined &&
+      !uuidPattern.test(options.workerInstanceId)
+    ) {
+      throw new TypeError("Invalid worker instance ID");
+    }
+    if (
+      (options.workerInstanceId === undefined) !==
+      (options.rpc === undefined)
+    ) {
+      throw new TypeError(
+        "Worker instance and RPC context must be provided together",
+      );
+    }
+    this.#workerInstanceId = options.workerInstanceId;
+    this.#rpc = options.rpc;
   }
 
   public async projectAvailable(input: {
@@ -69,10 +202,13 @@ export class PaymentStatusProjector {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new TypeError("Invalid projection batch limit");
     }
-    const candidates = await this.#database.transaction(
-      { organizationId: input.organizationId, actorId: input.actorId },
-      async (sql) =>
-        sql<{ event_id: string }[]>`
+    let afterEventId: string | null = null;
+    let examined = 0;
+    let changed = 0;
+    while (examined < limit) {
+      const candidates = await this.#database.transaction(
+        { organizationId: input.organizationId, actorId: input.actorId },
+        async (sql) => sql<{ event_id: string }[]>`
           SELECT DISTINCT event.event_id
           FROM hosted_payment_expectations AS expectation
           JOIN payment_projections AS projection
@@ -83,6 +219,7 @@ export class PaymentStatusProjector {
           JOIN chain_events AS event ON event.id = reference.chain_event_id
           WHERE expectation.organization_id = ${input.organizationId}::uuid
             AND expectation.active
+            AND (${afterEventId}::text IS NULL OR event.event_id > ${afterEventId})
             AND (
               (
                 event.current_state = 'detected'
@@ -103,18 +240,23 @@ export class PaymentStatusProjector {
               )
             )
           ORDER BY event.event_id
-          LIMIT ${limit}
+          LIMIT ${limit - examined}
         `,
-    );
-    let changed = 0;
-    for (const candidate of candidates) {
-      const result = await this.projectOne({
-        ...input,
-        chainEventId: candidate.event_id,
-      });
-      if (result.outcome === "changed") changed += 1;
+      );
+      if (candidates.length === 0) break;
+      for (const candidate of candidates) {
+        afterEventId = candidate.event_id;
+        const result = await this.projectOne({
+          ...input,
+          chainEventId: candidate.event_id,
+        });
+        if (result.outcome === "proposed" && !result.created) continue;
+        examined += 1;
+        if (result.outcome === "changed") changed += 1;
+        if (examined === limit) break;
+      }
     }
-    return { examined: candidates.length, changed };
+    return { examined, changed };
   }
 
   public async projectOne(input: {
@@ -127,7 +269,10 @@ export class PaymentStatusProjector {
     if (input.chainEventId.length < 1 || input.chainEventId.length > 128) {
       throw new TypeError("Invalid chain event ID");
     }
-    return this.#database.transaction(
+    const result = await this.#database.transaction<
+      | ProjectionResult
+      | { readonly shadowDecision: ShadowProjectionDecisionInput }
+    >(
       { organizationId: input.organizationId, actorId: input.actorId },
       async (sql) => {
         const root = await lockProjectionRoot(
@@ -136,11 +281,70 @@ export class PaymentStatusProjector {
           input.chainEventId,
         );
         if (root === undefined) return { outcome: "not_found" };
+        const activationMode = await lockOrganizationActivationMode(
+          sql,
+          input.organizationId,
+        );
+        const finalizedPlan =
+          root.current_state === "finalized"
+            ? buildProjectionPlan(root)
+            : undefined;
+        if (activationMode === "shadow") {
+          if (isRevokedChainState(root.current_state)) {
+            return projectRevocation(sql, root, input.now);
+          }
+          if (finalizedPlan === undefined) {
+            return { outcome: "unchanged" };
+          }
+          return {
+            shadowDecision: {
+              organizationId: root.organization_id,
+              chainEventId: root.chain_event_db_id,
+              sourceEventId: root.event_id,
+              attemptId: root.attempt_id,
+              parserVersion: root.parser_version,
+              proposedClassification: finalizedPlan.decision.kind,
+              proposedInvoiceId: finalizedPlan.decision.invoiceId,
+              proposedInvoiceStatus:
+                finalizedPlan.decision.kind === "allocation"
+                  ? "paid"
+                  : "unchanged",
+              proposedJournalSource: finalizedPlan.proposedJournalSource,
+              ruleCode: finalizedPlan.decision.code,
+              ruleVersion: finalizedPlan.decision.ruleVersion,
+              canonicalInputDigest: finalizedPlan.canonicalInputDigest,
+              occurredAt: input.now,
+            },
+          };
+        }
+        if (
+          this.#workerInstanceId === undefined ||
+          this.#rpc === undefined ||
+          !(await hasProjectionAuthority(
+            sql,
+            input.organizationId,
+            this.#workerInstanceId,
+            this.#rpc,
+            root.cluster,
+            root.provider_id,
+          ))
+        ) {
+          return { outcome: "unchanged" };
+        }
         if (isRevokedChainState(root.current_state)) {
           return projectRevocation(sql, root, input.now);
         }
         if (!isObservedChainState(root.current_state)) {
           return { outcome: "unchanged" };
+        }
+        if (finalizedPlan !== undefined && this.#rpc.mode === "dual_provider") {
+          const consensusStatus = await this.#consensus.getStatus(
+            sql,
+            consensusInput(root, finalizedPlan),
+          );
+          if (consensusStatus !== "agreed") {
+            return { outcome: "unchanged" };
+          }
         }
 
         let latest = root;
@@ -151,7 +355,7 @@ export class PaymentStatusProjector {
           input.now,
         );
         if (observation.changed) latest = observation.root;
-        if (root.current_state !== "finalized") {
+        if (finalizedPlan === undefined) {
           return observation.changed
             ? changed(latest)
             : { outcome: "unchanged" };
@@ -165,23 +369,105 @@ export class PaymentStatusProjector {
             : { outcome: "unchanged" };
         }
 
-        const decision =
-          root.references.length === 1
-            ? reconcileEvent(paymentEvent(root), [reconciliationInvoice(root)])
-            : ambiguousReferenceDecision(root);
-        return decision.kind === "allocation"
-          ? projectAllocation(sql, latest, decision, input.now)
-          : projectException(sql, latest, decision, input.now);
+        return finalizedPlan.decision.kind === "allocation"
+          ? projectAllocation(sql, latest, finalizedPlan.decision, input.now)
+          : projectException(sql, latest, finalizedPlan.decision, input.now);
       },
     );
+    if (!("shadowDecision" in result)) return result;
+    const created = await this.#shadowDatabase.transaction(
+      { organizationId: input.organizationId, actorId: input.actorId },
+      (sql) => persistShadowProjectionDecision(sql, result.shadowDecision),
+    );
+    return { outcome: "proposed", created };
   }
+}
+
+async function hasProjectionAuthority(
+  sql: OrganizationTransaction,
+  organizationId: string,
+  workerInstanceId: string,
+  rpc: RpcProviderConfigurationIdentity,
+  projectionCluster: ProjectionRootRow["cluster"],
+  projectionProviderId: string,
+): Promise<boolean> {
+  const rows = await sql<{ authorized: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM worker_instances AS instance
+      JOIN rpc_providers AS primary_provider
+        ON primary_provider.id = instance.primary_provider_id
+        AND primary_provider.cluster = instance.rpc_cluster
+        AND primary_provider.active
+      WHERE instance.id = ${workerInstanceId}::uuid
+        AND instance.state = 'running'
+        AND instance.last_heartbeat_at
+          >= clock_timestamp() - interval '30 seconds'
+        AND instance.rpc_mode = ${rpc.mode}
+        AND instance.rpc_cluster = ${rpc.cluster}
+        AND instance.primary_provider_id = ${rpc.primaryProviderId}
+        AND instance.primary_endpoint_env = ${rpc.primaryEndpointEnvironment}
+        AND instance.primary_endpoint_digest = ${rpc.primaryEndpointDigest}
+        AND primary_provider.endpoint_env = ${rpc.primaryEndpointEnvironment}
+        AND instance.secondary_provider_id IS NOT DISTINCT FROM
+          ${rpc.secondaryProviderId}
+        AND instance.secondary_endpoint_env IS NOT DISTINCT FROM
+          ${rpc.secondaryEndpointEnvironment}
+        AND instance.secondary_endpoint_digest IS NOT DISTINCT FROM
+          ${rpc.secondaryEndpointDigest}
+        AND instance.rpc_cluster = ${projectionCluster}
+        AND (
+          (
+            instance.rpc_mode = 'single_provider'
+            AND instance.rpc_cluster IN ('devnet', 'localnet')
+            AND instance.secondary_provider_id IS NULL
+            AND instance.primary_provider_id = ${projectionProviderId}
+            AND EXISTS (
+              SELECT 1 FROM rpc_provider_roles AS primary_role
+              WHERE primary_role.organization_id = ${organizationId}::uuid
+                AND primary_role.cluster = instance.rpc_cluster
+                AND primary_role.role = 'primary'
+                AND primary_role.provider_id = instance.primary_provider_id
+            )
+          ) OR (
+            instance.rpc_mode = 'dual_provider'
+            AND instance.rpc_cluster = 'mainnet-beta'
+            AND instance.primary_provider_id <> instance.secondary_provider_id
+            AND instance.primary_provider_id = ${projectionProviderId}
+            AND EXISTS (
+              SELECT 1 FROM rpc_provider_roles AS primary_role
+              WHERE primary_role.organization_id = ${organizationId}::uuid
+                AND primary_role.cluster = 'mainnet-beta'
+                AND primary_role.role = 'primary'
+                AND primary_role.provider_id = instance.primary_provider_id
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM rpc_provider_roles AS secondary_role
+              JOIN rpc_providers AS secondary_provider
+                ON secondary_provider.id = secondary_role.provider_id
+                AND secondary_provider.cluster = secondary_role.cluster
+                AND secondary_provider.active
+                AND secondary_provider.endpoint_env =
+                  ${rpc.secondaryEndpointEnvironment}
+              WHERE secondary_role.organization_id = ${organizationId}::uuid
+                AND secondary_role.cluster = 'mainnet-beta'
+                AND secondary_role.role = 'secondary'
+                AND secondary_role.provider_id = instance.secondary_provider_id
+            )
+          )
+        )
+    ) AS authorized
+  `;
+  return rows[0]?.authorized === true;
 }
 
 interface ProjectionRootRow {
   readonly organization_id: string;
   readonly chain_event_db_id: string;
   readonly event_id: string;
-  readonly cluster: "mainnet-beta";
+  readonly cluster: "mainnet-beta" | "devnet" | "localnet";
+  readonly provider_id: string;
   readonly signature: string;
   readonly outer_instruction_index: number;
   readonly inner_instruction_index: number;
@@ -225,6 +511,7 @@ async function lockProjectionRoot(
   const rows = await sql<ProjectionRootRow[]>`
     SELECT expectation.organization_id::text AS organization_id,
       event.id::text AS chain_event_db_id, event.event_id, event.cluster,
+      raw.provider_id,
       event.signature, event.outer_instruction_index,
       event.inner_instruction_index, event.current_state,
       transfer.parser_version, transfer.mint,
@@ -288,7 +575,7 @@ async function lockProjectionRoot(
     JOIN payment_projections AS projection
       ON projection.organization_id = attempt.organization_id
       AND projection.attempt_id = attempt.id
-    WHERE event.event_id = ${eventId} AND event.cluster = 'mainnet-beta'
+    WHERE event.event_id = ${eventId}
     ORDER BY expectation.created_at DESC
     LIMIT 1
     FOR UPDATE OF event, expectation, attempt, invoice, projection
@@ -325,6 +612,89 @@ function reconciliationInvoice(root: ProjectionRootRow): ReconciliationInvoice {
     issuedAt: root.quote_issued_at,
     dueAt: root.latest_qualifying_at,
     status: root.invoice_status === "paid" ? "matched" : "open",
+  };
+}
+
+interface ProjectionPlan {
+  readonly decision: ReconciliationDecision;
+  readonly proposedJournalSource:
+    "payment_received" | "unapplied_receipt" | null;
+  readonly canonicalInputDigest: string;
+}
+
+function buildProjectionPlan(root: ProjectionRootRow): ProjectionPlan {
+  const decision =
+    root.references.length === 1
+      ? reconcileEvent(paymentEvent(root), [reconciliationInvoice(root)])
+      : ambiguousReferenceDecision(root);
+  const proposedJournalSource =
+    decision.kind === "allocation"
+      ? "payment_received"
+      : root.mint === root.expected_mint &&
+          root.destination_token_account === root.recipient_token_account
+        ? "unapplied_receipt"
+        : null;
+  const canonicalInputDigest = createHash("sha256")
+    .update(
+      canonicalJson({
+        event: {
+          chainEventId: root.chain_event_db_id,
+          eventId: root.event_id,
+          cluster: root.cluster,
+          signature: root.signature,
+          outerInstructionIndex: root.outer_instruction_index,
+          innerInstructionIndex: root.inner_instruction_index,
+          parserVersion: root.parser_version,
+          mint: root.mint,
+          destinationTokenAccount: root.destination_token_account,
+          amountBaseUnits: root.amount_base_units,
+          decimals: root.decimals,
+          references: [...root.references].sort(),
+          blockTime: root.block_time?.toISOString() ?? null,
+        },
+        expectation: {
+          attemptId: root.attempt_id,
+          invoiceId: root.invoice_id,
+          expectedMint: root.expected_mint,
+          recipientTokenAccount: root.recipient_token_account,
+          expectedAmountBaseUnits: root.expected_amount_base_units,
+          referenceAddress: root.reference_address,
+          quoteIssuedAt: root.quote_issued_at.toISOString(),
+          latestQualifyingAt: root.latest_qualifying_at.toISOString(),
+          invoiceStatus: root.invoice_status,
+        },
+        decision: {
+          kind: decision.kind,
+          code: decision.code,
+          ruleVersion: decision.ruleVersion,
+          invoiceId: decision.invoiceId,
+          proposedJournalSource,
+        },
+      }),
+      "utf8",
+    )
+    .digest("hex");
+  return { decision, proposedJournalSource, canonicalInputDigest };
+}
+
+function consensusInput(
+  root: ProjectionRootRow,
+  plan: ProjectionPlan,
+): ProjectionConsensusInput {
+  return {
+    organizationId: root.organization_id,
+    chainEventId: root.chain_event_db_id,
+    sourceEventId: root.event_id,
+    attemptId: root.attempt_id,
+    parserVersion: root.parser_version,
+    canonicalInputDigest: plan.canonicalInputDigest,
+    proposedClassification: plan.decision.kind,
+    proposedInvoiceId: plan.decision.invoiceId,
+    proposedInvoiceStatus:
+      plan.decision.kind === "allocation" ? "paid" : "unchanged",
+    proposedJournalSource: plan.proposedJournalSource,
+    ruleCode: plan.decision.code,
+    ruleVersion: plan.decision.ruleVersion,
   };
 }
 

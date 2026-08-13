@@ -4,6 +4,7 @@ import { bootstrapOwner } from "./auth/bootstrap.js";
 import { HttpEmailDeliveryPort } from "./auth/http-email-port.js";
 import { verifyEvidencePack } from "./operations/evidence-pack.js";
 import { readBoundedFile } from "./operations/read-bounded-file.js";
+import { bootstrapProductionDatabaseRoles } from "./db/production-role-bootstrap.js";
 
 void main().catch((error: unknown) => {
   process.stderr.write(`${safeCode(error)}\n`);
@@ -14,6 +15,24 @@ async function main(): Promise<void> {
   const [command, ...arguments_] = process.argv.slice(2);
   if (command === "verify-evidence") {
     await verifyEvidence(arguments_);
+    return;
+  }
+  if (command === "bootstrap-production-roles") {
+    if (arguments_.length !== 10) throw commandError("invalid_arguments");
+    const roles = await bootstrapProductionDatabaseRoles(
+      requiredEnvironment("PAYOPS_DATABASE_ADMIN_URL"),
+      {
+        migrator: requiredFlag(arguments_, "--migrator-role"),
+        runtime: requiredFlag(arguments_, "--runtime-role"),
+        control: requiredFlag(arguments_, "--control-role"),
+        readinessVerifier: requiredFlag(
+          arguments_,
+          "--readiness-verifier-role",
+        ),
+        shadowProjector: requiredFlag(arguments_, "--shadow-projector-role"),
+      },
+    );
+    process.stdout.write(`${JSON.stringify(roles)}\n`);
     return;
   }
   if (command !== "bootstrap-owner") throw commandError("invalid_command");

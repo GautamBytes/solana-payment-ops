@@ -23,6 +23,24 @@ const migrations = [
       import.meta.url,
     ),
   },
+  {
+    name: "0004_rpc_consensus",
+    path: new URL("../../migrations/0004_rpc_consensus.sql", import.meta.url),
+  },
+  {
+    name: "0005_rpc_consensus_error_retryability",
+    path: new URL(
+      "../../migrations/0005_rpc_consensus_error_retryability.sql",
+      import.meta.url,
+    ),
+  },
+  {
+    name: "0006_rpc_consensus_internal_evidence",
+    path: new URL(
+      "../../migrations/0006_rpc_consensus_internal_evidence.sql",
+      import.meta.url,
+    ),
+  },
 ] as const;
 
 export async function runMigrations(databaseUrl: string): Promise<void> {

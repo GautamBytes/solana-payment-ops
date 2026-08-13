@@ -146,6 +146,31 @@ describe("HttpSolanaRpc", () => {
     });
   });
 
+  it.each([
+    ["number", 42],
+    ["boolean", false],
+    ["array", ["InstructionError", 0]],
+    ["empty string", ""],
+  ])("rejects malformed status error type %s", async (_name, err) => {
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      fakeFetch(
+        [
+          {
+            context: { slot: 345678901 },
+            value: [{ slot: 345678901, err, confirmationStatus: "finalized" }],
+          },
+        ],
+        [],
+      ),
+    );
+
+    await expect(rpc.getSignatureStatuses([signature])).rejects.toMatchObject({
+      code: "rpc_invalid_json",
+      retryable: true,
+    });
+  });
+
   it("wraps and validates a transaction result", async () => {
     const requests: CapturedRequest[] = [];
     const rpc = new HttpSolanaRpc(
@@ -187,6 +212,31 @@ describe("HttpSolanaRpc", () => {
         "confirmed",
       ),
     ).rejects.toMatchObject({ code: "rpc_signature_conflict" });
+  });
+
+  it.each([
+    ["an empty object", async () => ({})],
+    [
+      "a transaction without signatures",
+      async () => {
+        const result = await loadRpcResult();
+        const transaction = result.transaction as Record<string, unknown>;
+        delete transaction.signatures;
+        return result;
+      },
+    ],
+  ])("classifies %s as retryable malformed evidence", async (_name, result) => {
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      fakeFetch([await result()], []),
+    );
+
+    await expect(
+      rpc.getTransaction(signature, "finalized"),
+    ).rejects.toMatchObject({
+      code: "rpc_transaction_schema_invalid",
+      retryable: true,
+    });
   });
 
   it("maps rate limiting without leaking the endpoint", async () => {
@@ -246,4 +296,173 @@ describe("HttpSolanaRpc", () => {
       retryable: false,
     });
   });
+
+  it("rejects an oversized declared response and cancels its body", async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      (async () =>
+        new Response(body, {
+          status: 200,
+          headers: { "content-length": "999999999" },
+        })) as typeof fetch,
+    );
+
+    await expect(rpc.getSlot("confirmed")).rejects.toMatchObject({
+      code: "rpc_invalid_json",
+      message: "Solana RPC response exceeded the size limit",
+    });
+    expect(cancelled).toBe(true);
+  });
+
+  it.each([
+    ["depth", () => deeplyNestedEvidence(80)],
+    [
+      "node count",
+      () => ({
+        buckets: Array.from({ length: 13 }, () =>
+          Array.from({ length: 4_000 }, () => 0),
+        ),
+      }),
+    ],
+    ["array length", () => Array.from({ length: 4_097 }, () => 0)],
+    ["string bytes", () => "x".repeat(65_537)],
+  ])("bounds status err evidence by %s", async (_name, err) => {
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      fakeFetch(
+        [
+          {
+            context: { slot: 345678901 },
+            value: [
+              {
+                slot: 345678901,
+                err: err(),
+                confirmationStatus: "finalized",
+              },
+            ],
+          },
+        ],
+        [],
+      ),
+    );
+
+    await expect(rpc.getSignatureStatuses([signature])).rejects.toMatchObject({
+      code: "rpc_invalid_json",
+      retryable: true,
+    });
+  });
+
+  it("bounds chunked responses and cancels the reader on overflow", async () => {
+    let cancelled = false;
+    let chunk = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (chunk < 2) {
+          controller.enqueue(new Uint8Array(700_000));
+          chunk += 1;
+        }
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      (async () => new Response(body, { status: 200 })) as typeof fetch,
+    );
+
+    await expect(rpc.getSlot("confirmed")).rejects.toMatchObject({
+      code: "rpc_invalid_json",
+      message: "Solana RPC response exceeded the size limit",
+    });
+    expect(cancelled).toBe(true);
+  });
+
+  it("cancels unread response data after malformed UTF-8", async () => {
+    let cancelled = false;
+    let sent = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!sent) {
+          controller.enqueue(new Uint8Array([0xff]));
+          sent = true;
+        }
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const rpc = new HttpSolanaRpc(
+      { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+      (async () => new Response(body, { status: 200 })) as typeof fetch,
+    );
+
+    await expect(rpc.getSlot("confirmed")).rejects.toMatchObject({
+      code: "rpc_invalid_json",
+      message: "Solana RPC returned invalid JSON",
+    });
+    expect(cancelled).toBe(true);
+  });
+
+  it.each([
+    [
+      "deeply nested evidence",
+      (result: Record<string, unknown>) => {
+        let nested: Record<string, unknown> = { value: "attacker-marker" };
+        for (let depth = 0; depth < 80; depth += 1) nested = { nested };
+        (result.meta as Record<string, unknown>).err = nested;
+      },
+    ],
+    [
+      "wide account dimensions",
+      (result: Record<string, unknown>) => {
+        const transaction = result.transaction as Record<string, unknown>;
+        const message = transaction.message as Record<string, unknown>;
+        message.accountKeys = Array.from({ length: 257 }, () => address);
+      },
+    ],
+    [
+      "oversized nested strings",
+      (result: Record<string, unknown>) => {
+        (result.meta as Record<string, unknown>).err = {
+          detail: "attacker-marker".repeat(6_000),
+        };
+      },
+    ],
+  ])(
+    "rejects %s before transaction canonicalization",
+    async (_name, mutate) => {
+      const result = await loadRpcResult();
+      mutate(result);
+      const rpc = new HttpSolanaRpc(
+        { cluster: "mainnet-beta", endpoint: "https://rpc.invalid" },
+        fakeFetch([result], []),
+      );
+
+      const error = await rpc
+        .getTransaction(signature, "finalized")
+        .catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({
+        code: "rpc_invalid_json",
+        retryable: true,
+        message: "Solana RPC transaction evidence exceeds safe limits",
+      });
+      expect(String(error)).not.toContain("attacker-marker");
+    },
+  );
 });
+
+function deeplyNestedEvidence(depth: number): Record<string, unknown> {
+  let evidence: Record<string, unknown> = { value: "attacker-marker" };
+  for (let index = 0; index < depth; index += 1) {
+    evidence = { nested: evidence };
+  }
+  return evidence;
+}

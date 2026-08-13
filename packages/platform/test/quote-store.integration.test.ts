@@ -7,9 +7,12 @@ import {
   OrganizationDatabase,
   QuoteStore,
   QuoteStoreError,
-  runPlatformMigrations,
   type StablecoinObservation,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -36,7 +39,7 @@ describeDatabase("reproducible quote store", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     database = new OrganizationDatabase(databaseUrl!, { max: 1 });
     store = new QuoteStore(database);
   });
@@ -44,6 +47,7 @@ describeDatabase("reproducible quote store", () => {
   afterAll(async () => {
     await database?.close();
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 

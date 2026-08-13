@@ -14,6 +14,7 @@ export interface IdempotentRouteResult {
   readonly status: number;
   readonly body: unknown;
   readonly idempotencyCompleted?: true;
+  readonly idempotencyRetryable?: true;
 }
 
 export class IdempotentRouteExecutor {
@@ -115,7 +116,10 @@ export class IdempotentRouteExecutor {
     const result = await operation(committer);
     const responseBody = Buffer.from(canonicalJson(result.body), "utf8");
     const contentType = "application/json; charset=utf-8";
-    if (result.idempotencyCompleted !== true) {
+    if (
+      result.idempotencyCompleted !== true &&
+      result.idempotencyRetryable !== true
+    ) {
       await this.#database.transaction(
         { organizationId: actor.organizationId, actorId: actor.actorId },
         async (transaction) => {

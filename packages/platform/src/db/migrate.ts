@@ -7,6 +7,11 @@ export interface MigrationDefinition {
   readonly sql: string;
 }
 
+export interface MigrationMetadata {
+  readonly name: string;
+  readonly checksumSha256: string;
+}
+
 export class MigrationError extends Error {
   readonly code: string;
 
@@ -17,7 +22,7 @@ export class MigrationError extends Error {
   }
 }
 
-function migrationChecksum(sql: string): string {
+export function migrationChecksum(sql: string): string {
   return createHash("sha256").update(sql, "utf8").digest("hex");
 }
 
@@ -73,7 +78,7 @@ export async function runMigrationSet(
   }
 }
 
-const platformMigrationFiles = [
+export const PLATFORM_MIGRATION_NAMES = [
   "4001_identity_organizations",
   "4002_tenant_scope_existing_data",
   "4003_merchants_customers_invoices",
@@ -84,13 +89,16 @@ const platformMigrationFiles = [
   "4008_worker_jobs",
   "4009_payment_attempt_idempotency",
   "4010_merchant_operations",
+  "4011_production_controls",
+  "4012_production_control_authority",
+  "4013_production_control_review_hardening",
+  "4014_worker_readiness",
+  "4015_operational_health",
 ] as const;
 
-export async function runPlatformMigrations(
-  databaseUrl: string,
-): Promise<void> {
-  const definitions = await Promise.all(
-    platformMigrationFiles.map(async (name) => ({
+async function platformMigrationDefinitions(): Promise<MigrationDefinition[]> {
+  return Promise.all(
+    PLATFORM_MIGRATION_NAMES.map(async (name) => ({
       name,
       sql: await readFile(
         new URL(`../../migrations/${name}.sql`, import.meta.url),
@@ -98,5 +106,19 @@ export async function runPlatformMigrations(
       ),
     })),
   );
-  await runMigrationSet(databaseUrl, definitions);
+}
+
+export async function platformMigrationMetadata(): Promise<
+  readonly MigrationMetadata[]
+> {
+  return (await platformMigrationDefinitions()).map(({ name, sql }) => ({
+    name,
+    checksumSha256: migrationChecksum(sql),
+  }));
+}
+
+export async function runPlatformMigrations(
+  databaseUrl: string,
+): Promise<void> {
+  await runMigrationSet(databaseUrl, await platformMigrationDefinitions());
 }

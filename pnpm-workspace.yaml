@@ -7,3 +7,5 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - tsx@4.23.9
+overrides:
+  nanoid@<3.3.18: 3.3.18

@@ -7,7 +7,10 @@ import {
   bootstrapOwner,
   associatedTokenAddress,
   assetBySymbol,
-  runPlatformMigrations,
+  rpcProviderConfigurationIdentity,
+  OperationalHealthStore,
+  OrganizationDatabase,
+  WorkerJobStore,
   type AuthEmail,
   type EmailDeliveryPort,
   type SolanaAccountRpcPort,
@@ -21,6 +24,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ApiConfig } from "../src/config.js";
 import { createPayOpsAuth, hashAuthPassword } from "../src/auth/better-auth.js";
 import { buildApiServer } from "../src/server.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+  testProductionBoundary,
+  testProductionRoleDatabaseUrls,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -42,7 +51,7 @@ describeDatabase("Fastify authentication boundary", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     const scoped = postgres(databaseUrl!, { max: 1 });
     await scoped`
       INSERT INTO rpc_providers (
@@ -56,6 +65,7 @@ describeDatabase("Fastify authentication boundary", () => {
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 
@@ -643,7 +653,573 @@ describeDatabase("Fastify authentication boundary", () => {
       await server.close();
     }
   });
+
+  it("isolates operational endpoints and direct access across real tenants", async () => {
+    const first = await provisionOwner({
+      organizationName: "Operational Alpha",
+      email: "ops-alpha@example.com",
+      name: "Alpha Owner",
+      password: "alpha correct horse battery staple",
+    });
+    const second = await provisionOwner({
+      organizationName: "Operational Beta",
+      email: "ops-beta@example.com",
+      name: "Beta Owner",
+      password: "beta correct horse battery staple",
+    });
+    const database = new OrganizationDatabase(databaseUrl!, { max: 6 });
+    const health = new OperationalHealthStore(database);
+    const firstIncident = await health.observeIncident({
+      organizationId: first.organizationId,
+      actorId: "health-worker",
+      actorKind: "system",
+      kind: "worker_stale",
+      severity: "warning",
+      scopeKey: "a".repeat(64),
+      observedAt: new Date(),
+    });
+    const secondIncident = await health.observeIncident({
+      organizationId: second.organizationId,
+      actorId: "health-worker",
+      actorKind: "system",
+      kind: "ledger_mismatch",
+      severity: "critical",
+      scopeKey: "b".repeat(64),
+      observedAt: new Date(),
+    });
+    await database.close();
+
+    const roleUrls = testProductionRoleDatabaseUrls(databaseUrl!);
+    const roleConfig = config({
+      databaseUrl: roleUrls.runtime,
+      productionControlDatabaseUrl: roleUrls.control,
+      readinessVerifierDatabaseUrl: roleUrls.readinessVerifier,
+    });
+    const server = buildApiServer(roleConfig, {
+      emailDelivery: new RecordingEmailPort(),
+      solanaRpc: new FakeRpc(),
+    });
+    const secondAuth = createPayOpsAuth(roleConfig, new RecordingEmailPort());
+    try {
+      const firstCookie = await freshOwnerCookie(server, first);
+      const secondKey = await secondAuth.auth.api.createApiKey({
+        body: {
+          configId: "payops-organization",
+          name: "beta-operational-reader",
+          organizationId: second.organizationId,
+          userId: second.userId,
+          permissions: { payops: ["organizationRead"] },
+        },
+      });
+
+      const firstList = await server.inject({
+        method: "GET",
+        url: "/v1/operations/incidents?limit=50",
+        headers: { cookie: firstCookie },
+      });
+      expect(firstList.statusCode).toBe(200);
+      expect(
+        firstList.json<{ data: { id: string }[] }>().data.map(({ id }) => id),
+      ).toEqual([firstIncident.id]);
+
+      const secondList = await server.inject({
+        method: "GET",
+        url: "/v1/operations/incidents?limit=50",
+        headers: { "x-api-key": secondKey.key },
+      });
+      expect(secondList.statusCode).toBe(200);
+      expect(
+        secondList.json<{ data: { id: string }[] }>().data.map(({ id }) => id),
+      ).toEqual([secondIncident.id]);
+
+      const hiddenHistory = await server.inject({
+        method: "GET",
+        url: `/v1/operations/incidents/${secondIncident.id}/history`,
+        headers: { cookie: firstCookie },
+      });
+      const hiddenMutation = await server.inject({
+        method: "POST",
+        url: `/v1/operations/incidents/${secondIncident.id}/acknowledge`,
+        headers: {
+          cookie: firstCookie,
+          origin: "http://127.0.0.1:3000",
+          "idempotency-key": "cross-tenant-incident-real-0001",
+        },
+        payload: { expectedVersion: secondIncident.version },
+      });
+      expect(hiddenHistory.statusCode).toBe(404);
+      expect(hiddenMutation.statusCode).toBe(404);
+      expect(hiddenHistory.json()).toMatchObject({
+        code: "incident_not_found",
+      });
+      expect(hiddenMutation.json()).toMatchObject({
+        code: "incident_not_found",
+      });
+
+      const fault = postgres(databaseUrl!, { max: 1 });
+      try {
+        await fault.unsafe(`
+          CREATE FUNCTION reject_operational_incident_transition()
+          RETURNS trigger LANGUAGE plpgsql AS $$
+          BEGIN RAISE EXCEPTION 'forced operational transition failure'; END $$;
+          CREATE TRIGGER reject_operational_incident_transition
+          BEFORE INSERT ON operational_incident_events
+          FOR EACH ROW WHEN (NEW.action = 'acknowledged')
+          EXECUTE FUNCTION reject_operational_incident_transition();
+        `);
+        const unavailable = await server.inject({
+          method: "POST",
+          url: `/v1/operations/incidents/${firstIncident.id}/acknowledge`,
+          headers: {
+            cookie: firstCookie,
+            origin: "http://127.0.0.1:3000",
+            "idempotency-key": "transient-incident-real-0001",
+          },
+          payload: { expectedVersion: firstIncident.version },
+        });
+        expect(unavailable.statusCode).toBe(503);
+        await fault`SELECT set_config('payops.organization_id', ${first.organizationId}, false)`;
+        await expect(
+          fault<{ state: string; response_status: number | null }[]>`
+            SELECT state, response_status FROM api_idempotency_records
+            WHERE organization_id = ${first.organizationId}::uuid
+              AND route_id = 'operations.incidents.acknowledge'
+              AND idempotency_key = 'transient-incident-real-0001'
+          `,
+        ).resolves.toEqual([{ state: "in_progress", response_status: null }]);
+      } finally {
+        await fault.unsafe(`
+          DROP TRIGGER IF EXISTS reject_operational_incident_transition
+            ON operational_incident_events;
+          DROP FUNCTION IF EXISTS reject_operational_incident_transition();
+        `);
+        await fault.end();
+      }
+
+      const acknowledged = await server.inject({
+        method: "POST",
+        url: `/v1/operations/incidents/${firstIncident.id}/acknowledge`,
+        headers: {
+          cookie: firstCookie,
+          origin: "http://127.0.0.1:3000",
+          "idempotency-key": "own-tenant-incident-real-0001",
+        },
+        payload: { expectedVersion: firstIncident.version },
+      });
+      expect(acknowledged.statusCode).toBe(200);
+      expect(acknowledged.json()).toMatchObject({
+        id: firstIncident.id,
+        state: "acknowledged",
+      });
+      const secondHistory = await server.inject({
+        method: "GET",
+        url: `/v1/operations/incidents/${secondIncident.id}/history`,
+        headers: { "x-api-key": secondKey.key },
+      });
+      expect(secondHistory.statusCode).toBe(200);
+      expect(secondHistory.json()).toMatchObject({
+        data: [{ incidentId: secondIncident.id, action: "opened" }],
+      });
+
+      const promotion = await server.inject({
+        method: "POST",
+        url: "/v1/operations/production-control/promote",
+        headers: {
+          cookie: firstCookie,
+          origin: "http://127.0.0.1:3000",
+          "idempotency-key": "own-tenant-promotion-real-0001",
+        },
+        payload: { confirmed: true, expectedVersion: 1 },
+      });
+      expect(promotion.statusCode).toBe(409);
+      expect(promotion.json()).toMatchObject({
+        outcome: "blocked",
+        status: { activationMode: "shadow", version: 1 },
+        evaluation: { eligible: false },
+      });
+
+      const evidence = postgres(databaseUrl!, { max: 1 });
+      try {
+        const statuses = await evidence<
+          {
+            organization_id: string;
+            activation_mode: string;
+            version: number;
+          }[]
+        >`
+          SELECT organization_id::text, activation_mode, version
+          FROM organization_production_controls
+          WHERE organization_id IN (
+            ${first.organizationId}::uuid, ${second.organizationId}::uuid
+          )
+          ORDER BY organization_id
+        `;
+        expect(statuses).toHaveLength(2);
+        expect(statuses).toEqual(
+          expect.arrayContaining([
+            {
+              organization_id: first.organizationId,
+              activation_mode: "shadow",
+              version: 1,
+            },
+            {
+              organization_id: second.organizationId,
+              activation_mode: "shadow",
+              version: 1,
+            },
+          ]),
+        );
+        const [secondState] = await evidence<
+          { state: string; version: number }[]
+        >`
+          SELECT state, version FROM operational_incidents
+          WHERE organization_id = ${second.organizationId}::uuid
+            AND id = ${secondIncident.id}::uuid
+        `;
+        expect(secondState).toEqual({ state: "open", version: 1 });
+      } finally {
+        await evidence.end();
+      }
+
+      const runtimeRole = testProductionBoundary(databaseUrl!).principals
+        .runtime;
+      const rls = postgres(databaseUrl!, { max: 1 });
+      try {
+        await rls.unsafe(`SET ROLE ${runtimeRole}`);
+        await rls`SELECT set_config('payops.organization_id', ${first.organizationId}, false)`;
+        await expect(
+          rls<{ count: number }[]>`
+            SELECT count(*)::integer AS count FROM operational_incidents
+            WHERE id = ${secondIncident.id}::uuid
+          `,
+        ).resolves.toEqual([{ count: 0 }]);
+        await expect(
+          rls`
+            UPDATE organization_production_controls
+            SET activation_mode = 'live'
+            WHERE organization_id = ${first.organizationId}::uuid
+          `,
+        ).rejects.toMatchObject({ code: "42501" });
+      } finally {
+        await rls.unsafe("RESET ROLE").catch(() => undefined);
+        await rls.end();
+      }
+    } finally {
+      await secondAuth.close();
+      await server.close();
+    }
+  });
+
+  it("keeps liveness process-only and readiness bounded to persisted facts", async () => {
+    const rpc = new FakeRpc();
+    const server = buildApiServer(config(), {
+      emailDelivery: new RecordingEmailPort(),
+      solanaRpc: rpc,
+    });
+    try {
+      const live = await server.inject({ method: "GET", url: "/health/live" });
+      expect(live.statusCode).toBe(200);
+      expect(live.json()).toEqual({ status: "ok" });
+
+      const missing = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(missing.statusCode).toBe(503);
+      expect(missing.json()).toEqual({ status: "unavailable" });
+
+      await seedHealthyWorker();
+      const workerProbe = new WorkerJobStore(databaseUrl!);
+      try {
+        await expect(
+          workerProbe.readiness({
+            rpc: rpcProviderConfigurationIdentity(config().rpc),
+          }),
+        ).resolves.toMatchObject({ ready: true, activeWorkers: 1 });
+      } finally {
+        await workerProbe.close();
+      }
+      const ready = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(ready.statusCode).toBe(200);
+      expect(ready.json()).toEqual({ status: "ok" });
+
+      const sql = postgres(databaseUrl!, { max: 1 });
+      try {
+        await sql`
+          UPDATE worker_instances
+          SET primary_endpoint_digest = ${"f".repeat(64)}
+        `;
+        const endpointMismatch = await server.inject({
+          method: "GET",
+          url: "/health/ready",
+        });
+        expect(endpointMismatch.statusCode).toBe(503);
+        expect(endpointMismatch.json()).toEqual({ status: "unavailable" });
+        await sql`
+          UPDATE worker_instances
+          SET primary_endpoint_digest =
+              ${rpcProviderConfigurationIdentity(config().rpc).primaryEndpointDigest},
+            started_at = clock_timestamp() - interval '3 minutes',
+            last_heartbeat_at = clock_timestamp() - interval '2 minutes'
+        `;
+      } finally {
+        await sql.end();
+      }
+      const stale = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(stale.statusCode).toBe(503);
+      expect(stale.json()).toEqual({ status: "unavailable" });
+      expect(rpc.finalizedHeadRequests).toBe(0);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("fails readiness closed for missing schema or unsafe production provider mode", async () => {
+    await seedHealthyWorker();
+    const rpc = new FakeRpc();
+    const unsafe = buildApiServer(
+      config({
+        environment: "production",
+        rpc: {
+          mode: "single_provider",
+          cluster: "mainnet-beta",
+          primary: {
+            providerId: "mainnet-primary",
+            endpointEnvironment: "TEST_RPC_URL",
+            endpoint: "https://primary.example",
+          },
+        },
+      }),
+      { emailDelivery: new RecordingEmailPort(), solanaRpc: rpc },
+    );
+    try {
+      const response = await unsafe.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({ status: "unavailable" });
+    } finally {
+      await unsafe.close();
+    }
+
+    const server = buildApiServer(config(), {
+      emailDelivery: new RecordingEmailPort(),
+      solanaRpc: rpc,
+    });
+    const sql = postgres(databaseUrl!, { max: 1 });
+    try {
+      await sql`DROP TABLE worker_instances CASCADE`;
+      const response = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({ status: "unavailable" });
+      const live = await server.inject({ method: "GET", url: "/health/live" });
+      expect(live.statusCode).toBe(200);
+      expect(rpc.finalizedHeadRequests).toBe(0);
+    } finally {
+      await sql.end();
+      await server.close();
+    }
+  });
+
+  it("fails readiness closed for missing or corrupted platform migration ledger rows", async () => {
+    await seedHealthyWorker();
+    const server = buildApiServer(config(), {
+      emailDelivery: new RecordingEmailPort(),
+      solanaRpc: new FakeRpc(),
+    });
+    const sql = postgres(databaseUrl!, { max: 1 });
+    try {
+      const initiallyReady = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(initiallyReady.statusCode).toBe(200);
+      const original = await sql<
+        { name: string; checksum_sha256: string; applied_at: Date }[]
+      >`
+        SELECT name, checksum_sha256, applied_at
+        FROM payops_schema_migrations
+        WHERE name IN (
+          '4003_merchants_customers_invoices',
+          '4007_hosted_reconciliation_and_projections'
+        )
+        ORDER BY name
+      `;
+      expect(original).toHaveLength(2);
+      await sql`
+        DELETE FROM payops_schema_migrations
+        WHERE name = '4003_merchants_customers_invoices'
+      `;
+      const missing = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(missing.statusCode).toBe(503);
+      expect(missing.json()).toEqual({ status: "unavailable" });
+
+      const removed = original[0]!;
+      await sql`
+        INSERT INTO payops_schema_migrations (
+          name, checksum_sha256, applied_at
+        ) VALUES (
+          ${removed.name}, ${removed.checksum_sha256}, ${removed.applied_at}
+        )
+      `;
+      await sql`
+        UPDATE payops_schema_migrations SET checksum_sha256 = ${"0".repeat(64)}
+        WHERE name = '4007_hosted_reconciliation_and_projections'
+      `;
+      const corrupted = await server.inject({
+        method: "GET",
+        url: "/health/ready",
+      });
+      expect(corrupted.statusCode).toBe(503);
+      expect(corrupted.json()).toEqual({ status: "unavailable" });
+    } finally {
+      await sql.end();
+      await server.close();
+    }
+  });
 });
+
+interface ProvisionedOwner {
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly email: string;
+  readonly password: string;
+}
+
+async function provisionOwner(input: {
+  readonly organizationName: string;
+  readonly email: string;
+  readonly name: string;
+  readonly password: string;
+}): Promise<ProvisionedOwner> {
+  const email = new RecordingEmailPort();
+  const invitation = await bootstrapOwner(
+    {
+      organizationName: input.organizationName,
+      email: input.email,
+      invitationBaseUrl: "https://app.example.com/accept-owner",
+      now: new Date(),
+    },
+    { databaseUrl: databaseUrl!, email },
+  );
+  const token = new URL(email.messages[0]!.actionUrl).searchParams.get(
+    "token",
+  )!;
+  const owner = await acceptBootstrapInvitation(
+    {
+      token,
+      email: input.email,
+      name: input.name,
+      passwordHash: await hashAuthPassword(input.password),
+      now: new Date(),
+    },
+    { databaseUrl: databaseUrl! },
+  );
+  const sql = postgres(databaseUrl!, { max: 1 });
+  try {
+    await sql`
+      UPDATE "user" SET email_verified = true, updated_at = clock_timestamp()
+      WHERE id = ${owner.userId}
+    `;
+  } finally {
+    await sql.end();
+  }
+  return {
+    organizationId: invitation.organizationId,
+    userId: owner.userId,
+    email: input.email,
+    password: input.password,
+  };
+}
+
+async function freshOwnerCookie(
+  server: FastifyInstance,
+  owner: ProvisionedOwner,
+): Promise<string> {
+  const signIn = await server.inject({
+    method: "POST",
+    url: "/api/auth/sign-in/email",
+    headers: { origin: "http://127.0.0.1:3000" },
+    payload: { email: owner.email, password: owner.password },
+  });
+  expect(signIn.statusCode).toBe(200);
+  let cookie = signIn.cookies
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+  const enabled = await server.inject({
+    method: "POST",
+    url: "/api/auth/two-factor/enable",
+    headers: { cookie, origin: "http://127.0.0.1:3000" },
+    payload: { password: owner.password },
+  });
+  expect(enabled.statusCode).toBe(200);
+  const secret = new URL(
+    enabled.json<{ totpURI: string }>().totpURI,
+  ).searchParams.get("secret")!;
+  const verified = await server.inject({
+    method: "POST",
+    url: "/api/auth/two-factor/verify-totp",
+    headers: { cookie, origin: "http://127.0.0.1:3000" },
+    payload: { code: totp(secret), trustDevice: false },
+  });
+  expect(verified.statusCode).toBe(200);
+  if (verified.cookies.length > 0) {
+    cookie = verified.cookies
+      .map(({ name, value }) => `${name}=${value}`)
+      .join("; ");
+  }
+  return cookie;
+}
+
+async function seedHealthyWorker(): Promise<void> {
+  const sql = postgres(databaseUrl!, { max: 1 });
+  const rpc = rpcProviderConfigurationIdentity(config().rpc);
+  try {
+    await sql`
+      INSERT INTO worker_instances (
+        id, state, build_revision, rpc_mode, rpc_cluster,
+        primary_provider_id, primary_endpoint_env, primary_endpoint_digest,
+        secondary_provider_id, secondary_endpoint_env,
+        secondary_endpoint_digest,
+        started_at, last_heartbeat_at
+      ) VALUES (
+        '00000000-0000-4000-8000-000000000099'::uuid,
+        'running', 'api-health-test', 'dual_provider', 'mainnet-beta',
+        ${rpc.primaryProviderId}, ${rpc.primaryEndpointEnvironment},
+        ${rpc.primaryEndpointDigest}, ${rpc.secondaryProviderId},
+        ${rpc.secondaryEndpointEnvironment}, ${rpc.secondaryEndpointDigest},
+        clock_timestamp(), clock_timestamp()
+      )
+    `;
+    await sql`
+      UPDATE worker_job_states SET interval_ms = 2000,
+        last_attempted_at = clock_timestamp(),
+        last_succeeded_at = clock_timestamp(), last_failed_at = NULL,
+        attempts = 1, successes = 1, failures = 0,
+        consecutive_failures = 0, last_failure_class = NULL,
+        last_attempt_instance_id =
+          '00000000-0000-4000-8000-000000000099'::uuid,
+        last_success_instance_id =
+          '00000000-0000-4000-8000-000000000099'::uuid
+      WHERE lifecycle = 'active'
+    `;
+  } finally {
+    await sql.end();
+  }
+}
 
 function fastifyFetch(server: FastifyInstance): typeof globalThis.fetch {
   return async (input, init) => {
@@ -676,6 +1252,7 @@ class RecordingEmailPort implements EmailDeliveryPort {
 
 class FakeRpc implements SolanaAccountRpcPort {
   readonly #accounts = new Map<string, TokenAccountState>();
+  public finalizedHeadRequests = 0;
 
   public async addWallet(walletAddress: string): Promise<void> {
     for (const symbol of ["USDC", "USDT"] as const) {
@@ -697,13 +1274,16 @@ class FakeRpc implements SolanaAccountRpcPort {
   }
 
   public async getFinalizedHead(): Promise<{ slot: bigint; signature: null }> {
+    this.finalizedHeadRequests += 1;
     return { slot: 123_456n, signature: null };
   }
 }
 
-function config(): ApiConfig {
+function config(override: Partial<ApiConfig> = {}): ApiConfig {
   return {
     databaseUrl: databaseUrl!,
+    productionControlDatabaseUrl: databaseUrl!,
+    readinessVerifierDatabaseUrl: databaseUrl!,
     environment: "test",
     publicApiOrigin: "http://127.0.0.1:3000",
     checkoutOrigin: "http://127.0.0.1:3001",
@@ -712,6 +1292,20 @@ function config(): ApiConfig {
     solanaCluster: "mainnet-beta",
     solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     ingestionProviderId: "mainnet-primary",
+    rpc: {
+      mode: "dual_provider",
+      cluster: "mainnet-beta",
+      primary: {
+        providerId: "mainnet-primary",
+        endpointEnvironment: "TEST_RPC_URL",
+        endpoint: "https://api.mainnet-beta.solana.com",
+      },
+      secondary: {
+        providerId: "mainnet-secondary",
+        endpointEnvironment: "TEST_SECONDARY_RPC_URL",
+        endpoint: "https://secondary.mainnet.example",
+      },
+    },
     authSecrets: ["uJ9pN3qR8vL2sX6cB5mK7wF4hT1yD0eG9aC8zQ2oI6E"],
     checkoutTokenKeys: [
       {
@@ -726,6 +1320,7 @@ function config(): ApiConfig {
     emailDeliveryMode: "test",
     rateLimitMax: 600,
     rateLimitWindowSeconds: 60,
+    ...override,
   };
 }
 

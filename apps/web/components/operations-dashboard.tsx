@@ -1,19 +1,52 @@
 import { randomUUID } from "node:crypto";
-import type { PaymentException } from "../lib/operations-api";
+import type {
+  OperationalHealthSnapshot,
+  OperationalIncident,
+  OperationalIncidentEvent,
+  PaymentException,
+  ProductionControlView,
+} from "../lib/operations-api";
+import { OperationalAuthority } from "./operational-authority";
 
 export interface OperationsActions {
   readonly assign: (formData: FormData) => Promise<void>;
   readonly resolve: (formData: FormData) => Promise<void>;
   readonly evidence: (formData: FormData) => Promise<void>;
   readonly export: (formData: FormData) => Promise<void>;
+  readonly acknowledgeIncident: (formData: FormData) => Promise<void>;
+  readonly resolveIncident: (formData: FormData) => Promise<void>;
+  readonly promoteProduction: (formData: FormData) => Promise<void>;
 }
 
 export function OperationsDashboard({
   exceptions,
+  production,
+  health,
+  incidents,
+  incidentHistory,
+  exceptionState = "available",
+  authorityState,
+  healthState,
+  incidentState,
+  historyState,
+  notice,
   now,
   actions,
 }: {
   readonly exceptions: readonly PaymentException[];
+  readonly production?: ProductionControlView;
+  readonly health?: OperationalHealthSnapshot;
+  readonly incidents?: readonly OperationalIncident[];
+  readonly incidentHistory?: readonly OperationalIncidentEvent[];
+  readonly exceptionState?: "available" | "unauthorized" | "unavailable";
+  readonly authorityState?: "unauthorized" | "unavailable";
+  readonly healthState?: "unauthorized" | "unavailable";
+  readonly incidentState?: "unauthorized" | "unavailable";
+  readonly historyState?: "unauthorized" | "unavailable";
+  readonly notice?: {
+    readonly tone: "status" | "conflict";
+    readonly message: string;
+  };
   readonly now: Date;
   readonly actions?: OperationsActions;
 }) {
@@ -43,9 +76,11 @@ export function OperationsDashboard({
           <span>PayOps</span>
         </a>
         <nav className="ops-nav" aria-label="Operations sections">
-          <a className="is-current" href="#exceptions">
-            Exceptions
+          <a className="is-current" href="#authority">
+            Authority
           </a>
+          <a href="#incidents">Incidents</a>
+          <a href="#exceptions">Exceptions</a>
           <a href="#evidence">Evidence</a>
           <a href="#exports">Exports</a>
         </nav>
@@ -71,24 +106,52 @@ export function OperationsDashboard({
           </div>
         </header>
 
-        <section className="ops-summary" aria-label="Queue summary">
-          <div>
-            <strong>{active.length}</strong>
-            <span>{active.length === 1 ? "needs review" : "need review"}</span>
-          </div>
-          <div>
-            <strong>{assigned}</strong>
-            <span>in progress</span>
-          </div>
-          <div>
-            <strong>{exceptions.length - active.length}</strong>
-            <span>closed in view</span>
-          </div>
-          <p>
-            <span className="proof-dot" /> Every action appends to the audit
-            trail
-          </p>
-        </section>
+        <OperationalAuthority
+          {...(production === undefined ? {} : { production })}
+          {...(authorityState === undefined ? {} : { authorityState })}
+          {...(health === undefined ? {} : { health })}
+          {...(incidents === undefined ? {} : { incidents })}
+          {...(incidentHistory === undefined
+            ? {}
+            : { history: incidentHistory })}
+          {...(healthState === undefined ? {} : { healthState })}
+          {...(incidentState === undefined ? {} : { incidentState })}
+          {...(historyState === undefined ? {} : { historyState })}
+          now={now}
+          {...(notice === undefined ? {} : { notice })}
+          {...(actions === undefined
+            ? {}
+            : {
+                actions: {
+                  acknowledge: actions.acknowledgeIncident,
+                  resolve: actions.resolveIncident,
+                  promote: actions.promoteProduction,
+                },
+              })}
+        />
+
+        {exceptionState === "available" ? (
+          <section className="ops-summary" aria-label="Queue summary">
+            <div>
+              <strong>{active.length}</strong>
+              <span>
+                {active.length === 1 ? "needs review" : "need review"}
+              </span>
+            </div>
+            <div>
+              <strong>{assigned}</strong>
+              <span>in progress</span>
+            </div>
+            <div>
+              <strong>{exceptions.length - active.length}</strong>
+              <span>closed in view</span>
+            </div>
+            <p>
+              <span className="proof-dot" /> Every action appends to the audit
+              trail
+            </p>
+          </section>
+        ) : null}
 
         <section className="ops-panel" id="exceptions">
           <div className="ops-section-heading">
@@ -96,9 +159,21 @@ export function OperationsDashboard({
               <p className="ops-kicker">Exception queue</p>
               <h2>Transfers that need a human decision</h2>
             </div>
-            <span className="count-chip">{active.length} active</span>
+            {exceptionState === "available" ? (
+              <span className="count-chip">{active.length} active</span>
+            ) : null}
           </div>
-          {active.length === 0 ? (
+          {exceptionState === "unauthorized" ? (
+            <div className="ops-empty">
+              <strong>Exception queue is unavailable for this role.</strong>
+              <p>Operational authority and health remain available.</p>
+            </div>
+          ) : exceptionState === "unavailable" ? (
+            <div className="ops-empty">
+              <strong>Exception queue is temporarily unavailable.</strong>
+              <p>Operational authority and health remain available.</p>
+            </div>
+          ) : active.length === 0 ? (
             <div className="ops-empty">
               <strong>Queue clear.</strong>
               <p>
@@ -247,47 +322,57 @@ export function OperationsDashboard({
           )}
         </section>
 
-        <section
-          className="ops-tools"
-          aria-label="Evidence and accounting tools"
-        >
-          <article id="evidence">
-            <p className="ops-kicker">Evidence</p>
-            <h2>Generate signed evidence</h2>
-            <p>
-              Create an immutable JSON manifest and readable PDF containing
-              payment, quote, allocation, ledger, and webhook facts.
-            </p>
-            <form action={actions?.evidence}>
-              <input type="hidden" name="idempotencyKey" value={randomUUID()} />
-              <label>
-                Invoice ID
+        {exceptionState === "available" ? (
+          <section
+            className="ops-tools"
+            aria-label="Evidence and accounting tools"
+          >
+            <article id="evidence">
+              <p className="ops-kicker">Evidence</p>
+              <h2>Generate signed evidence</h2>
+              <p>
+                Create an immutable JSON manifest and readable PDF containing
+                payment, quote, allocation, ledger, and webhook facts.
+              </p>
+              <form action={actions?.evidence}>
                 <input
-                  name="invoiceId"
-                  required
-                  pattern="[0-9a-fA-F-]{36}"
-                  placeholder="Invoice UUID"
+                  type="hidden"
+                  name="idempotencyKey"
+                  value={randomUUID()}
                 />
-              </label>
-              <button type="submit">Generate signed evidence</button>
-            </form>
-          </article>
-          <article id="exports">
-            <p className="ops-kicker">Accounting</p>
-            <h2>QuickBooks-ready CSV</h2>
-            <p>
-              Export deterministic, formula-safe rows backed by the immutable
-              token subledger.
-            </p>
-            <form action={actions?.export}>
-              <input type="hidden" name="idempotencyKey" value={randomUUID()} />
-              <input type="hidden" name="format" value="quickbooks_csv" />
-              <input type="hidden" name="fromTime" value={fromTime} />
-              <input type="hidden" name="throughTime" value={throughTime} />
-              <button type="submit">Download last 30 days</button>
-            </form>
-          </article>
-        </section>
+                <label>
+                  Invoice ID
+                  <input
+                    name="invoiceId"
+                    required
+                    pattern="[0-9a-fA-F-]{36}"
+                    placeholder="Invoice UUID"
+                  />
+                </label>
+                <button type="submit">Generate signed evidence</button>
+              </form>
+            </article>
+            <article id="exports">
+              <p className="ops-kicker">Accounting</p>
+              <h2>QuickBooks-ready CSV</h2>
+              <p>
+                Export deterministic, formula-safe rows backed by the immutable
+                token subledger.
+              </p>
+              <form action={actions?.export}>
+                <input
+                  type="hidden"
+                  name="idempotencyKey"
+                  value={randomUUID()}
+                />
+                <input type="hidden" name="format" value="quickbooks_csv" />
+                <input type="hidden" name="fromTime" value={fromTime} />
+                <input type="hidden" name="throughTime" value={throughTime} />
+                <button type="submit">Download last 30 days</button>
+              </form>
+            </article>
+          </section>
+        ) : null}
       </section>
     </main>
   );

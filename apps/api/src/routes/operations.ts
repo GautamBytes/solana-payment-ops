@@ -19,6 +19,10 @@ import {
 } from "../protocol/cursor.js";
 import type { IdempotentRouteExecutor } from "../protocol/idempotent-route.js";
 import { requestIdFor } from "../protocol/request-context.js";
+import {
+  registerOperationalHealthRoutes,
+  type OperationalRouteDependencies,
+} from "./operational-health.js";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -48,6 +52,16 @@ export function registerOperationRoutes(
   server: FastifyInstance,
   dependencies: OperationDependencies,
 ): void {
+  if (
+    dependencies.productionControls !== undefined &&
+    dependencies.operationalHealth !== undefined
+  ) {
+    registerOperationalHealthRoutes(server, {
+      ...dependencies,
+      productionControls: dependencies.productionControls,
+      operationalHealth: dependencies.operationalHealth,
+    });
+  }
   server.get("/v1/exceptions", async (request, reply) => {
     const actor = await authenticate(
       request,
@@ -562,6 +576,8 @@ interface OperationDependencies {
   >;
   readonly evidence?: Pick<EvidencePackService, "generate" | "get">;
   readonly exports: Pick<AccountingExportService, "generate" | "get">;
+  readonly productionControls?: OperationalRouteDependencies["productionControls"];
+  readonly operationalHealth?: OperationalRouteDependencies["operationalHealth"];
 }
 
 function registerExceptionTransition(

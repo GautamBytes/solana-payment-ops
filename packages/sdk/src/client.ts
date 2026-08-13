@@ -40,6 +40,25 @@ export type AccountingExportFormat =
 export type CreateAccountingExportInput =
   components["schemas"]["CreateAccountingExportInput"];
 export type AccountingExport = components["schemas"]["AccountingExport"];
+export type ProductionControlView =
+  components["schemas"]["ProductionControlView"];
+export type ProductionPromotionResult =
+  components["schemas"]["ProductionPromotionResult"];
+export type PromoteProductionLiveInput =
+  components["schemas"]["PromoteProductionLiveInput"];
+export type OperationalHealthSnapshot =
+  components["schemas"]["OperationalHealthSnapshot"];
+export type OperationalIncident = components["schemas"]["OperationalIncident"];
+export type OperationalIncidentEvent =
+  components["schemas"]["OperationalIncidentEvent"];
+export type OperationalIncidentKind =
+  components["schemas"]["OperationalIncidentKind"];
+export type OperationalIncidentState =
+  components["schemas"]["OperationalIncidentState"];
+export type AcknowledgeOperationalIncidentInput =
+  components["schemas"]["AcknowledgeOperationalIncidentInput"];
+export type ResolveOperationalIncidentInput =
+  components["schemas"]["ResolveOperationalIncidentInput"];
 export type IssuedInvoice = {
   readonly invoice: Invoice;
   readonly snapshot: InvoiceIssuedSnapshot;
@@ -52,6 +71,8 @@ export type WalletReplacement = {
 export interface PayOpsClientOptions {
   readonly baseUrl: string;
   readonly apiKey?: string;
+  readonly sessionCookie?: string;
+  readonly sessionOrigin?: string;
   readonly fetch?: typeof globalThis.fetch;
   readonly timeoutMs?: number;
 }
@@ -78,6 +99,13 @@ export interface ListInvoicesOptions extends ListCustomersOptions {
 export interface ListPaymentExceptionsOptions extends ListCustomersOptions {
   readonly state?: ExceptionReviewState;
 }
+
+export interface ListOperationalIncidentsOptions extends ListCustomersOptions {
+  readonly state?: OperationalIncidentState;
+  readonly kind?: OperationalIncidentKind;
+}
+
+export type ListOperationalIncidentHistoryOptions = ListCustomersOptions;
 
 export interface Page<T> {
   readonly data: readonly T[];
@@ -203,6 +231,33 @@ export interface PayOpsClient {
     exportId: string,
     options?: RequestOptions,
   ): Promise<AccountingExportDownload>;
+  getProductionControl(
+    options?: RequestOptions,
+  ): Promise<ProductionControlView>;
+  getOperationalHealth(
+    options?: RequestOptions,
+  ): Promise<OperationalHealthSnapshot>;
+  listOperationalIncidents(
+    options?: ListOperationalIncidentsOptions,
+  ): Promise<Page<OperationalIncident>>;
+  getOperationalIncidentHistory(
+    incidentId: string,
+    options?: ListOperationalIncidentHistoryOptions,
+  ): Promise<Page<OperationalIncidentEvent>>;
+  acknowledgeOperationalIncident(
+    incidentId: string,
+    input: AcknowledgeOperationalIncidentInput,
+    options: MutationOptions,
+  ): Promise<OperationalIncident>;
+  resolveOperationalIncident(
+    incidentId: string,
+    input: ResolveOperationalIncidentInput,
+    options: MutationOptions,
+  ): Promise<OperationalIncident>;
+  promoteProductionLive(
+    input: PromoteProductionLiveInput,
+    options: MutationOptions,
+  ): Promise<ProductionPromotionResult>;
 }
 
 export class PayOpsApiError extends Error {
@@ -238,6 +293,22 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
   if (options.apiKey !== undefined && !visibleAscii(options.apiKey, 1, 512)) {
     throw new TypeError("invalid_api_key");
   }
+  if (
+    options.sessionCookie !== undefined &&
+    !validSessionCookie(options.sessionCookie)
+  ) {
+    throw new TypeError("invalid_session_cookie");
+  }
+  if (
+    (options.sessionCookie === undefined) !==
+    (options.sessionOrigin === undefined)
+  ) {
+    throw new TypeError("invalid_session_authentication");
+  }
+  const sessionOrigin =
+    options.sessionOrigin === undefined
+      ? undefined
+      : exactSessionOrigin(options.sessionOrigin);
   const timeoutMs = options.timeoutMs ?? 10_000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) {
     throw new TypeError("invalid_timeout_ms");
@@ -249,6 +320,8 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
     body: unknown,
     requestOptions: RequestOptions,
     idempotencyKey?: string,
+    acceptsResponse?: (status: number, value: unknown) => boolean,
+    authentication: "default" | "session" = "default",
   ): Promise<T> {
     const requestId = requestOptions.requestId ?? randomUUID();
     if (!validUuid(requestId)) throw new TypeError("invalid_request_id");
@@ -257,6 +330,9 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
       !visibleAscii(idempotencyKey, 16, 128)
     ) {
       throw new TypeError("invalid_idempotency_key");
+    }
+    if (authentication === "session" && options.sessionCookie === undefined) {
+      throw new TypeError("session_cookie_required");
     }
     const timeoutController = new AbortController();
     const timeout = setTimeout(
@@ -274,7 +350,14 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
       "X-Request-Id": requestId,
     });
     if (body !== undefined) headers.set("Content-Type", "application/json");
-    if (options.apiKey !== undefined) headers.set("X-API-Key", options.apiKey);
+    if (authentication === "session") {
+      headers.set("Cookie", options.sessionCookie!);
+      headers.set("Origin", sessionOrigin!);
+    } else if (options.apiKey !== undefined) {
+      headers.set("X-API-Key", options.apiKey);
+    } else if (options.sessionCookie !== undefined) {
+      headers.set("Cookie", options.sessionCookie);
+    }
     if (idempotencyKey !== undefined)
       headers.set("Idempotency-Key", idempotencyKey);
     try {
@@ -287,7 +370,7 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
       });
       const responseRequestId = response.headers.get("x-request-id");
       const parsed = await boundedJson(response);
-      if (!response.ok) {
+      if (!response.ok && acceptsResponse?.(response.status, parsed) !== true) {
         const error = apiError(parsed);
         throw new PayOpsApiError({
           status: response.status,
@@ -618,6 +701,73 @@ export function createPayOpsClient(options: PayOpsClientOptions): PayOpsClient {
           /^[0-9a-f]{64}$/u,
         ),
       })),
+    getProductionControl: (requestOptions = {}) =>
+      request<ProductionControlView>(
+        "GET",
+        "/v1/operations/production-control",
+        undefined,
+        requestOptions,
+      ),
+    getOperationalHealth: (requestOptions = {}) =>
+      request<OperationalHealthSnapshot>(
+        "GET",
+        "/v1/operations/health",
+        undefined,
+        requestOptions,
+      ),
+    listOperationalIncidents: (requestOptions = {}) =>
+      request<Page<OperationalIncident>>(
+        "GET",
+        withQuery("/v1/operations/incidents", requestOptions, [
+          "limit",
+          "cursor",
+          "state",
+          "kind",
+        ]),
+        undefined,
+        requestOptions,
+      ),
+    getOperationalIncidentHistory: (incidentId, requestOptions = {}) =>
+      request<Page<OperationalIncidentEvent>>(
+        "GET",
+        withQuery(
+          `/v1/operations/incidents/${pathId(incidentId)}/history`,
+          requestOptions,
+          ["limit", "cursor"],
+        ),
+        undefined,
+        requestOptions,
+      ),
+    acknowledgeOperationalIncident: (incidentId, input, requestOptions) =>
+      request<OperationalIncident>(
+        "POST",
+        `/v1/operations/incidents/${pathId(incidentId)}/acknowledge`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+        undefined,
+        "session",
+      ),
+    resolveOperationalIncident: (incidentId, input, requestOptions) =>
+      request<OperationalIncident>(
+        "POST",
+        `/v1/operations/incidents/${pathId(incidentId)}/resolve`,
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+        undefined,
+        "session",
+      ),
+    promoteProductionLive: (input, requestOptions) =>
+      request<ProductionPromotionResult>(
+        "POST",
+        "/v1/operations/production-control/promote",
+        input,
+        requestOptions,
+        requestOptions.idempotencyKey,
+        isBlockedPromotion,
+        "session",
+      ),
   };
   return Object.freeze(client);
 }
@@ -638,6 +788,14 @@ function exactHttpsOrigin(value: string): string {
   return url.origin;
 }
 
+function exactSessionOrigin(value: string): string {
+  try {
+    return exactHttpsOrigin(value);
+  } catch {
+    throw new TypeError("invalid_session_origin");
+  }
+}
+
 function withQuery(
   path: string,
   options: object,
@@ -648,6 +806,7 @@ function withQuery(
     readonly cursor?: unknown;
     readonly status?: unknown;
     readonly state?: unknown;
+    readonly kind?: unknown;
     readonly customerId?: unknown;
   };
   if (
@@ -669,7 +828,24 @@ function withQuery(
     !["draft", "issued", "cancelled"].includes(String(candidate.status))
   )
     throw new TypeError("invalid_invoice_status");
-  if (
+  if (keys.includes("kind")) {
+    if (
+      candidate.state !== undefined &&
+      !["open", "acknowledged", "resolved"].includes(String(candidate.state))
+    )
+      throw new TypeError("invalid_operational_incident_state");
+    if (
+      candidate.kind !== undefined &&
+      ![
+        "rpc_disagreement",
+        "ingestion_gap",
+        "worker_stale",
+        "ledger_mismatch",
+        "webhook_dead_letter",
+      ].includes(String(candidate.kind))
+    )
+      throw new TypeError("invalid_operational_incident_kind");
+  } else if (
     candidate.state !== undefined &&
     ![
       "open",
@@ -679,8 +855,9 @@ function withQuery(
       "resolved",
       "ignored",
     ].includes(String(candidate.state))
-  )
+  ) {
     throw new TypeError("invalid_exception_state");
+  }
   if (
     candidate.customerId !== undefined &&
     (typeof candidate.customerId !== "string" ||
@@ -872,9 +1049,29 @@ function visibleAscii(
   );
 }
 
+function validSessionCookie(value: string): boolean {
+  return (
+    value.length <= 4_096 &&
+    /^(?:__Secure-)?payops\.session_token=[\x21-\x3a\x3c-\x7e]+$/u.test(value)
+  );
+}
+
 function validUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
     value,
+  );
+}
+
+function isBlockedPromotion(status: number, value: unknown): boolean {
+  if (status !== 409 || value === null || typeof value !== "object")
+    return false;
+  const record = value as Record<string, unknown>;
+  return (
+    record.outcome === "blocked" &&
+    record.status !== null &&
+    typeof record.status === "object" &&
+    record.evaluation !== null &&
+    typeof record.evaluation === "object"
   );
 }
 

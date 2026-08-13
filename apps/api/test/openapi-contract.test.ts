@@ -31,9 +31,38 @@ describe("OpenAPI runtime inventory", () => {
         ["POST", "/v1/merchant-wallets/challenges"],
         ["POST", "/v1/merchant-wallets/:walletId/replacement-challenges"],
         ["POST", "/v1/merchant-wallets/:walletId/replace"],
+        ["GET", "/v1/operations/production-control"],
+        ["GET", "/v1/operations/health"],
+        ["GET", "/v1/operations/incidents"],
+        ["GET", "/v1/operations/incidents/:incidentId/history"],
+        ["POST", "/v1/operations/incidents/:incidentId/acknowledge"],
+        ["POST", "/v1/operations/incidents/:incidentId/resolve"],
+        ["POST", "/v1/operations/production-control/promote"],
       ] as const) {
         expect(server.hasRoute({ method, url }), `${method} ${url}`).toBe(true);
       }
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("applies the global trusted-origin boundary to operational mutations", async () => {
+    const server = buildApiServer(config(), {
+      emailDelivery: { send: async () => undefined },
+    });
+    try {
+      const response = await server.inject({
+        method: "POST",
+        url: "/v1/operations/production-control/promote",
+        headers: {
+          cookie: "payops.session_token=untrusted",
+          origin: "https://attacker.example",
+          "idempotency-key": "promotion-origin-test-0001",
+        },
+        payload: { confirmed: true, expectedVersion: 1 },
+      });
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toMatchObject({ code: "untrusted_origin" });
     } finally {
       await server.close();
     }
@@ -43,6 +72,10 @@ describe("OpenAPI runtime inventory", () => {
 function config(): ApiConfig {
   return {
     databaseUrl: "postgresql://payops:payops@127.0.0.1:55432/payops_test",
+    productionControlDatabaseUrl:
+      "postgresql://payops:payops@127.0.0.1:55432/payops_test",
+    readinessVerifierDatabaseUrl:
+      "postgresql://payops:payops@127.0.0.1:55432/payops_test",
     environment: "test",
     publicApiOrigin: "http://127.0.0.1:3000",
     checkoutOrigin: "http://127.0.0.1:3001",
@@ -51,6 +84,20 @@ function config(): ApiConfig {
     solanaCluster: "mainnet-beta",
     solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     ingestionProviderId: "mainnet-primary",
+    rpc: {
+      mode: "dual_provider",
+      cluster: "mainnet-beta",
+      primary: {
+        providerId: "mainnet-primary",
+        endpointEnvironment: "TEST_RPC_URL",
+        endpoint: "https://api.mainnet-beta.solana.com",
+      },
+      secondary: {
+        providerId: "mainnet-secondary",
+        endpointEnvironment: "TEST_SECONDARY_RPC_URL",
+        endpoint: "https://secondary.mainnet.example",
+      },
+    },
     authSecrets: ["uJ9pN3qR8vL2sX6cB5mK7wF4hT1yD0eG9aC8zQ2oI6E"],
     checkoutTokenKeys: [
       {

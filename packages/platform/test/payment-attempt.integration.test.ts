@@ -10,9 +10,12 @@ import {
   InvoiceStore,
   OrganizationDatabase,
   PaymentAttemptService,
-  runPlatformMigrations,
   type StablecoinObservation,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -39,7 +42,7 @@ describeDatabase("hosted payment attempt", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     database = new OrganizationDatabase(databaseUrl!, { max: 1 });
     checkoutStore = new CheckoutStore(database, databaseUrl!);
   });
@@ -47,6 +50,7 @@ describeDatabase("hosted payment attempt", () => {
     await checkoutStore?.close();
     await database?.close();
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 
