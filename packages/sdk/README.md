@@ -38,6 +38,33 @@ curl https://payops.example.com/api/auth/api-key/create \
 
 API keys are organization-scoped and intended for backend use.
 
+Operational reads support either an API key or a bounded PayOps session cookie.
+Incident acknowledgement/resolution and production promotion are session-only,
+so a trusted server can create a client with the exact single cookie returned by
+PayOps authentication:
+
+```ts
+const operations = createPayOpsClient({
+  baseUrl: "https://payops.example.com",
+  sessionCookie: process.env.PAYOPS_SESSION_COOKIE,
+  sessionOrigin: "https://merchant.example.com",
+});
+
+await operations.acknowledgeOperationalIncident(
+  incidentId,
+  { expectedVersion: incident.version },
+  { idempotencyKey: `incident:${incidentId}:acknowledge` },
+);
+```
+
+`sessionCookie` accepts only one `payops.session_token` (or
+`__Secure-payops.session_token`) cookie up to 4 KiB. Keep it server-side. The
+matching `sessionOrigin` must be an exact HTTPS origin trusted by the API; the
+client sends it on session-only mutations so origin checks cannot be bypassed
+or accidentally omitted. The client never includes API keys, session cookies,
+or raw response bodies in its errors, and it never automatically retries a
+request.
+
 ## Wallet and invoice flow
 
 ```ts

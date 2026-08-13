@@ -999,6 +999,257 @@
           "429": { "$ref": "#/components/responses/ApiError" }
         }
       }
+    },
+    "/v1/operations/production-control": {
+      "get": {
+        "operationId": "getProductionControl",
+        "responses": {
+          "200": {
+            "description": "Canonical production-control status and promotion evaluation",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "Cache-Control": {
+                "schema": { "type": "string", "const": "private, no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionControlView"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/health": {
+      "get": {
+        "operationId": "getOperationalHealth",
+        "responses": {
+          "200": {
+            "description": "Bounded operational-health snapshot",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "Cache-Control": {
+                "schema": { "type": "string", "const": "private, no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalHealthSnapshot"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/incidents": {
+      "get": {
+        "operationId": "listOperationalIncidents",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/OperationalIncidentState"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/OperationalIncidentKind" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest operational incidents",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "Cache-Control": {
+                "schema": { "type": "string", "const": "private, no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalIncidentPage"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/incidents/{incidentId}/history": {
+      "get": {
+        "operationId": "getOperationalIncidentHistory",
+        "parameters": [
+          { "$ref": "#/components/parameters/IncidentId" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Append-only incident history, newest first",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "Cache-Control": {
+                "schema": { "type": "string", "const": "private, no-store" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalIncidentHistoryPage"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/incidents/{incidentId}/acknowledge": {
+      "post": {
+        "operationId": "acknowledgeOperationalIncident",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/IncidentId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeOperationalIncidentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/OperationalIncident"
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/incidents/{incidentId}/resolve": {
+      "post": {
+        "operationId": "resolveOperationalIncident",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/IncidentId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveOperationalIncidentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/OperationalIncident"
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "404": { "$ref": "#/components/responses/ApiError" },
+          "409": { "$ref": "#/components/responses/ApiError" },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
+    "/v1/operations/production-control/promote": {
+      "post": {
+        "operationId": "promoteProductionLive",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteProductionLiveInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization is live or was already live",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionPromotionResult"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "401": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "409": {
+            "description": "Promotion blocked or optimistic version conflict",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ProductionPromotionResult"
+                    },
+                    { "$ref": "#/components/schemas/ApiError" }
+                  ]
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/ApiError" },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
     }
   },
   "components": {
@@ -1094,6 +1345,12 @@
         "required": true,
         "schema": { "$ref": "#/components/schemas/Uuid" }
       },
+      "IncidentId": {
+        "name": "incidentId",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/Uuid" }
+      },
       "EvidencePackId": {
         "name": "evidencePackId",
         "in": "path",
@@ -1171,6 +1428,17 @@
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/PaymentException" }
+          }
+        }
+      },
+      "OperationalIncident": {
+        "description": "Updated operational incident without internal scope identity",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/OperationalIncident" }
           }
         }
       },
@@ -1275,6 +1543,352 @@
               "type": ["string", "number", "boolean", "null"]
             }
           }
+        }
+      },
+      "ActivationMode": {
+        "type": "string",
+        "enum": ["shadow", "live"]
+      },
+      "PromotionBlocker": {
+        "type": "string",
+        "enum": [
+          "watch_coverage_incomplete",
+          "worker_heartbeat_stale",
+          "production_rpc_roles_incomplete",
+          "open_critical_incident"
+        ]
+      },
+      "PromotionPrerequisites": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "completeWatchCoverage",
+          "freshWorkerHeartbeat",
+          "twoActiveProductionRpcRoles",
+          "noOpenCriticalIncident"
+        ],
+        "properties": {
+          "completeWatchCoverage": { "type": "boolean" },
+          "freshWorkerHeartbeat": { "type": "boolean" },
+          "twoActiveProductionRpcRoles": { "type": "boolean" },
+          "noOpenCriticalIncident": { "type": "boolean" }
+        }
+      },
+      "PromotionEvaluation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["eligible", "blockers", "prerequisites"],
+        "properties": {
+          "eligible": { "type": "boolean" },
+          "blockers": {
+            "type": "array",
+            "maxItems": 4,
+            "uniqueItems": true,
+            "items": { "$ref": "#/components/schemas/PromotionBlocker" }
+          },
+          "prerequisites": {
+            "$ref": "#/components/schemas/PromotionPrerequisites"
+          }
+        }
+      },
+      "ProductionControlStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "activationMode",
+          "version",
+          "promotedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "activationMode": { "$ref": "#/components/schemas/ActivationMode" },
+          "version": { "type": "integer", "minimum": 1 },
+          "promotedAt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Timestamp" },
+              { "type": "null" }
+            ]
+          },
+          "createdAt": { "$ref": "#/components/schemas/Timestamp" },
+          "updatedAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "ProductionControlView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "evaluation", "capabilities"],
+        "properties": {
+          "status": { "$ref": "#/components/schemas/ProductionControlStatus" },
+          "evaluation": { "$ref": "#/components/schemas/PromotionEvaluation" },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["canManageIncidents", "canPromoteProduction"],
+            "properties": {
+              "canManageIncidents": { "type": "boolean" },
+              "canPromoteProduction": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "PromoteProductionLiveInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["confirmed", "expectedVersion"],
+        "properties": {
+          "confirmed": { "type": "boolean", "const": true },
+          "expectedVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ProductionPromotionResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["outcome", "status", "evaluation"],
+            "properties": {
+              "outcome": { "type": "string", "const": "blocked" },
+              "status": {
+                "$ref": "#/components/schemas/ProductionControlStatus"
+              },
+              "evaluation": {
+                "$ref": "#/components/schemas/PromotionEvaluation"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["outcome", "status"],
+            "properties": {
+              "outcome": { "type": "string", "const": "promoted" },
+              "status": {
+                "$ref": "#/components/schemas/ProductionControlStatus"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["outcome", "status"],
+            "properties": {
+              "outcome": { "type": "string", "const": "already_live" },
+              "status": {
+                "$ref": "#/components/schemas/ProductionControlStatus"
+              }
+            }
+          }
+        ]
+      },
+      "OperationalMeasurementKind": {
+        "type": "string",
+        "enum": [
+          "rpc_consensus_checks",
+          "rpc_consensus_disagreements",
+          "ingestion_gap_seconds",
+          "worker_heartbeat_age_seconds",
+          "ledger_mismatches",
+          "webhook_dead_letters",
+          "webhook_delivery_duration_milliseconds"
+        ]
+      },
+      "OperationalMeasurement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "unit",
+          "windowSeconds",
+          "bucketStart",
+          "value",
+          "sampleCount",
+          "generatedAt"
+        ],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/OperationalMeasurementKind" },
+          "unit": {
+            "type": "string",
+            "enum": ["count", "seconds", "milliseconds"]
+          },
+          "windowSeconds": { "type": "integer", "const": 300 },
+          "bucketStart": { "$ref": "#/components/schemas/Timestamp" },
+          "value": { "type": "number", "minimum": 0 },
+          "sampleCount": { "type": "integer", "minimum": 0 },
+          "generatedAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "OperationalHealthSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "measurements",
+          "openWarningCount",
+          "openCriticalCount",
+          "generatedAt"
+        ],
+        "properties": {
+          "measurements": {
+            "type": "array",
+            "maxItems": 7,
+            "items": { "$ref": "#/components/schemas/OperationalMeasurement" }
+          },
+          "openWarningCount": { "type": "integer", "minimum": 0 },
+          "openCriticalCount": { "type": "integer", "minimum": 0 },
+          "generatedAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "OperationalIncidentKind": {
+        "type": "string",
+        "enum": [
+          "rpc_disagreement",
+          "ingestion_gap",
+          "worker_stale",
+          "ledger_mismatch",
+          "webhook_dead_letter"
+        ]
+      },
+      "OperationalIncidentState": {
+        "type": "string",
+        "enum": ["open", "acknowledged", "resolved"]
+      },
+      "OperationalIncident": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "state",
+          "version",
+          "firstObservedAt",
+          "lastObservedAt",
+          "occurrenceCount",
+          "acknowledgedAt",
+          "acknowledgedActorKind",
+          "resolvedAt",
+          "resolvedActorKind",
+          "resolutionCode",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "kind": { "$ref": "#/components/schemas/OperationalIncidentKind" },
+          "severity": { "type": "string", "enum": ["warning", "critical"] },
+          "state": { "$ref": "#/components/schemas/OperationalIncidentState" },
+          "version": { "type": "integer", "minimum": 1 },
+          "firstObservedAt": { "$ref": "#/components/schemas/Timestamp" },
+          "lastObservedAt": { "$ref": "#/components/schemas/Timestamp" },
+          "occurrenceCount": { "type": "integer", "minimum": 1 },
+          "acknowledgedAt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Timestamp" },
+              { "type": "null" }
+            ]
+          },
+          "acknowledgedActorKind": {
+            "type": ["string", "null"],
+            "enum": ["system", "session", "api_key", null]
+          },
+          "resolvedAt": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/Timestamp" },
+              { "type": "null" }
+            ]
+          },
+          "resolvedActorKind": {
+            "type": ["string", "null"],
+            "enum": ["system", "session", "api_key", null]
+          },
+          "resolutionCode": {
+            "type": ["string", "null"],
+            "enum": ["condition_cleared", "operator_resolved", null]
+          },
+          "createdAt": { "$ref": "#/components/schemas/Timestamp" },
+          "updatedAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "OperationalIncidentEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "incidentId",
+          "incidentVersion",
+          "action",
+          "fromState",
+          "toState",
+          "occurrenceCount",
+          "actorKind",
+          "occurredAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/Uuid" },
+          "incidentId": { "$ref": "#/components/schemas/Uuid" },
+          "incidentVersion": { "type": "integer", "minimum": 1 },
+          "action": {
+            "type": "string",
+            "enum": ["opened", "reobserved", "acknowledged", "resolved"]
+          },
+          "fromState": {
+            "type": ["string", "null"],
+            "enum": ["open", "acknowledged", null]
+          },
+          "toState": {
+            "$ref": "#/components/schemas/OperationalIncidentState"
+          },
+          "occurrenceCount": { "type": "integer", "minimum": 1 },
+          "actorKind": {
+            "type": "string",
+            "enum": ["system", "session", "api_key"]
+          },
+          "occurredAt": { "$ref": "#/components/schemas/Timestamp" },
+          "createdAt": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "OperationalIncidentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "nextCursor"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/OperationalIncident" }
+          },
+          "nextCursor": { "type": ["string", "null"], "maxLength": 1024 }
+        }
+      },
+      "OperationalIncidentHistoryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "nextCursor"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/OperationalIncidentEvent" }
+          },
+          "nextCursor": { "type": ["string", "null"], "maxLength": 1024 }
+        }
+      },
+      "AcknowledgeOperationalIncidentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ResolveOperationalIncidentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "resolutionCode"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 1 },
+          "resolutionCode": { "type": "string", "const": "operator_resolved" }
         }
       },
       "ExceptionReviewState": {

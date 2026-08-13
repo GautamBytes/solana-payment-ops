@@ -7,6 +7,7 @@ import type {
   AddWatchTargetInput,
   CompleteSyncRunInput,
   FinalityCandidate,
+  FinalizedConsensusStore,
   IngestionAuditStore,
   IngestionStore,
   InspectSignatureOptions,
@@ -18,6 +19,8 @@ import type {
   RecordRepresentationResult,
   RecordRetryInput,
   ResolveRetryInput,
+  RpcProviderRoleRecord,
+  SetProviderRoleInput,
   SolanaCluster,
   StartSyncRunInput,
   SyncLock,
@@ -29,6 +32,17 @@ import * as schema from "./schema.js";
 import { persistRepresentation } from "./representation-store.js";
 import { rpcProviders, watchTargets } from "./schema.js";
 import { readSignatureInspection } from "./signature-inspection.js";
+import {
+  claimFinalizedConsensus,
+  completeFinalizedConsensus,
+  setProviderRole,
+} from "./consensus-store.js";
+import type {
+  ClaimFinalizedConsensusInput,
+  CompleteFinalizedConsensusInput,
+  CompleteFinalizedConsensusResult,
+  FinalizedConsensusClaim,
+} from "../domain/types.js";
 
 export interface PostgresIngestionStoreConfig {
   readonly databaseUrl: string;
@@ -149,7 +163,7 @@ function assertCanonicalParserVersion(parserVersion: string): void {
 }
 
 export class PostgresIngestionStore
-  implements IngestionStore, IngestionAuditStore
+  implements IngestionStore, IngestionAuditStore, FinalizedConsensusStore
 {
   readonly #sql: Sql;
   readonly #db: PostgresJsDatabase<typeof schema>;
@@ -244,6 +258,24 @@ export class PostgresIngestionStore
       );
     }
     return provider;
+  }
+
+  public async setProviderRole(
+    input: SetProviderRoleInput,
+  ): Promise<RpcProviderRoleRecord> {
+    return setProviderRole(this.#sql, this.#organizationId, input);
+  }
+
+  public async claimFinalizedConsensus(
+    input: ClaimFinalizedConsensusInput,
+  ): Promise<FinalizedConsensusClaim> {
+    return claimFinalizedConsensus(this.#sql, this.#organizationId, input);
+  }
+
+  public async completeFinalizedConsensus(
+    input: CompleteFinalizedConsensusInput,
+  ): Promise<CompleteFinalizedConsensusResult> {
+    return completeFinalizedConsensus(this.#sql, input);
   }
 
   public async getWatchTarget(

@@ -9,8 +9,11 @@ import {
   InvoiceStore,
   OrganizationDatabase,
   assetBySymbol,
-  runPlatformMigrations,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -33,11 +36,12 @@ describeDatabase("invoice store", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
   });
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 

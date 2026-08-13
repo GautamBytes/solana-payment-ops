@@ -16,7 +16,10 @@ import {
   expect,
   test,
 } from "vitest";
-import { runPlatformMigrations } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const defaultOrganizationId = "00000000-0000-4000-8000-000000000001";
 const secondOrganizationId = "00000000-0000-4000-8000-000000000002";
@@ -51,6 +54,7 @@ describeDatabase("tenant migration and row-level security", () => {
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(schemaDatabaseUrl!);
     await admin!.unsafe(`DROP ROLE IF EXISTS ${apiRole}`);
     await admin!.unsafe(`DROP ROLE IF EXISTS ${storeRole}`);
     await admin?.end();
@@ -60,7 +64,7 @@ describeDatabase("tenant migration and row-level security", () => {
     const sql = postgres(schemaDatabaseUrl!, { max: 1 });
     try {
       await seedPr6Roots(sql);
-      await runPlatformMigrations(schemaDatabaseUrl!);
+      await runTestPlatformMigrations(schemaDatabaseUrl!);
 
       for (const table of [
         "watch_targets",
@@ -83,7 +87,7 @@ describeDatabase("tenant migration and row-level security", () => {
   });
 
   test("fails closed without tenant context and isolates organizations", async () => {
-    await runPlatformMigrations(schemaDatabaseUrl!);
+    await runTestPlatformMigrations(schemaDatabaseUrl!);
     const sql = postgres(schemaDatabaseUrl!, { max: 1 });
     try {
       await sql`
@@ -140,7 +144,7 @@ describeDatabase("tenant migration and row-level security", () => {
   });
 
   test("tenant-scoped stores and derived joins cannot cross organization boundaries", async () => {
-    await runPlatformMigrations(schemaDatabaseUrl!);
+    await runTestPlatformMigrations(schemaDatabaseUrl!);
     const sql = postgres(schemaDatabaseUrl!, { max: 1 });
     const storeDatabaseUrl = withCredentials(
       schemaDatabaseUrl!,

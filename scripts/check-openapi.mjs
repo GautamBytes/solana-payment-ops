@@ -53,6 +53,28 @@ const expectedStatuses = new Map([
   ],
   ["GET /v1/exceptions", ["200", "400", "401", "403", "429"]],
   [
+    "GET /v1/operations/production-control",
+    ["200", "401", "403", "429", "503"],
+  ],
+  ["GET /v1/operations/health", ["200", "401", "403", "429", "503"]],
+  ["GET /v1/operations/incidents", ["200", "400", "401", "403", "429", "503"]],
+  [
+    "GET /v1/operations/incidents/{incidentId}/history",
+    ["200", "400", "401", "403", "404", "429", "503"],
+  ],
+  [
+    "POST /v1/operations/incidents/{incidentId}/acknowledge",
+    ["200", "400", "401", "403", "404", "409", "429", "503"],
+  ],
+  [
+    "POST /v1/operations/incidents/{incidentId}/resolve",
+    ["200", "400", "401", "403", "404", "409", "429", "503"],
+  ],
+  [
+    "POST /v1/operations/production-control/promote",
+    ["200", "400", "401", "403", "409", "429", "503"],
+  ],
+  [
     "GET /v1/exceptions/{exceptionId}/history",
     ["200", "401", "403", "404", "429"],
   ],
@@ -141,6 +163,9 @@ for (const key of [
   "POST /v1/exceptions/{exceptionId}/investigate",
   "POST /v1/exceptions/{exceptionId}/escalate",
   "POST /v1/exceptions/{exceptionId}/reopen",
+  "POST /v1/operations/incidents/{incidentId}/acknowledge",
+  "POST /v1/operations/incidents/{incidentId}/resolve",
+  "POST /v1/operations/production-control/promote",
   "POST /v1/evidence-packs",
   "POST /v1/exports",
 ]) {
@@ -167,9 +192,23 @@ for (const key of [
   }
 }
 for (const key of [
+  "POST /v1/operations/incidents/{incidentId}/acknowledge",
+  "POST /v1/operations/incidents/{incidentId}/resolve",
+  "POST /v1/operations/production-control/promote",
+]) {
+  if (
+    JSON.stringify(operations.get(key)?.security) !==
+    JSON.stringify([{ sessionCookie: [] }])
+  ) {
+    fail(`${key} must require session-cookie authentication`);
+  }
+}
+for (const key of [
   "GET /v1/customers",
   "GET /v1/invoices",
   "GET /v1/exceptions",
+  "GET /v1/operations/incidents",
+  "GET /v1/operations/incidents/{incidentId}/history",
 ]) {
   const parameters = operations.get(key)?.parameters ?? [];
   for (const name of ["Limit", "Cursor"]) {
@@ -180,6 +219,17 @@ for (const key of [
     ) {
       fail(`${key} must expose ${name}`);
     }
+  }
+}
+for (const key of [
+  "GET /v1/operations/production-control",
+  "GET /v1/operations/health",
+  "GET /v1/operations/incidents",
+  "GET /v1/operations/incidents/{incidentId}/history",
+]) {
+  const response = operations.get(key)?.responses?.["200"];
+  if (response?.headers?.["Cache-Control"] === undefined) {
+    fail(`${key} must document Cache-Control: no-store`);
   }
 }
 for (const [schema, property] of [
@@ -194,6 +244,20 @@ for (const [schema, property] of [
   if (!allowsNull(value)) {
     fail(`${schema}.${property} must explicitly allow null`);
   }
+}
+
+const promotionResult = document.components.schemas.ProductionPromotionResult;
+if (
+  promotionResult?.oneOf?.length !== 3 ||
+  promotionResult.oneOf.some(
+    (variant) =>
+      variant.type !== "object" || variant.additionalProperties !== false,
+  ) ||
+  promotionResult.oneOf.filter(
+    (variant) => variant.required?.includes("evaluation") === true,
+  ).length !== 1
+) {
+  fail("ProductionPromotionResult must be a strict three-variant union");
 }
 
 function allowsNull(schema) {

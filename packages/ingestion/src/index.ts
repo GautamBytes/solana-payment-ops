@@ -3,6 +3,11 @@ export {
   createParsingDigest,
 } from "./archive/canonical-snapshot.js";
 export {
+  FinalizedConsensusEngine,
+  type FinalizedConsensusDependencies,
+  type FinalizedConsensusResult,
+} from "./consensus/finalized-consensus.js";
+export {
   createBackfillEngine,
   type BackfillDependencies,
   type BackfillEngine,

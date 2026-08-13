@@ -11,12 +11,18 @@ import {
   IdempotencyStore,
   InvoiceStore,
   OrganizationDatabase,
+  OperationalHealthStore,
   PaymentAttemptService,
+  platformMigrationMetadata,
   PythHermesPriceAdapter,
+  persistedProductionPromotionEvaluator,
+  ProductionControlStore,
   RateLimitStore,
   type SolanaAccountRpcPort,
   type EmailDeliveryPort,
+  rpcProviderConfigurationIdentity,
   WalletStore,
+  WorkerJobStore,
 } from "@payops/platform";
 import Fastify, {
   type FastifyInstance,
@@ -25,7 +31,7 @@ import Fastify, {
 } from "fastify";
 import { createPayOpsAuth, hashAuthPassword } from "./auth/better-auth.js";
 import { createAuthContextResolver } from "./auth/context.js";
-import type { ApiConfig } from "./config.js";
+import { hasReadyRpcConfiguration, type ApiConfig } from "./config.js";
 import { installErrorHandler } from "./protocol/api-error.js";
 import { errorBody } from "./protocol/api-error.js";
 import { installRequestContext } from "./protocol/request-context.js";
@@ -70,6 +76,16 @@ export function buildApiServer(
   const auth = createPayOpsAuth(config, dependencies.emailDelivery);
   const authContext = createAuthContextResolver(auth.auth, config.databaseUrl);
   const platformDatabase = new OrganizationDatabase(config.databaseUrl);
+  const productionControlDatabase =
+    config.productionControlDatabaseUrl === config.databaseUrl
+      ? platformDatabase
+      : new OrganizationDatabase(config.productionControlDatabaseUrl);
+  const readinessVerifierDatabase =
+    config.readinessVerifierDatabaseUrl === config.databaseUrl
+      ? platformDatabase
+      : new OrganizationDatabase(config.readinessVerifierDatabaseUrl);
+  const workerJobs = new WorkerJobStore(config.databaseUrl);
+  const requiredMigrations = platformMigrationMetadata();
   const solanaRpc =
     dependencies.solanaRpc ??
     new HttpSolanaAccountRpcPort({ endpoint: config.solanaRpcUrl });
@@ -223,6 +239,15 @@ export function buildApiServer(
   server.get("/health/ready", async (_request, reply) => {
     try {
       await platformDatabase.healthCheck();
+      await workerJobs.assertMigrationsReady(await requiredMigrations);
+      if (!hasReadyRpcConfiguration(config)) {
+        throw new Error("RPC configuration is unavailable");
+      }
+      await workerJobs.assertReady();
+      const readiness = await workerJobs.readiness({
+        rpc: rpcProviderConfigurationIdentity(config.rpc),
+      });
+      if (!readiness.ready) throw new Error("Worker is unavailable");
       return reply.send({ status: "ok" });
     } catch {
       return reply.code(503).send({ status: "unavailable" });
@@ -262,14 +287,30 @@ export function buildApiServer(
     exceptions: new ExceptionStore(platformDatabase),
     ...(evidencePacks === undefined ? {} : { evidence: evidencePacks }),
     exports: new AccountingExportService(platformDatabase),
+    productionControls: new ProductionControlStore(
+      platformDatabase,
+      persistedProductionPromotionEvaluator,
+      {
+        controlDatabase: productionControlDatabase,
+        readinessVerifierDatabase,
+        rpc: rpcProviderConfigurationIdentity(config.rpc),
+      },
+    ),
+    operationalHealth: new OperationalHealthStore(platformDatabase),
   });
 
   server.addHook("onClose", async () => {
+    const databases = new Set([
+      platformDatabase,
+      productionControlDatabase,
+      readinessVerifierDatabase,
+    ]);
     await Promise.all([
       auth.close(),
       authContext.close(),
       checkoutStore.close(),
-      platformDatabase.close(),
+      workerJobs.close(),
+      ...[...databases].map((database) => database.close()),
     ]);
   });
   return server;

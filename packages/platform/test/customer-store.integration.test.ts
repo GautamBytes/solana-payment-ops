@@ -3,11 +3,11 @@ import { runMigrations as runIngestionMigrations } from "@payops/ingestion";
 import { runMigrations as runReconciliationMigrations } from "@payops/reconciliation";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { CustomerStore, OrganizationDatabase } from "../src/index.js";
 import {
-  CustomerStore,
-  OrganizationDatabase,
-  runPlatformMigrations,
-} from "../src/index.js";
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -31,7 +31,7 @@ describeDatabase("customer store", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     const scoped = postgres(databaseUrl!, { max: 1 });
     await scoped`
       INSERT INTO organization (id, name, slug, created_at, metadata)
@@ -42,6 +42,7 @@ describeDatabase("customer store", () => {
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 

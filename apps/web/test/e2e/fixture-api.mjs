@@ -58,6 +58,23 @@ const operationsException = {
   version: 1,
   createdAt: "2026-08-12T10:00:00.000Z",
 };
+const operationalIncident = {
+  id: "00000000-0000-4000-8000-000000000206",
+  kind: "worker_stale",
+  severity: "warning",
+  state: "open",
+  version: 1,
+  firstObservedAt: "2026-08-12T10:00:00.000Z",
+  lastObservedAt: "2026-08-12T11:00:00.000Z",
+  occurrenceCount: 3,
+  acknowledgedAt: null,
+  acknowledgedActorKind: null,
+  resolvedAt: null,
+  resolvedActorKind: null,
+  resolutionCode: null,
+  createdAt: "2026-08-12T10:00:00.000Z",
+  updatedAt: "2026-08-12T11:00:00.000Z",
+};
 
 let state = resetState("static");
 
@@ -81,6 +98,12 @@ createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/v1/exceptions" && request.method === "GET") {
+    if (["viewer", "developer"].includes(state.scenario)) {
+      return json(response, 403, { code: "forbidden" });
+    }
+    if (state.scenario === "exception-unavailable") {
+      return json(response, 503, { code: "exceptions_unavailable" });
+    }
     const requestedState = url.searchParams.get("state");
     return json(response, 200, {
       data:
@@ -89,6 +112,151 @@ createServer(async (request, response) => {
           ? [state.exception]
           : [],
       nextCursor: null,
+    });
+  }
+  if (
+    url.pathname === "/v1/operations/production-control" &&
+    request.method === "GET"
+  ) {
+    const stale = state.scenario === "operations-stale";
+    return json(response, 200, {
+      status: {
+        activationMode: state.activationMode,
+        version: state.activationMode === "live" ? 2 : 1,
+        promotedAt:
+          state.activationMode === "live" ? new Date().toISOString() : null,
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-12T12:00:00.000Z",
+      },
+      evaluation: {
+        eligible: !stale,
+        blockers: stale ? ["worker_heartbeat_stale"] : [],
+        prerequisites: {
+          completeWatchCoverage: true,
+          freshWorkerHeartbeat: !stale,
+          twoActiveProductionRpcRoles: true,
+          noOpenCriticalIncident: true,
+        },
+      },
+      capabilities: {
+        canManageIncidents: !["viewer", "developer"].includes(state.scenario),
+        canPromoteProduction: !["viewer", "developer", "operator"].includes(
+          state.scenario,
+        ),
+      },
+    });
+  }
+  if (url.pathname === "/v1/operations/health" && request.method === "GET") {
+    const generatedAt = new Date(
+      Date.now() - (state.scenario === "operations-stale" ? 3_600_000 : 0),
+    ).toISOString();
+    const measurements = [
+      ["rpc_consensus_checks", "count", 20],
+      ["rpc_consensus_disagreements", "count", 0],
+      ["ingestion_gap_seconds", "seconds", 3],
+      ["worker_heartbeat_age_seconds", "seconds", 12],
+      ["ledger_mismatches", "count", 0],
+      ["webhook_dead_letters", "count", 0],
+      ["webhook_delivery_duration_milliseconds", "milliseconds", 125],
+    ];
+    return json(response, 200, {
+      measurements: measurements.map(([kind, unit, value]) => ({
+        kind,
+        unit,
+        windowSeconds: 300,
+        bucketStart: new Date(Date.now() - 300_000).toISOString(),
+        value,
+        sampleCount: 1,
+        generatedAt,
+      })),
+      openWarningCount: 1,
+      openCriticalCount: 0,
+      generatedAt: new Date().toISOString(),
+    });
+  }
+  if (url.pathname === "/v1/operations/incidents" && request.method === "GET") {
+    return json(response, 200, {
+      data: state.incident.state === "resolved" ? [] : [state.incident],
+      nextCursor: null,
+    });
+  }
+  if (
+    url.pathname ===
+      `/v1/operations/incidents/${operationalIncident.id}/history` &&
+    request.method === "GET"
+  ) {
+    return json(response, 200, {
+      data: [
+        {
+          id: "00000000-0000-4000-8000-000000000207",
+          incidentId: operationalIncident.id,
+          incidentVersion: 1,
+          action: "opened",
+          fromState: null,
+          toState: "open",
+          occurrenceCount: 1,
+          actorKind: "system",
+          occurredAt: operationalIncident.firstObservedAt,
+          createdAt: operationalIncident.firstObservedAt,
+        },
+      ],
+      nextCursor: null,
+    });
+  }
+  if (
+    url.pathname ===
+      `/v1/operations/incidents/${operationalIncident.id}/acknowledge` &&
+    request.method === "POST"
+  ) {
+    if (state.scenario === "operations-conflict") {
+      return json(response, 409, {
+        code: "incident_version_conflict",
+        message: "Operation could not be completed",
+        requestId: "00000000-0000-4000-8000-000000000208",
+      });
+    }
+    state.incident = {
+      ...state.incident,
+      state: "acknowledged",
+      version: state.incident.version + 1,
+      acknowledgedAt: new Date().toISOString(),
+      acknowledgedActorKind: "session",
+    };
+    return json(response, 200, state.incident);
+  }
+  if (
+    url.pathname ===
+      `/v1/operations/incidents/${operationalIncident.id}/resolve` &&
+    request.method === "POST"
+  ) {
+    state.incident = {
+      ...state.incident,
+      state: "resolved",
+      version: state.incident.version + 1,
+      resolvedAt: new Date().toISOString(),
+      resolvedActorKind: "session",
+      resolutionCode: "operator_resolved",
+    };
+    return json(response, 200, state.incident);
+  }
+  if (
+    url.pathname === "/v1/operations/production-control/promote" &&
+    request.method === "POST"
+  ) {
+    const body = await readJson(request);
+    if (body.confirmed !== true) {
+      return json(response, 400, { code: "invalid_request" });
+    }
+    state.activationMode = "live";
+    return json(response, 200, {
+      outcome: "promoted",
+      status: {
+        activationMode: "live",
+        version: 2,
+        promotedAt: new Date().toISOString(),
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: new Date().toISOString(),
+      },
     });
   }
   if (
@@ -169,6 +337,8 @@ function resetState(scenario) {
     statusCalls: 0,
     keys: [],
     exception: { ...operationsException },
+    incident: { ...operationalIncident },
+    activationMode: "shadow",
   };
 }
 

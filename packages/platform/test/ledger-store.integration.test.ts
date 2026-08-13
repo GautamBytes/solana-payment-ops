@@ -7,8 +7,11 @@ import {
   LedgerStore,
   AccountingExportService,
   OrganizationDatabase,
-  runPlatformMigrations,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -37,7 +40,7 @@ describeDatabase("merchant operational ledger", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     database = new OrganizationDatabase(databaseUrl!, { max: 4 });
     store = new LedgerStore(database);
   });
@@ -45,6 +48,7 @@ describeDatabase("merchant operational ledger", () => {
   afterAll(async () => {
     await database?.close();
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 

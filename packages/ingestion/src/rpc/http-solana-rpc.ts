@@ -10,11 +10,16 @@ import type {
 } from "../domain/types.js";
 import { IngestionError } from "../domain/types.js";
 
+const transactionErrorSchema = z.union([
+  z.string().min(1),
+  z.record(z.string(), z.unknown()),
+]);
+
 const addressSignatureSchema = z.object({
   signature: z.string().min(1),
   slot: z.number().int().nonnegative(),
   blockTime: z.number().int().nullable(),
-  err: z.unknown().nullable(),
+  err: transactionErrorSchema.nullable(),
   confirmationStatus: z
     .enum(["processed", "confirmed", "finalized"])
     .nullable(),
@@ -22,7 +27,7 @@ const addressSignatureSchema = z.object({
 
 const rawStatusSchema = z.object({
   slot: z.number().int().nonnegative(),
-  err: z.unknown().nullable(),
+  err: transactionErrorSchema.nullable(),
   confirmationStatus: z
     .enum(["processed", "confirmed", "finalized"])
     .nullable(),
@@ -32,6 +37,13 @@ const statusResponseSchema = z.object({
   context: z.object({ slot: z.number().int().nonnegative() }),
   value: z.array(rawStatusSchema.nullable()),
 });
+
+const maxRpcResponseBytes = 1_048_576;
+const maxEvidenceDepth = 32;
+const maxEvidenceNodes = 50_000;
+const maxEvidenceArrayLength = 4_096;
+const maxEvidenceObjectProperties = 512;
+const maxEvidenceStringBytes = 65_536;
 
 export interface HttpSolanaRpcConfig {
   readonly cluster: SolanaCluster;
@@ -128,11 +140,13 @@ export class HttpSolanaRpc implements SolanaRpcPort {
     }
 
     if (response.status === 429) {
+      await cancelResponseBody(response);
       throw new IngestionError("rpc_rate_limited", "Solana RPC rate limited", {
         retryable: true,
       });
     }
     if (!response.ok) {
+      await cancelResponseBody(response);
       throw new IngestionError(
         "rpc_transport_error",
         `Solana RPC returned HTTP ${response.status}`,
@@ -142,8 +156,9 @@ export class HttpSolanaRpc implements SolanaRpcPort {
 
     let body: unknown;
     try {
-      body = await response.json();
+      body = await readBoundedJson(response);
     } catch (cause) {
+      if (cause instanceof IngestionError) throw cause;
       throw new IngestionError(
         "rpc_invalid_json",
         "Solana RPC returned invalid JSON",
@@ -238,30 +253,38 @@ export class HttpSolanaRpc implements SolanaRpcPort {
     if (raw === null) {
       return null;
     }
+    if (!transactionEvidenceWithinLimits(raw)) {
+      throw new IngestionError(
+        "rpc_invalid_json",
+        "Solana RPC transaction evidence exceeds safe limits",
+        { retryable: true },
+      );
+    }
     const firstSignature =
       isRecord(raw) &&
       isRecord(raw.transaction) &&
-      Array.isArray(raw.transaction.signatures)
+      Array.isArray(raw.transaction.signatures) &&
+      typeof raw.transaction.signatures[0] === "string"
         ? raw.transaction.signatures[0]
         : undefined;
-    if (firstSignature !== signature) {
-      throw new IngestionError(
-        "rpc_signature_conflict",
-        "RPC transaction signature does not match the request",
-        { retryable: false },
-      );
-    }
     const parsed = RpcTransactionEnvelopeSchema.safeParse({
       ...(isRecord(raw) ? raw : {}),
       cluster: this.#cluster,
       commitment,
-      signature,
+      signature: firstSignature ?? signature,
     });
     if (!parsed.success) {
       throw new IngestionError(
         "rpc_transaction_schema_invalid",
         "Solana RPC returned an unsupported transaction structure",
-        { retryable: false, cause: parsed.error },
+        { retryable: true, cause: parsed.error },
+      );
+    }
+    if (firstSignature !== signature) {
+      throw new IngestionError(
+        "rpc_signature_conflict",
+        "RPC transaction signature does not match the request",
+        { retryable: false },
       );
     }
     return parsed.data;
@@ -288,6 +311,18 @@ export class HttpSolanaRpc implements SolanaRpcPort {
         "rpc_invalid_json",
         "Solana RPC returned invalid signature statuses",
         { retryable: true, cause: parsed.success ? undefined : parsed.error },
+      );
+    }
+    if (
+      parsed.data.value.some(
+        (status) =>
+          status !== null && !structuralEvidenceWithinLimits(status.err),
+      )
+    ) {
+      throw new IngestionError(
+        "rpc_invalid_json",
+        "Solana RPC status evidence exceeds safe limits",
+        { retryable: true },
       );
     }
     return parsed.data.value.map((status, index) => {
@@ -322,4 +357,178 @@ export class HttpSolanaRpc implements SolanaRpcPort {
     }
     return BigInt(parsed.data);
   }
+}
+
+async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // The bounded public error remains independent of cleanup failures.
+  }
+}
+
+async function readBoundedJson(response: Response): Promise<unknown> {
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength !== null) {
+    const length = /^\d+$/.test(declaredLength)
+      ? Number(declaredLength)
+      : Number.NaN;
+    if (!Number.isSafeInteger(length) || length > maxRpcResponseBytes) {
+      await cancelResponseBody(response);
+      throw oversizedRpcResponse();
+    }
+  }
+  if (response.body === null) {
+    throw new IngestionError(
+      "rpc_invalid_json",
+      "Solana RPC returned invalid JSON",
+      { retryable: true },
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let bytesRead = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
+      if (bytesRead > maxRpcResponseBytes) {
+        await reader.cancel();
+        throw oversizedRpcResponse();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    try {
+      await reader.cancel();
+    } catch {
+      // The bounded parse error remains independent of cleanup failures.
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function oversizedRpcResponse(): IngestionError {
+  return new IngestionError(
+    "rpc_invalid_json",
+    "Solana RPC response exceeded the size limit",
+    { retryable: true },
+  );
+}
+
+function transactionEvidenceWithinLimits(value: unknown): boolean {
+  if (!structuralEvidenceWithinLimits(value)) return false;
+
+  if (!isRecord(value) || !isRecord(value.transaction)) return true;
+  const transaction = value.transaction;
+  if (arrayExceeds(transaction.signatures, 256)) return false;
+  if (!isRecord(transaction.message)) return true;
+  const message = transaction.message;
+  if (
+    arrayExceeds(message.accountKeys, 256) ||
+    arrayExceeds(message.addressTableLookups, 256) ||
+    arrayExceeds(message.instructions, 256)
+  ) {
+    return false;
+  }
+  if (instructionListExceeds(message.instructions)) return false;
+  if (Array.isArray(message.addressTableLookups)) {
+    for (const lookup of message.addressTableLookups) {
+      if (
+        isRecord(lookup) &&
+        (arrayExceeds(lookup.writableIndexes, 256) ||
+          arrayExceeds(lookup.readonlyIndexes, 256))
+      ) {
+        return false;
+      }
+    }
+  }
+  if (!isRecord(value.meta)) return true;
+  const meta = value.meta;
+  if (
+    arrayExceeds(meta.innerInstructions, 256) ||
+    arrayExceeds(meta.preTokenBalances, 256) ||
+    arrayExceeds(meta.postTokenBalances, 256)
+  ) {
+    return false;
+  }
+  if (isRecord(meta.loadedAddresses)) {
+    if (
+      arrayExceeds(meta.loadedAddresses.writable, 256) ||
+      arrayExceeds(meta.loadedAddresses.readonly, 256)
+    ) {
+      return false;
+    }
+  }
+  if (Array.isArray(meta.innerInstructions)) {
+    for (const group of meta.innerInstructions) {
+      if (
+        isRecord(group) &&
+        (arrayExceeds(group.instructions, 256) ||
+          instructionListExceeds(group.instructions))
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function structuralEvidenceWithinLimits(value: unknown): boolean {
+  const stack: { readonly value: unknown; readonly depth: number }[] = [
+    { value, depth: 0 },
+  ];
+  let nodes = 0;
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (current === undefined) break;
+    nodes += 1;
+    if (nodes > maxEvidenceNodes || current.depth > maxEvidenceDepth) {
+      return false;
+    }
+    if (typeof current.value === "string") {
+      if (Buffer.byteLength(current.value, "utf8") > maxEvidenceStringBytes) {
+        return false;
+      }
+      continue;
+    }
+    if (current.value === null || typeof current.value !== "object") continue;
+    const entries = Array.isArray(current.value)
+      ? current.value
+      : Object.entries(current.value).flatMap(([key, entry]) => [key, entry]);
+    if (
+      (Array.isArray(current.value) &&
+        current.value.length > maxEvidenceArrayLength) ||
+      (!Array.isArray(current.value) &&
+        Object.keys(current.value).length > maxEvidenceObjectProperties)
+    ) {
+      return false;
+    }
+    for (const entry of entries) {
+      stack.push({ value: entry, depth: current.depth + 1 });
+    }
+  }
+  return true;
+}
+
+function instructionListExceeds(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.some(
+    (instruction) =>
+      isRecord(instruction) &&
+      (arrayExceeds(instruction.accounts, 256) ||
+        (typeof instruction.data === "string" &&
+          Buffer.byteLength(instruction.data, "utf8") > 2_048)),
+  );
+}
+
+function arrayExceeds(value: unknown, maximum: number): boolean {
+  return Array.isArray(value) && value.length > maximum;
 }

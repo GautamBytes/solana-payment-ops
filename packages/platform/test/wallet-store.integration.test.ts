@@ -12,12 +12,15 @@ import {
   associatedTokenAddress,
   assetBySymbol,
   OrganizationDatabase,
-  runPlatformMigrations,
   WalletStore,
   type SolanaAccountRpcPort,
   type TokenAccountState,
   type WalletChallenge,
 } from "../src/index.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -40,7 +43,7 @@ describeDatabase("merchant wallet store", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
     const scoped = postgres(databaseUrl!, { max: 1 });
     await scoped`
       INSERT INTO rpc_providers (
@@ -54,6 +57,7 @@ describeDatabase("merchant wallet store", () => {
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 

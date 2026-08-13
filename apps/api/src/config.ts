@@ -1,7 +1,14 @@
+import {
+  parseRpcProviderConfiguration,
+  type RpcProviderConfiguration,
+} from "@payops/platform";
+
 export type PayOpsEnvironment = "local" | "test" | "production";
 
 export interface ApiConfig {
   readonly databaseUrl: string;
+  readonly productionControlDatabaseUrl: string;
+  readonly readinessVerifierDatabaseUrl: string;
   readonly environment: PayOpsEnvironment;
   readonly publicApiOrigin: string;
   readonly checkoutOrigin: string;
@@ -10,6 +17,7 @@ export interface ApiConfig {
   readonly solanaCluster: "mainnet-beta";
   readonly solanaRpcUrl: string;
   readonly ingestionProviderId: string;
+  readonly rpc: RpcProviderConfiguration;
   readonly authSecrets: readonly string[];
   readonly checkoutTokenKeys: readonly {
     readonly id: string;
@@ -46,11 +54,15 @@ export class ConfigError extends Error {
 }
 
 function required(environment: NodeJS.ProcessEnv, name: string): string {
-  const value = environment[name];
+  const value = own(environment, name);
   if (typeof value !== "string" || value.length === 0) {
     throw new ConfigError("missing_configuration");
   }
   return value;
+}
+
+function own(environment: NodeJS.ProcessEnv, name: string): string | undefined {
+  return Object.hasOwn(environment, name) ? environment[name] : undefined;
 }
 
 function exactOrigin(value: string, allowHttp: boolean): string {
@@ -105,6 +117,24 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   }
   const deploymentEnvironment = rawEnvironment as PayOpsEnvironment;
   const allowHttp = deploymentEnvironment !== "production";
+  const databaseUrl = required(environment, "DATABASE_URL");
+  const productionControlDatabaseUrl =
+    own(environment, "PAYOPS_PRODUCTION_CONTROL_DATABASE_URL") ?? databaseUrl;
+  const readinessVerifierDatabaseUrl =
+    own(environment, "PAYOPS_READINESS_VERIFIER_DATABASE_URL") ?? databaseUrl;
+  if (
+    deploymentEnvironment === "production" &&
+    (productionControlDatabaseUrl === databaseUrl ||
+      readinessVerifierDatabaseUrl === databaseUrl ||
+      databasePrincipal(productionControlDatabaseUrl) ===
+        databasePrincipal(databaseUrl) ||
+      databasePrincipal(readinessVerifierDatabaseUrl) ===
+        databasePrincipal(databaseUrl) ||
+      databasePrincipal(productionControlDatabaseUrl) ===
+        databasePrincipal(readinessVerifierDatabaseUrl))
+  ) {
+    throw new ConfigError("unsafe_production_database_role_configuration");
+  }
 
   const rawPublicOrigin = required(environment, "PAYOPS_PUBLIC_API_ORIGIN");
   let publicApiOrigin: string;
@@ -130,7 +160,21 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     allowHttp,
   );
 
-  if (required(environment, "PAYOPS_SOLANA_CLUSTER") !== "mainnet-beta") {
+  let rpc: RpcProviderConfiguration;
+  try {
+    rpc = parseRpcProviderConfiguration(environment, deploymentEnvironment);
+  } catch (error) {
+    if (
+      error !== null &&
+      typeof error === "object" &&
+      Object.getOwnPropertyDescriptor(error, "code")?.value ===
+        "missing_configuration"
+    ) {
+      throw new ConfigError("missing_configuration");
+    }
+    throw new ConfigError("invalid_rpc_configuration");
+  }
+  if (rpc.cluster !== "mainnet-beta") {
     throw new ConfigError("unsupported_solana_cluster");
   }
 
@@ -145,17 +189,18 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     deploymentEnvironment,
   );
   return Object.freeze({
-    databaseUrl: required(environment, "DATABASE_URL"),
+    databaseUrl,
+    productionControlDatabaseUrl,
+    readinessVerifierDatabaseUrl,
     environment: deploymentEnvironment,
     publicApiOrigin,
     checkoutOrigin,
     trustedOrigins: Object.freeze(trustedOrigins),
     walletProofDomain: required(environment, "PAYOPS_WALLET_PROOF_DOMAIN"),
     solanaCluster: "mainnet-beta",
-    solanaRpcUrl: required(environment, "PAYOPS_SOLANA_RPC_URL"),
-    ingestionProviderId: parseProviderId(
-      required(environment, "PAYOPS_INGESTION_PROVIDER_ID"),
-    ),
+    solanaRpcUrl: rpc.primary.endpoint,
+    ingestionProviderId: rpc.primary.providerId,
+    rpc,
     authSecrets: parseSecrets(required(environment, "BETTER_AUTH_SECRETS")),
     checkoutTokenKeys: parseCheckoutTokenKeys(
       required(environment, "PAYOPS_CHECKOUT_TOKEN_KEYS"),
@@ -171,13 +216,13 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     ...(evidenceSigning === undefined ? {} : { evidenceSigning }),
     emailDeliveryMode,
     rateLimitMax: boundedInteger(
-      environment.PAYOPS_RATE_LIMIT_MAX,
+      own(environment, "PAYOPS_RATE_LIMIT_MAX"),
       600,
       1,
       10_000,
     ),
     rateLimitWindowSeconds: boundedInteger(
-      environment.PAYOPS_RATE_LIMIT_WINDOW_SECONDS,
+      own(environment, "PAYOPS_RATE_LIMIT_WINDOW_SECONDS"),
       60,
       1,
       3_600,
@@ -185,12 +230,73 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   });
 }
 
+function databasePrincipal(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ConfigError("invalid_database_configuration");
+  }
+  if (
+    !["postgres:", "postgresql:"].includes(url.protocol) ||
+    url.username.length === 0
+  ) {
+    throw new ConfigError("invalid_database_configuration");
+  }
+  return decodeURIComponent(url.username);
+}
+
+export function hasReadyRpcConfiguration(config: ApiConfig): boolean {
+  const rpc = config.rpc;
+  if (
+    rpc.cluster !== "mainnet-beta" ||
+    rpc.primary.providerId !== config.ingestionProviderId ||
+    rpc.primary.endpoint !== config.solanaRpcUrl ||
+    !validResolvedProvider(rpc.primary, config.environment)
+  ) {
+    return false;
+  }
+  if (rpc.mode === "single_provider") {
+    return rpc.cluster !== "mainnet-beta" && rpc.secondary === undefined;
+  }
+  return (
+    rpc.secondary !== undefined &&
+    rpc.primary.providerId !== rpc.secondary.providerId &&
+    rpc.primary.endpointEnvironment !== rpc.secondary.endpointEnvironment &&
+    validResolvedProvider(rpc.secondary, config.environment)
+  );
+}
+
+function validResolvedProvider(
+  provider: RpcProviderConfiguration["primary"],
+  environment: PayOpsEnvironment,
+): boolean {
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(provider.providerId) ||
+    !/^[A-Z][A-Z0-9_]{0,127}$/.test(provider.endpointEnvironment)
+  ) {
+    return false;
+  }
+  try {
+    const endpoint = new URL(provider.endpoint);
+    return (
+      endpoint.username === "" &&
+      endpoint.password === "" &&
+      endpoint.hash === "" &&
+      (endpoint.protocol === "https:" ||
+        (environment !== "production" && endpoint.protocol === "http:"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function parseEvidenceSigning(
   environment: NodeJS.ProcessEnv,
   deploymentEnvironment: PayOpsEnvironment,
 ): ApiConfig["evidenceSigning"] {
-  const keyId = environment.PAYOPS_EVIDENCE_SIGNING_KEY_ID;
-  const encoded = environment.PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64;
+  const keyId = own(environment, "PAYOPS_EVIDENCE_SIGNING_KEY_ID");
+  const encoded = own(environment, "PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64");
   if (keyId === undefined && encoded === undefined) {
     if (deploymentEnvironment === "production") {
       throw new ConfigError("missing_evidence_signing_configuration");
@@ -228,8 +334,8 @@ function parseEvidenceSigning(
 function parseCommercialFx(
   environment: NodeJS.ProcessEnv,
 ): ApiConfig["commercialFx"] {
-  const endpoint = environment.PAYOPS_COMMERCIAL_FX_ENDPOINT;
-  const accessToken = environment.PAYOPS_COMMERCIAL_FX_TOKEN;
+  const endpoint = own(environment, "PAYOPS_COMMERCIAL_FX_ENDPOINT");
+  const accessToken = own(environment, "PAYOPS_COMMERCIAL_FX_TOKEN");
   if (endpoint === undefined && accessToken === undefined) return undefined;
   if (
     typeof endpoint !== "string" ||
@@ -305,11 +411,4 @@ function boundedInteger(
     throw new ConfigError("invalid_rate_limit_configuration");
   }
   return parsed;
-}
-
-function parseProviderId(value: string): string {
-  if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(value)) {
-    throw new ConfigError("invalid_ingestion_provider");
-  }
-  return value;
 }

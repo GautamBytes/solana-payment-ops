@@ -5,7 +5,9 @@ import { installErrorHandler, ApiError } from "../src/protocol/api-error.js";
 import {
   cursorFilterDigest,
   decodeCursor,
+  decodeVersionCursor,
   encodeCursor,
+  encodeVersionCursor,
   parseLimit,
 } from "../src/protocol/cursor.js";
 import { installRequestContext } from "../src/protocol/request-context.js";
@@ -95,5 +97,26 @@ describe("API protocol", () => {
         expect.objectContaining({ code: "invalid_cursor" }),
       );
     }
+  });
+
+  it("binds descending integer-version cursors without weakening date cursors", () => {
+    const filterDigest = cursorFilterDigest({
+      endpoint: "operations.incidents.history",
+      organizationId: randomUUID(),
+      sort: "incident_version_desc",
+      filters: { incidentId: randomUUID() },
+    });
+    const position = { incidentVersion: 7, id: randomUUID() };
+    const cursor = encodeVersionCursor(position, filterDigest);
+    expect(decodeVersionCursor(cursor, filterDigest)).toEqual(position);
+    expect(() => decodeVersionCursor(cursor, "b".repeat(64))).toThrowError(
+      expect.objectContaining({ code: "invalid_cursor" }),
+    );
+    expect(() =>
+      encodeVersionCursor({ ...position, incidentVersion: 0 }, filterDigest),
+    ).toThrowError(expect.objectContaining({ code: "invalid_cursor" }));
+    expect(() => decodeCursor(cursor, filterDigest)).toThrowError(
+      expect.objectContaining({ code: "invalid_cursor" }),
+    );
   });
 });

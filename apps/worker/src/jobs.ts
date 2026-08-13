@@ -1,13 +1,18 @@
 import {
   createBackfillEngine,
   createFinalityEngine,
+  FinalizedConsensusEngine,
   HttpSolanaRpc,
   PostgresIngestionStore,
+  type SolanaRpcPort,
 } from "@payops/ingestion";
 import {
+  OperationalHealthStore,
   OrganizationDatabase,
   PaymentStatusProjector,
   QuoteExpiryService,
+  rpcProviderConfigurationIdentity,
+  type RpcProviderConfiguration,
   type WorkerJobName,
 } from "@payops/platform";
 import {
@@ -35,43 +40,169 @@ interface ProviderRow {
   readonly endpoint_env: string;
 }
 
+export interface ConsensusCandidateRow {
+  readonly cluster: "mainnet-beta" | "devnet" | "localnet";
+  readonly signature: string;
+  readonly primaryProviderId: string;
+  readonly primaryEndpointEnvironment: string;
+  readonly secondaryProviderId: string;
+  readonly secondaryEndpointEnvironment: string;
+}
+
 export class HostedWorkerJobs {
   readonly #databaseUrl: string;
+  readonly #shadowProjectorDatabaseUrl: string;
   readonly #environment: NodeJS.ProcessEnv;
   readonly #parserVersion: string;
+  readonly #rpc: RpcProviderConfiguration;
+  readonly #rpcForProvider:
+    | ((
+        providerId: string,
+        cluster: ConsensusCandidateRow["cluster"],
+        endpoint: string,
+        signal: AbortSignal,
+      ) => SolanaRpcPort)
+    | undefined;
   readonly #admin: Sql;
+  readonly #shadowAdmin: Sql;
 
   public constructor(input: {
     readonly databaseUrl: string;
+    readonly shadowProjectorDatabaseUrl: string;
     readonly environment: NodeJS.ProcessEnv;
     readonly parserVersion: string;
+    readonly rpc: RpcProviderConfiguration;
+    readonly rpcForProvider?: (
+      providerId: string,
+      cluster: ConsensusCandidateRow["cluster"],
+      endpoint: string,
+      signal: AbortSignal,
+    ) => SolanaRpcPort;
   }) {
     this.#databaseUrl = input.databaseUrl;
+    this.#shadowProjectorDatabaseUrl = input.shadowProjectorDatabaseUrl;
     this.#environment = input.environment;
     this.#parserVersion = input.parserVersion;
+    this.#rpc = input.rpc;
+    this.#rpcForProvider = input.rpcForProvider;
     this.#admin = postgres(input.databaseUrl, {
       max: 2,
+      onnotice: () => undefined,
+    });
+    this.#shadowAdmin = postgres(input.shadowProjectorDatabaseUrl, {
+      max: 1,
       onnotice: () => undefined,
     });
   }
 
   public handlers(): Readonly<Record<WorkerJobName, WorkerJobHandler>> {
     return {
-      ingest_watch_targets: (context) => this.#ingest(context),
-      refresh_finality: (context) => this.#refreshFinality(context),
-      reconcile_attempts: (context) => this.#project(context),
-      project_payment_status: (context) => this.#project(context),
-      expire_quotes: (context) => this.#expire(context),
-      send_webhooks: (context) => this.#sendWebhooks(context),
+      ingest_watch_targets: (context) =>
+        this.#withOperationalHealth(context, () => this.#ingest(context)),
+      refresh_finality: (context) =>
+        this.#withOperationalHealth(context, () =>
+          this.#refreshFinality(context),
+        ),
+      verify_rpc_consensus: (context) =>
+        this.#withOperationalHealth(context, () =>
+          this.#verifyConsensus(context),
+        ),
+      project_payment_status: (context) =>
+        this.#withOperationalHealth(context, () => this.#project(context)),
+      expire_quotes: (context) =>
+        this.#withOperationalHealth(context, () => this.#expire(context)),
+      send_webhooks: (context) =>
+        this.#withOperationalHealth(context, () => this.#sendWebhooks(context)),
     };
   }
 
   public async assertReady(): Promise<void> {
-    await this.#admin`SELECT 1`;
+    await Promise.all([this.#admin`SELECT 1`, this.#shadowAdmin`SELECT 1`]);
   }
 
   public async close(): Promise<void> {
-    await this.#admin.end();
+    await Promise.all([this.#admin.end(), this.#shadowAdmin.end()]);
+  }
+
+  async #withOperationalHealth(
+    context: WorkerJobContext,
+    operation: () => Promise<Record<string, string | number>>,
+  ): Promise<Record<string, string | number>> {
+    const organizationIds = await this.#operationalHealthOrganizations(context);
+    await this.#maintainOperationalHealth(organizationIds, context.concurrency);
+    try {
+      const result = await operation();
+      await this.#maintainOperationalHealth(
+        organizationIds,
+        context.concurrency,
+      );
+      return result;
+    } catch (error) {
+      await this.#maintainOperationalHealth(
+        organizationIds,
+        context.concurrency,
+      );
+      throw error;
+    }
+  }
+
+  async #operationalHealthOrganizations(
+    context: WorkerJobContext,
+  ): Promise<readonly string[]> {
+    const cursorOrganization = cursorOrganizationId(context);
+    const organizations = await this.#organizations(
+      context.batchSize,
+      cursorOrganization,
+    );
+    const ids = new Set(organizations.map(({ id }) => id));
+    if (
+      cursorOrganization !== null &&
+      (await this.#organization(cursorOrganization)) !== undefined
+    ) {
+      ids.add(cursorOrganization);
+    }
+    return [...ids];
+  }
+
+  async #maintainOperationalHealth(
+    organizationIds: readonly string[],
+    concurrency: number,
+  ): Promise<void> {
+    if (
+      this.#rpc.mode !== "dual_provider" ||
+      this.#rpc.cluster !== "mainnet-beta"
+    ) {
+      return;
+    }
+    await mapConcurrent(
+      organizationIds,
+      concurrency,
+      async (organizationId) => {
+        const database = new OrganizationDatabase(this.#databaseUrl, {
+          max: 1,
+        });
+        const store = new OperationalHealthStore(database);
+        try {
+          await store.enqueueScheduledSignals({
+            organizationId,
+            actorId: "hosted-worker",
+            observedAt: new Date(),
+            rpc: rpcProviderConfigurationIdentity(this.#rpc),
+          });
+          for (let page = 0; page < 10; page += 1) {
+            const processed = await store.drainSignals({
+              organizationId,
+              actorId: "hosted-worker",
+              processedAt: new Date(),
+              limit: 100,
+            });
+            if (processed < 100) break;
+          }
+        } finally {
+          await database.close();
+        }
+      },
+    );
   }
 
   async #ingest(
@@ -221,10 +352,16 @@ export class HostedWorkerJobs {
     await mapConcurrent(organizations, context.concurrency, async ({ id }) => {
       assertRunning(context.signal);
       const database = new OrganizationDatabase(this.#databaseUrl, { max: 2 });
+      const shadowDatabase = new OrganizationDatabase(
+        this.#shadowProjectorDatabaseUrl,
+        { max: 1 },
+      );
       try {
-        const result = await new PaymentStatusProjector(
-          database,
-        ).projectAvailable({
+        const result = await new PaymentStatusProjector(database, {
+          shadowDatabase,
+          workerInstanceId: context.instanceId,
+          rpc: rpcProviderConfigurationIdentity(this.#rpc),
+        }).projectAvailable({
           organizationId: id,
           actorId: "hosted-worker",
           now: context.now,
@@ -233,13 +370,118 @@ export class HostedWorkerJobs {
         examined += result.examined;
         changed += result.changed;
       } finally {
-        await database.close();
+        await Promise.all([database.close(), shadowDatabase.close()]);
       }
     });
     return cursorResult(organizations, {
       organizations: organizations.length,
       examined,
       changed,
+    });
+  }
+
+  async #verifyConsensus(
+    context: WorkerJobContext,
+  ): Promise<Record<string, string | number>> {
+    if (this.#rpc.mode === "single_provider") {
+      return {
+        organizations: 0,
+        verified: 0,
+        agreed: 0,
+        pending: 0,
+        disagreed: 0,
+      };
+    }
+    const organizations = await this.#organizations(
+      context.batchSize,
+      cursorOrganizationId(context),
+    );
+    let verified = 0;
+    let agreed = 0;
+    let pending = 0;
+    let disagreed = 0;
+    for (const organization of organizations) {
+      assertRunning(context.signal);
+      const candidates = await withScopedSql(
+        this.#databaseUrl,
+        organization.id,
+        (sql) =>
+          selectPendingConsensusCandidates(
+            sql,
+            organization.id,
+            context.batchSize,
+          ),
+      );
+      await mapConcurrent(
+        candidates,
+        context.concurrency,
+        async (candidate) => {
+          assertRunning(context.signal);
+          assertConfiguredCandidate(candidate, this.#rpc);
+          const endpoints = new Map([
+            [
+              candidate.primaryProviderId,
+              requiredOwnEnvironment(
+                this.#environment,
+                candidate.primaryEndpointEnvironment,
+              ),
+            ],
+            [
+              candidate.secondaryProviderId,
+              requiredOwnEnvironment(
+                this.#environment,
+                candidate.secondaryEndpointEnvironment,
+              ),
+            ],
+          ]);
+          const store = new PostgresIngestionStore({
+            databaseUrl: this.#databaseUrl,
+            organizationId: organization.id,
+            maxConnections: 2,
+          });
+          try {
+            const result = await new FinalizedConsensusEngine({
+              store,
+              rpcForProvider: (providerId) => {
+                const endpoint = endpoints.get(providerId);
+                if (endpoint === undefined) {
+                  throw configurationError();
+                }
+                return this.#rpcForProvider === undefined
+                  ? new HttpSolanaRpc({
+                      cluster: candidate.cluster,
+                      endpoint,
+                      signal: context.signal,
+                    })
+                  : this.#rpcForProvider(
+                      providerId,
+                      candidate.cluster,
+                      endpoint,
+                      context.signal,
+                    );
+              },
+            }).verify({
+              primaryProviderId: candidate.primaryProviderId,
+              secondaryProviderId: candidate.secondaryProviderId,
+              signature: candidate.signature,
+              now: context.now,
+            });
+            verified += 1;
+            if (result.state === "agreed") agreed += 1;
+            else if (result.state === "pending") pending += 1;
+            else disagreed += 1;
+          } finally {
+            await store.close();
+          }
+        },
+      );
+    }
+    return cursorResult(organizations, {
+      organizations: organizations.length,
+      verified,
+      agreed,
+      pending,
+      disagreed,
     });
   }
 
@@ -356,6 +598,76 @@ export async function selectIngestionTargets(
   `;
 }
 
+export async function selectPendingConsensusCandidates(
+  sql: Sql,
+  organizationId: string,
+  limit: number,
+): Promise<readonly ConsensusCandidateRow[]> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new TypeError("Consensus candidate limit is invalid");
+  }
+  return sql<ConsensusCandidateRow[]>`
+    WITH provider_pair AS (
+      SELECT primary_provider.cluster,
+        primary_provider.id AS "primaryProviderId",
+        primary_provider.endpoint_env AS "primaryEndpointEnvironment",
+        secondary_provider.id AS "secondaryProviderId",
+        secondary_provider.endpoint_env AS "secondaryEndpointEnvironment"
+      FROM rpc_provider_roles AS primary_role
+      JOIN rpc_providers AS primary_provider
+        ON primary_provider.id = primary_role.provider_id
+        AND primary_provider.cluster = primary_role.cluster
+        AND primary_provider.active
+      JOIN rpc_provider_roles AS secondary_role
+        ON secondary_role.organization_id = primary_role.organization_id
+        AND secondary_role.cluster = primary_role.cluster
+        AND secondary_role.role = 'secondary'
+      JOIN rpc_providers AS secondary_provider
+        ON secondary_provider.id = secondary_role.provider_id
+        AND secondary_provider.cluster = secondary_role.cluster
+        AND secondary_provider.active
+      WHERE primary_role.organization_id = ${organizationId}::uuid
+        AND primary_role.role = 'primary'
+        AND primary_provider.id <> secondary_provider.id
+    ), eligible AS (
+      SELECT DISTINCT ON (signature.signature)
+        pair.cluster, signature.signature, signature.slot,
+        pair."primaryProviderId", pair."primaryEndpointEnvironment",
+        pair."secondaryProviderId", pair."secondaryEndpointEnvironment"
+      FROM provider_pair AS pair
+      JOIN discovered_signatures AS signature
+        ON signature.provider_id = pair."primaryProviderId"
+        AND signature.finality_state = 'finalized'
+      JOIN watch_targets AS target
+        ON target.id = signature.watch_target_id
+        AND target.organization_id = ${organizationId}::uuid
+      LEFT JOIN LATERAL (
+        SELECT state, completed_at, claimed_until
+        FROM rpc_consensus_checks AS consensus
+        WHERE consensus.organization_id = ${organizationId}::uuid
+          AND consensus.cluster = pair.cluster
+          AND consensus.signature = signature.signature
+          AND consensus.primary_provider_id = pair."primaryProviderId"
+          AND consensus.secondary_provider_id = pair."secondaryProviderId"
+        ORDER BY generation DESC LIMIT 1
+      ) AS latest ON true
+      WHERE latest.state IS NULL OR (
+        latest.state = 'pending' AND (
+          latest.completed_at IS NOT NULL
+          OR latest.claimed_until < clock_timestamp()
+        )
+      )
+      ORDER BY signature.signature, signature.slot
+    )
+    SELECT cluster, signature, "primaryProviderId",
+      "primaryEndpointEnvironment", "secondaryProviderId",
+      "secondaryEndpointEnvironment"
+    FROM eligible
+    ORDER BY slot, signature
+    LIMIT ${limit}
+  `;
+}
+
 export function ingestionCursorResult(
   organizationId: string,
   rows: readonly IngestionTargetRow[],
@@ -433,6 +745,30 @@ function requiredOwnEnvironment(
     });
   }
   return value;
+}
+
+function assertConfiguredCandidate(
+  candidate: ConsensusCandidateRow,
+  configured: RpcProviderConfiguration,
+): void {
+  if (
+    configured.mode !== "dual_provider" ||
+    configured.cluster !== candidate.cluster ||
+    configured.primary.providerId !== candidate.primaryProviderId ||
+    configured.primary.endpointEnvironment !==
+      candidate.primaryEndpointEnvironment ||
+    configured.secondary?.providerId !== candidate.secondaryProviderId ||
+    configured.secondary.endpointEnvironment !==
+      candidate.secondaryEndpointEnvironment
+  ) {
+    throw configurationError();
+  }
+}
+
+function configurationError(): Error & { readonly code: string } {
+  return Object.assign(new Error("RPC provider roles are invalid"), {
+    code: "invalid_configuration",
+  });
 }
 
 function assertRunning(signal: AbortSignal): void {

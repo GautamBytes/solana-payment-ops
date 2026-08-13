@@ -2,7 +2,6 @@ import { runMigrations as runIngestionMigrations } from "@payops/ingestion";
 import {
   acceptBootstrapInvitation,
   bootstrapOwner,
-  runPlatformMigrations,
   type AuthEmail,
   type EmailDeliveryPort,
 } from "@payops/platform";
@@ -17,6 +16,10 @@ import {
 } from "../src/auth/context.js";
 import type { ApiConfig } from "../src/config.js";
 import { buildApiServer } from "../src/server.js";
+import {
+  cleanupTestProductionRoles,
+  runTestPlatformMigrations,
+} from "./production-role-test-helper.js";
 
 const baseDatabaseUrl = process.env.DATABASE_URL;
 const describeDatabase = baseDatabaseUrl ? describe : describe.skip;
@@ -38,11 +41,12 @@ describeDatabase("organization API-key authentication", () => {
     await admin!.unsafe(`CREATE SCHEMA ${schema}`);
     await runIngestionMigrations(databaseUrl!);
     await runReconciliationMigrations(databaseUrl!);
-    await runPlatformMigrations(databaseUrl!);
+    await runTestPlatformMigrations(databaseUrl!);
   });
 
   afterAll(async () => {
     await admin!.unsafe(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
+    await cleanupTestProductionRoles(databaseUrl!);
     await admin?.end();
   });
 
@@ -207,6 +211,8 @@ class RecordingEmailPort implements EmailDeliveryPort {
 function config(): ApiConfig {
   return {
     databaseUrl: databaseUrl!,
+    productionControlDatabaseUrl: databaseUrl!,
+    readinessVerifierDatabaseUrl: databaseUrl!,
     environment: "test",
     publicApiOrigin: "http://127.0.0.1:3000",
     checkoutOrigin: "http://127.0.0.1:3001",
@@ -215,6 +221,20 @@ function config(): ApiConfig {
     solanaCluster: "mainnet-beta",
     solanaRpcUrl: "https://api.mainnet-beta.solana.com",
     ingestionProviderId: "mainnet-primary",
+    rpc: {
+      mode: "dual_provider",
+      cluster: "mainnet-beta",
+      primary: {
+        providerId: "mainnet-primary",
+        endpointEnvironment: "TEST_RPC_URL",
+        endpoint: "https://api.mainnet-beta.solana.com",
+      },
+      secondary: {
+        providerId: "mainnet-secondary",
+        endpointEnvironment: "TEST_SECONDARY_RPC_URL",
+        endpoint: "https://secondary.mainnet.example",
+      },
+    },
     authSecrets: ["uJ9pN3qR8vL2sX6cB5mK7wF4hT1yD0eG9aC8zQ2oI6E"],
     checkoutTokenKeys: [
       {

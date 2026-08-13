@@ -501,6 +501,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/operations/production-control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getProductionControl"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/health": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getOperationalHealth"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/incidents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["listOperationalIncidents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/incidents/{incidentId}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getOperationalIncidentHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/incidents/{incidentId}/acknowledge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["acknowledgeOperationalIncident"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/incidents/{incidentId}/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["resolveOperationalIncident"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/operations/production-control/promote": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["promoteProductionLive"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -520,6 +632,149 @@ export interface components {
       details?: {
         [key: string]: string | number | boolean | null;
       };
+    };
+    /** @enum {string} */
+    ActivationMode: "shadow" | "live";
+    /** @enum {string} */
+    PromotionBlocker:
+      | "watch_coverage_incomplete"
+      | "worker_heartbeat_stale"
+      | "production_rpc_roles_incomplete"
+      | "open_critical_incident";
+    PromotionPrerequisites: {
+      completeWatchCoverage: boolean;
+      freshWorkerHeartbeat: boolean;
+      twoActiveProductionRpcRoles: boolean;
+      noOpenCriticalIncident: boolean;
+    };
+    PromotionEvaluation: {
+      eligible: boolean;
+      blockers: components["schemas"]["PromotionBlocker"][];
+      prerequisites: components["schemas"]["PromotionPrerequisites"];
+    };
+    ProductionControlStatus: {
+      activationMode: components["schemas"]["ActivationMode"];
+      version: number;
+      promotedAt: components["schemas"]["Timestamp"] | null;
+      createdAt: components["schemas"]["Timestamp"];
+      updatedAt: components["schemas"]["Timestamp"];
+    };
+    ProductionControlView: {
+      status: components["schemas"]["ProductionControlStatus"];
+      evaluation: components["schemas"]["PromotionEvaluation"];
+      capabilities: {
+        canManageIncidents: boolean;
+        canPromoteProduction: boolean;
+      };
+    };
+    PromoteProductionLiveInput: {
+      /** @constant */
+      confirmed: true;
+      expectedVersion: number;
+    };
+    ProductionPromotionResult:
+      | {
+          /** @constant */
+          outcome: "blocked";
+          status: components["schemas"]["ProductionControlStatus"];
+          evaluation: components["schemas"]["PromotionEvaluation"];
+        }
+      | {
+          /** @constant */
+          outcome: "promoted";
+          status: components["schemas"]["ProductionControlStatus"];
+        }
+      | {
+          /** @constant */
+          outcome: "already_live";
+          status: components["schemas"]["ProductionControlStatus"];
+        };
+    /** @enum {string} */
+    OperationalMeasurementKind:
+      | "rpc_consensus_checks"
+      | "rpc_consensus_disagreements"
+      | "ingestion_gap_seconds"
+      | "worker_heartbeat_age_seconds"
+      | "ledger_mismatches"
+      | "webhook_dead_letters"
+      | "webhook_delivery_duration_milliseconds";
+    OperationalMeasurement: {
+      kind: components["schemas"]["OperationalMeasurementKind"];
+      /** @enum {string} */
+      unit: "count" | "seconds" | "milliseconds";
+      /** @constant */
+      windowSeconds: 300;
+      bucketStart: components["schemas"]["Timestamp"];
+      value: number;
+      sampleCount: number;
+      generatedAt: components["schemas"]["Timestamp"];
+    };
+    OperationalHealthSnapshot: {
+      measurements: components["schemas"]["OperationalMeasurement"][];
+      openWarningCount: number;
+      openCriticalCount: number;
+      generatedAt: components["schemas"]["Timestamp"];
+    };
+    /** @enum {string} */
+    OperationalIncidentKind:
+      | "rpc_disagreement"
+      | "ingestion_gap"
+      | "worker_stale"
+      | "ledger_mismatch"
+      | "webhook_dead_letter";
+    /** @enum {string} */
+    OperationalIncidentState: "open" | "acknowledged" | "resolved";
+    OperationalIncident: {
+      id: components["schemas"]["Uuid"];
+      kind: components["schemas"]["OperationalIncidentKind"];
+      /** @enum {string} */
+      severity: "warning" | "critical";
+      state: components["schemas"]["OperationalIncidentState"];
+      version: number;
+      firstObservedAt: components["schemas"]["Timestamp"];
+      lastObservedAt: components["schemas"]["Timestamp"];
+      occurrenceCount: number;
+      acknowledgedAt: components["schemas"]["Timestamp"] | null;
+      /** @enum {string|null} */
+      acknowledgedActorKind: "system" | "session" | "api_key" | null;
+      resolvedAt: components["schemas"]["Timestamp"] | null;
+      /** @enum {string|null} */
+      resolvedActorKind: "system" | "session" | "api_key" | null;
+      /** @enum {string|null} */
+      resolutionCode: "condition_cleared" | "operator_resolved" | null;
+      createdAt: components["schemas"]["Timestamp"];
+      updatedAt: components["schemas"]["Timestamp"];
+    };
+    OperationalIncidentEvent: {
+      id: components["schemas"]["Uuid"];
+      incidentId: components["schemas"]["Uuid"];
+      incidentVersion: number;
+      /** @enum {string} */
+      action: "opened" | "reobserved" | "acknowledged" | "resolved";
+      /** @enum {string|null} */
+      fromState: "open" | "acknowledged" | null;
+      toState: components["schemas"]["OperationalIncidentState"];
+      occurrenceCount: number;
+      /** @enum {string} */
+      actorKind: "system" | "session" | "api_key";
+      occurredAt: components["schemas"]["Timestamp"];
+      createdAt: components["schemas"]["Timestamp"];
+    };
+    OperationalIncidentPage: {
+      data: components["schemas"]["OperationalIncident"][];
+      nextCursor: string | null;
+    };
+    OperationalIncidentHistoryPage: {
+      data: components["schemas"]["OperationalIncidentEvent"][];
+      nextCursor: string | null;
+    };
+    AcknowledgeOperationalIncidentInput: {
+      expectedVersion: number;
+    };
+    ResolveOperationalIncidentInput: {
+      expectedVersion: number;
+      /** @constant */
+      resolutionCode: "operator_resolved";
     };
     /** @enum {string} */
     ExceptionReviewState:
@@ -932,6 +1187,16 @@ export interface components {
         "application/json": components["schemas"]["PaymentException"];
       };
     };
+    /** @description Updated operational incident without internal scope identity */
+    OperationalIncident: {
+      headers: {
+        "X-Request-Id": components["headers"]["RequestId"];
+        [name: string]: unknown;
+      };
+      content: {
+        "application/json": components["schemas"]["OperationalIncident"];
+      };
+    };
     /** @description Merchant wallet */
     MerchantWallet: {
       headers: {
@@ -1003,6 +1268,7 @@ export interface components {
     CheckoutToken: string;
     WalletId: components["schemas"]["Uuid"];
     ExceptionId: components["schemas"]["Uuid"];
+    IncidentId: components["schemas"]["Uuid"];
     EvidencePackId: components["schemas"]["Uuid"];
     ExportId: components["schemas"]["Uuid"];
   };
@@ -1930,6 +2196,221 @@ export interface operations {
       403: components["responses"]["ApiError"];
       404: components["responses"]["ApiError"];
       429: components["responses"]["ApiError"];
+    };
+  };
+  getProductionControl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Canonical production-control status and promotion evaluation */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "Cache-Control"?: "private, no-store";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductionControlView"];
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  getOperationalHealth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bounded operational-health snapshot */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "Cache-Control"?: "private, no-store";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationalHealthSnapshot"];
+        };
+      };
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  listOperationalIncidents: {
+    parameters: {
+      query?: {
+        limit?: components["parameters"]["Limit"];
+        cursor?: components["parameters"]["Cursor"];
+        state?: components["schemas"]["OperationalIncidentState"];
+        kind?: components["schemas"]["OperationalIncidentKind"];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Newest operational incidents */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "Cache-Control"?: "private, no-store";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationalIncidentPage"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  getOperationalIncidentHistory: {
+    parameters: {
+      query?: {
+        limit?: components["parameters"]["Limit"];
+        cursor?: components["parameters"]["Cursor"];
+      };
+      header?: never;
+      path: {
+        incidentId: components["parameters"]["IncidentId"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Append-only incident history, newest first */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "Cache-Control"?: "private, no-store";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationalIncidentHistoryPage"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  acknowledgeOperationalIncident: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        incidentId: components["parameters"]["IncidentId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcknowledgeOperationalIncidentInput"];
+      };
+    };
+    responses: {
+      200: components["responses"]["OperationalIncident"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  resolveOperationalIncident: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        incidentId: components["parameters"]["IncidentId"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResolveOperationalIncidentInput"];
+      };
+    };
+    responses: {
+      200: components["responses"]["OperationalIncident"];
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      404: components["responses"]["ApiError"];
+      409: components["responses"]["ApiError"];
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
+    };
+  };
+  promoteProductionLive: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PromoteProductionLiveInput"];
+      };
+    };
+    responses: {
+      /** @description Organization is live or was already live */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProductionPromotionResult"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      401: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      /** @description Promotion blocked or optimistic version conflict */
+      409: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["ProductionPromotionResult"]
+            | components["schemas"]["ApiError"];
+        };
+      };
+      429: components["responses"]["ApiError"];
+      503: components["responses"]["ApiError"];
     };
   };
 }

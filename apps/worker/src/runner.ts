@@ -3,10 +3,13 @@ import type {
   WorkerJobCursor,
   WorkerJobName,
   WorkerJobStore,
+  WorkerFailureClass,
+  RpcProviderConfigurationIdentity,
 } from "@payops/platform";
 import type { WorkerJobConfig } from "./config.js";
 
 export interface WorkerJobContext {
+  readonly instanceId: string;
   readonly signal: AbortSignal;
   readonly now: Date;
   readonly batchSize: number;
@@ -21,14 +24,31 @@ export type WorkerJobHandler = (
 export interface WorkerRunDependencies {
   readonly store: Pick<
     WorkerJobStore,
-    "claim" | "complete" | "release" | "renew"
+    | "claim"
+    | "complete"
+    | "release"
+    | "renew"
+    | "startInstance"
+    | "heartbeat"
+    | "drainInstance"
+    | "stopInstance"
   >;
+  readonly buildRevision: string;
+  readonly rpc: RpcProviderConfigurationIdentity;
   readonly jobs: readonly WorkerJobConfig[];
   readonly handlers: Readonly<Partial<Record<WorkerJobName, WorkerJobHandler>>>;
   readonly signal: AbortSignal;
   readonly now?: () => Date;
   readonly random?: () => number;
   readonly sleep?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
+  readonly heartbeatSleep?: (
+    milliseconds: number,
+    signal: AbortSignal,
+  ) => Promise<void>;
+  readonly leaseSleep?: (
+    milliseconds: number,
+    signal: AbortSignal,
+  ) => Promise<void>;
   readonly shutdownGraceMs?: number;
 }
 
@@ -45,51 +65,89 @@ export async function runWorker(input: WorkerRunDependencies): Promise<void> {
   ) {
     throw new TypeError("Worker shutdown grace period is invalid");
   }
+  const instance = await input.store.startInstance({
+    buildRevision: input.buildRevision,
+    rpc: input.rpc,
+  });
+  const runtimeController = new AbortController();
+  const stopRuntime = () => runtimeController.abort(input.signal.reason);
+  input.signal.addEventListener("abort", stopRuntime, { once: true });
+  if (input.signal.aborted) stopRuntime();
+  let heartbeatFailure: unknown;
+  const heartbeat = maintainHeartbeat(
+    input.store,
+    instance.id,
+    runtimeController,
+    input.heartbeatSleep ?? abortableSleep,
+    (error) => {
+      heartbeatFailure = error;
+      runtimeController.abort(error);
+    },
+  );
   const nextRun = new Map(input.jobs.map((job) => [job.name, 0]));
   const failures = new Map<WorkerJobName, number>();
   const active = new Map<WorkerJobName, Promise<void>>();
 
-  while (!input.signal.aborted) {
-    const now = clock();
-    for (const job of input.jobs) {
-      if (
-        !active.has(job.name) &&
-        now.getTime() >= (nextRun.get(job.name) ?? 0)
-      ) {
-        const execution = runOne(input, job, now)
-          .then((succeeded) => {
-            const failureCount = succeeded
-              ? 0
-              : Math.min((failures.get(job.name) ?? 0) + 1, 8);
-            failures.set(job.name, failureCount);
-            const multiplier = succeeded ? 1 : 2 ** failureCount;
-            const jitter = succeeded
-              ? 0
-              : Math.floor(random() * job.intervalMs);
-            nextRun.set(
-              job.name,
-              clock().getTime() +
-                Math.min(60_000, job.intervalMs * multiplier + jitter),
-            );
-          })
-          .finally(() => active.delete(job.name));
-        active.set(job.name, execution);
+  let settled = false;
+  try {
+    while (!runtimeController.signal.aborted) {
+      const now = clock();
+      for (const job of input.jobs) {
+        if (
+          !active.has(job.name) &&
+          now.getTime() >= (nextRun.get(job.name) ?? 0)
+        ) {
+          const execution = runOne(
+            input,
+            job,
+            now,
+            instance.id,
+            runtimeController.signal,
+          )
+            .then((succeeded) => {
+              const failureCount = succeeded
+                ? 0
+                : Math.min((failures.get(job.name) ?? 0) + 1, 8);
+              failures.set(job.name, failureCount);
+              const multiplier = succeeded ? 1 : 2 ** failureCount;
+              const jitter = succeeded
+                ? 0
+                : Math.floor(random() * job.intervalMs);
+              nextRun.set(
+                job.name,
+                clock().getTime() +
+                  Math.min(60_000, job.intervalMs * multiplier + jitter),
+              );
+            })
+            .finally(() => active.delete(job.name));
+          active.set(job.name, execution);
+        }
+      }
+      if (runtimeController.signal.aborted) break;
+      const wakeAt = Math.min(
+        ...input.jobs.map((job) => nextRun.get(job.name) ?? now.getTime()),
+      );
+      try {
+        await sleep(
+          Math.max(1, Math.min(250, wakeAt - now.getTime())),
+          runtimeController.signal,
+        );
+      } catch {
+        if (!runtimeController.signal.aborted) {
+          throw new Error("Worker timer failed");
+        }
       }
     }
-    if (input.signal.aborted) break;
-    const wakeAt = Math.min(
-      ...input.jobs.map((job) => nextRun.get(job.name) ?? now.getTime()),
-    );
-    try {
-      await sleep(
-        Math.max(1, Math.min(250, wakeAt - now.getTime())),
-        input.signal,
-      );
-    } catch {
-      if (!input.signal.aborted) throw new Error("Worker timer failed");
-    }
+    await input.store.drainInstance(instance.id);
+    await settleActive(active.values(), shutdownGraceMs);
+    settled = true;
+    if (heartbeatFailure !== undefined) throw heartbeatFailure;
+  } finally {
+    runtimeController.abort();
+    await heartbeat;
+    input.signal.removeEventListener("abort", stopRuntime);
+    if (settled) await input.store.stopInstance(instance.id);
   }
-  await settleActive(active.values(), shutdownGraceMs);
 }
 
 async function settleActive(
@@ -116,50 +174,68 @@ async function runOne(
   input: WorkerRunDependencies,
   job: WorkerJobConfig,
   now: Date,
+  instanceId: string,
+  signal: AbortSignal,
 ): Promise<boolean> {
   let lease: WorkerJobLease | null = null;
   try {
     lease = await input.store.claim({
+      instanceId,
       name: job.name,
       now,
+      intervalMs: job.intervalMs,
       leaseMs: job.leaseMs,
     });
     if (lease === null) return true;
-    if (input.signal.aborted) {
+    if (signal.aborted) {
       await input.store.release(lease, now);
       return true;
     }
     const handler = input.handlers[job.name];
     if (handler === undefined) throw new TypeError("Worker handler is missing");
     const leaseController = new AbortController();
-    const stopHeartbeat = () => leaseController.abort(input.signal.reason);
-    input.signal.addEventListener("abort", stopHeartbeat, { once: true });
-    if (input.signal.aborted) stopHeartbeat();
+    const stopHeartbeat = () => leaseController.abort(signal.reason);
+    signal.addEventListener("abort", stopHeartbeat, { once: true });
+    if (signal.aborted) stopHeartbeat();
     const heartbeat = renewLease(
       input.store,
       lease,
       job.leaseMs,
       leaseController,
+      input.leaseSleep ?? abortableSleep,
     );
     try {
       const cursor = await handler({
-        signal: AbortSignal.any([input.signal, leaseController.signal]),
+        instanceId,
+        signal: AbortSignal.any([signal, leaseController.signal]),
         now,
         batchSize: job.batchSize,
         concurrency: job.concurrency,
         cursor: lease.cursor,
       });
-      return input.store.complete({ lease, now: new Date(), cursor });
+      if (signal.aborted || leaseController.signal.aborted) {
+        await input.store.release(lease, new Date());
+        return false;
+      }
+      return await input.store.complete({ lease, now: new Date(), cursor });
     } finally {
-      input.signal.removeEventListener("abort", stopHeartbeat);
+      signal.removeEventListener("abort", stopHeartbeat);
       leaseController.abort();
       await heartbeat;
     }
   } catch (error) {
     if (lease !== null) {
-      await input.store
-        .complete({ lease, now: new Date(), errorCode: safeErrorCode(error) })
-        .catch(() => false);
+      if (signal.aborted || safeErrorCode(error) === "worker_lease_lost") {
+        await input.store.release(lease, new Date()).catch(() => false);
+      } else {
+        await input.store
+          .complete({
+            lease,
+            now: new Date(),
+            failureClass: classifyFailure(error),
+          })
+          .catch(() => false);
+      }
     }
     return false;
   }
@@ -170,23 +246,53 @@ async function renewLease(
   lease: WorkerJobLease,
   leaseMs: number,
   controller: AbortController,
+  sleep: (milliseconds: number, signal: AbortSignal) => Promise<void>,
 ): Promise<void> {
   while (!controller.signal.aborted) {
     try {
-      await abortableSleep(
-        Math.max(1_000, Math.floor(leaseMs / 3)),
-        controller.signal,
-      );
+      await sleep(Math.max(1_000, Math.floor(leaseMs / 3)), controller.signal);
     } catch {
       return;
     }
-    const renewed = await store.renew({ lease, now: new Date(), leaseMs });
+    let renewed: WorkerJobLease | null;
+    try {
+      renewed = await store.renew({ lease, now: new Date(), leaseMs });
+    } catch (error) {
+      controller.abort(error);
+      return;
+    }
     if (renewed === null) {
       controller.abort(
         Object.assign(new Error("Worker lease was lost"), {
           code: "worker_lease_lost",
         }),
       );
+      return;
+    }
+  }
+}
+
+async function maintainHeartbeat(
+  store: Pick<WorkerJobStore, "heartbeat">,
+  instanceId: string,
+  controller: AbortController,
+  sleep: (milliseconds: number, signal: AbortSignal) => Promise<void>,
+  fail: (error: unknown) => void,
+): Promise<void> {
+  while (!controller.signal.aborted) {
+    try {
+      await sleep(10_000, controller.signal);
+    } catch {
+      return;
+    }
+    try {
+      if (!(await store.heartbeat(instanceId))) {
+        throw Object.assign(new Error("Worker heartbeat was rejected"), {
+          code: "worker_heartbeat_lost",
+        });
+      }
+    } catch (error) {
+      fail(error);
       return;
     }
   }
@@ -239,6 +345,35 @@ function safeErrorCode(error: unknown): string {
     }
   }
   return "job_failed";
+}
+
+export function classifyFailure(error: unknown): WorkerFailureClass {
+  const code = safeErrorCode(error);
+  if (
+    code === "missing_configuration" ||
+    code === "invalid_configuration" ||
+    code === "invalid_rpc_configuration"
+  ) {
+    return "configuration";
+  }
+  if (
+    code.startsWith("rpc_") ||
+    code.startsWith("database_") ||
+    code.startsWith("webhook_")
+  ) {
+    return "dependency";
+  }
+  if (
+    code === "worker_busy" ||
+    code === "worker_lease_lost" ||
+    code === "worker_aborted"
+  ) {
+    return "contention";
+  }
+  if (error instanceof TypeError || code.includes("invariant")) {
+    return "invariant";
+  }
+  return "unknown";
 }
 
 function abortableSleep(

@@ -59,7 +59,7 @@ export interface InvoiceRecord extends InvoiceImport {
 export interface FinalizedPaymentEvent {
   readonly chainEventId: string;
   readonly eventId: string;
-  readonly cluster: "mainnet-beta";
+  readonly cluster: "mainnet-beta" | "devnet" | "localnet";
   readonly signature: string;
   readonly outerInstructionIndex: number;
   readonly innerInstructionIndex: number | null;

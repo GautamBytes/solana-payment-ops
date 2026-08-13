@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import { WorkerJobStore } from "@payops/platform";
+import {
+  rpcProviderConfigurationIdentity,
+  WorkerJobStore,
+} from "@payops/platform";
 import { parseWorkerConfig } from "./config.js";
 import { HostedWorkerJobs } from "./jobs.js";
 import { runWorker } from "./runner.js";
@@ -19,8 +22,10 @@ async function main(): Promise<number> {
   const store = new WorkerJobStore(config.databaseUrl);
   const jobs = new HostedWorkerJobs({
     databaseUrl: config.databaseUrl,
+    shadowProjectorDatabaseUrl: config.shadowProjectorDatabaseUrl,
     environment: process.env,
     parserVersion: config.parserVersion,
+    rpc: config.rpc,
   });
   const controller = new AbortController();
   const stop = () => controller.abort(new Error("Worker shutdown requested"));
@@ -31,6 +36,8 @@ async function main(): Promise<number> {
     await jobs.assertReady();
     await runWorker({
       store,
+      buildRevision: config.buildRevision,
+      rpc: rpcProviderConfigurationIdentity(config.rpc),
       jobs: config.jobs,
       handlers: jobs.handlers(),
       signal: controller.signal,

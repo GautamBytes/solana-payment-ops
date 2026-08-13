@@ -1,5 +1,6 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, expectTypeOf, test, vi } from "vitest";
 import { createPayOpsClient, PayOpsApiError } from "../src/index.js";
+import type { ProductionPromotionResult } from "../src/index.js";
 
 const REQUEST_ID = "123e4567-e89b-42d3-a456-426614174000";
 const RESOURCE_ID = "123e4567-e89b-42d3-a456-426614174001";
@@ -13,6 +14,14 @@ function json(body: unknown, status = 200): Response {
 }
 
 describe("PayOps SDK", () => {
+  test("exposes promotion outcomes as a strict discriminated union", () => {
+    type Blocked = Extract<ProductionPromotionResult, { outcome: "blocked" }>;
+    type Successful = Exclude<ProductionPromotionResult, Blocked>;
+
+    expectTypeOf<Blocked>().toHaveProperty("evaluation");
+    expectTypeOf<Successful>().not.toHaveProperty("evaluation");
+  });
+
   test("is side-effect free and requires an exact HTTPS origin", () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const client = createPayOpsClient({
@@ -423,5 +432,173 @@ describe("PayOps SDK", () => {
     });
     expect(JSON.stringify(error)).not.toContain("secret");
     expect(error).toBeInstanceOf(Error);
+  });
+
+  test("exposes every operational read path with exact opaque pagination", async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(json({ status: {}, evaluation: {} }))
+      .mockResolvedValueOnce(json({ measurements: [] }))
+      .mockResolvedValueOnce(json({ data: [], nextCursor: null }))
+      .mockResolvedValueOnce(json({ data: [], nextCursor: null }));
+    const client = createPayOpsClient({
+      baseUrl: "https://api.example.com",
+      apiKey: "operations-read-key",
+      fetch,
+    });
+
+    await client.getProductionControl({ requestId: REQUEST_ID });
+    await client.getOperationalHealth({ requestId: REQUEST_ID });
+    await client.listOperationalIncidents({
+      requestId: REQUEST_ID,
+      limit: 20,
+      cursor: "opaque-incident-cursor-0001",
+      state: "acknowledged",
+      kind: "worker_stale",
+    });
+    await client.getOperationalIncidentHistory(RESOURCE_ID, {
+      requestId: REQUEST_ID,
+      limit: 10,
+      cursor: "opaque-history-cursor-0001",
+    });
+
+    expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://api.example.com/v1/operations/production-control",
+      "https://api.example.com/v1/operations/health",
+      "https://api.example.com/v1/operations/incidents?limit=20&cursor=opaque-incident-cursor-0001&state=acknowledged&kind=worker_stale",
+      `https://api.example.com/v1/operations/incidents/${RESOURCE_ID}/history?limit=10&cursor=opaque-history-cursor-0001`,
+    ]);
+  });
+
+  test("sends exact zero-retry operational mutations", async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(json({ id: RESOURCE_ID, version: 2 }))
+      .mockResolvedValueOnce(json({ id: RESOURCE_ID, version: 3 }))
+      .mockResolvedValueOnce(
+        json(
+          {
+            code: "production_control_version_conflict",
+            message: "Operation could not be completed",
+            requestId: REQUEST_ID,
+            ignoredRawContext: "provider-secret",
+          },
+          409,
+        ),
+      );
+    const client = createPayOpsClient({
+      baseUrl: "https://api.example.com",
+      apiKey: "credential-must-not-leak",
+      sessionCookie: "payops.session_token=session-must-not-leak",
+      sessionOrigin: "https://merchant.example.com",
+      fetch,
+    });
+    const mutation = {
+      requestId: REQUEST_ID,
+      idempotencyKey: "ops-mutation-00000001",
+    };
+
+    await client.acknowledgeOperationalIncident(
+      RESOURCE_ID,
+      { expectedVersion: 1 },
+      mutation,
+    );
+    await client.resolveOperationalIncident(
+      RESOURCE_ID,
+      { expectedVersion: 2, resolutionCode: "operator_resolved" },
+      { ...mutation, idempotencyKey: "ops-mutation-00000002" },
+    );
+    const promotion = client.promoteProductionLive(
+      { confirmed: true, expectedVersion: 1 },
+      { ...mutation, idempotencyKey: "ops-mutation-00000003" },
+    );
+    await expect(promotion).rejects.toMatchObject({
+      status: 409,
+      code: "production_control_version_conflict",
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
+      `https://api.example.com/v1/operations/incidents/${RESOURCE_ID}/acknowledge`,
+      `https://api.example.com/v1/operations/incidents/${RESOURCE_ID}/resolve`,
+      "https://api.example.com/v1/operations/production-control/promote",
+    ]);
+    expect(fetch.mock.calls.map(([, init]) => init?.body)).toEqual([
+      '{"expectedVersion":1}',
+      '{"expectedVersion":2,"resolutionCode":"operator_resolved"}',
+      '{"confirmed":true,"expectedVersion":1}',
+    ]);
+    for (const [, init] of fetch.mock.calls) {
+      const headers = new Headers(init?.headers);
+      expect(headers.get("cookie")).toBe(
+        "payops.session_token=session-must-not-leak",
+      );
+      expect(headers.get("origin")).toBe("https://merchant.example.com");
+      expect(headers.has("x-api-key")).toBe(false);
+    }
+    const error = await promotion.catch((value: unknown) => value);
+    expect(JSON.stringify(error)).not.toContain("credential-must-not-leak");
+    expect(JSON.stringify(error)).not.toContain("session-must-not-leak");
+    expect(JSON.stringify(error)).not.toContain("provider-secret");
+  });
+
+  test("requires one bounded server-side session cookie for session-only mutations", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const apiKeyClient = createPayOpsClient({
+      baseUrl: "https://api.example.com",
+      apiKey: "read-only-api-key",
+      fetch,
+    });
+    await expect(
+      apiKeyClient.acknowledgeOperationalIncident(
+        RESOURCE_ID,
+        { expectedVersion: 1 },
+        { idempotencyKey: "session-required-test-0001" },
+      ),
+    ).rejects.toThrow("session_cookie_required");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(() =>
+      createPayOpsClient({
+        baseUrl: "https://api.example.com",
+        sessionCookie: "payops.session_token=valid",
+      }),
+    ).toThrow("invalid_session_authentication");
+    expect(() =>
+      createPayOpsClient({
+        baseUrl: "https://api.example.com",
+        sessionCookie: "payops.session_token=valid",
+        sessionOrigin: "https://merchant.example.com/path",
+      }),
+    ).toThrow("invalid_session_origin");
+    expect(() =>
+      createPayOpsClient({
+        baseUrl: "https://api.example.com",
+        sessionCookie: "payops.session_token=unsafe\r\ninjected=true",
+      }),
+    ).toThrow("invalid_session_cookie");
+    expect(() =>
+      createPayOpsClient({
+        baseUrl: "https://api.example.com",
+        sessionCookie: `payops.session_token=${"x".repeat(4_096)}`,
+      }),
+    ).toThrow("invalid_session_cookie");
+  });
+
+  test("bounds operational responses and rejects invalid closed-enum filters", async () => {
+    const client = createPayOpsClient({
+      baseUrl: "https://api.example.com",
+      fetch: async () => json({ value: "x".repeat(1_048_576) }),
+    });
+    await expect(client.getOperationalHealth()).rejects.toMatchObject({
+      code: "response_too_large",
+    });
+    expect(() =>
+      client.listOperationalIncidents({ state: "active" as "open" }),
+    ).toThrow("invalid_operational_incident_state");
+    expect(() =>
+      client.listOperationalIncidents({
+        kind: "provider_url" as "worker_stale",
+      }),
+    ).toThrow("invalid_operational_incident_kind");
   });
 });

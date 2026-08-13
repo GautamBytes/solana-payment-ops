@@ -17,6 +17,8 @@ import {
 } from "vitest";
 import {
   createCanonicalSnapshot,
+  type FinalizedConsensusClaimed,
+  type FinalizedProviderObservation,
   PostgresIngestionStore,
   runMigrations,
 } from "../src/index.js";
@@ -24,6 +26,17 @@ import {
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgres://payops:payops@127.0.0.1:55432/payops_test";
+const organizationId = "00000000-0000-4000-8000-000000000001";
+const cleanupUrl = new URL(databaseUrl);
+cleanupUrl.searchParams.set(
+  "options",
+  [
+    cleanupUrl.searchParams.get("options"),
+    `-cpayops.organization_id=${organizationId}`,
+  ]
+    .filter(Boolean)
+    .join(" "),
+);
 const fixturePath = fileURLToPath(
   new URL(
     "../../../fixtures/v0.1/usdc-transfer-checked-finalized.json",
@@ -33,7 +46,9 @@ const fixturePath = fileURLToPath(
 const now = new Date("2026-08-06T00:00:00Z");
 let transaction: RpcTransactionEnvelope;
 let store: PostgresIngestionStore;
-const cleanup = postgres(databaseUrl, { max: 1 });
+let setupComplete = false;
+const cleanup = postgres(cleanupUrl.toString(), { max: 1 });
+const forgerRole = `payops_consensus_forger_${process.pid}`;
 
 async function seedProviderAndWatch(): Promise<void> {
   await store.addProvider({
@@ -54,9 +69,93 @@ async function seedProviderAndWatch(): Promise<void> {
   });
 }
 
+async function seedConsensusProviders(): Promise<void> {
+  await store.addProvider({
+    id: "primary",
+    cluster: "mainnet-beta",
+    endpointEnv: "SOLANA_RPC_URL",
+    endpointLabel: "rpc.example",
+  });
+  await store.addProvider({
+    id: "secondary",
+    cluster: "mainnet-beta",
+    endpointEnv: "SECONDARY_SOLANA_RPC_URL",
+    endpointLabel: "secondary.example",
+  });
+  await store.setProviderRole({
+    cluster: "mainnet-beta",
+    role: "primary",
+    providerId: "primary",
+    now,
+  });
+  await store.setProviderRole({
+    cluster: "mainnet-beta",
+    role: "secondary",
+    providerId: "secondary",
+    now,
+  });
+}
+
+function consensusInput() {
+  return {
+    primaryProviderId: "primary",
+    secondaryProviderId: "secondary",
+    signature: transaction.signature,
+    now,
+  } as const;
+}
+
+async function claimedConsensus(): Promise<FinalizedConsensusClaimed> {
+  const claim = await store.claimFinalizedConsensus(consensusInput());
+  if (claim.kind !== "claimed") throw new Error("Expected consensus claim");
+  return claim;
+}
+
+async function expireConsensusLeases(): Promise<void> {
+  await cleanup.begin(async (sql) => {
+    await sql`
+      ALTER TABLE rpc_consensus_checks
+      DISABLE TRIGGER rpc_consensus_checks_guard
+    `;
+    await sql`
+      UPDATE rpc_consensus_checks
+      SET claimed_until = clock_timestamp() - interval '1 millisecond'
+    `;
+    await sql`
+      ALTER TABLE rpc_consensus_checks
+      ENABLE TRIGGER rpc_consensus_checks_guard
+    `;
+  });
+}
+
+function matchingObservations(): FinalizedProviderObservation[] {
+  return ["primary", "secondary"].map((providerId) => ({
+    providerId,
+    canonicalDigest: "a".repeat(64),
+    snapshotDigest: "b".repeat(64),
+    parsingDigest: "c".repeat(64),
+    transferIdentityDigest: "d".repeat(64),
+    statusSlot: BigInt(transaction.slot),
+    slot: BigInt(transaction.slot),
+    executionState: "succeeded" as const,
+    executionDigest: "e".repeat(64),
+    statusExecutionDigest: "f".repeat(64),
+    transactionExecutionDigest: "f".repeat(64),
+    finality: "finalized/finalized",
+    responseTimeMs: 5,
+    safeErrorCode: null,
+    safeErrorRetryable: null,
+    observedAt: now,
+  }));
+}
+
 beforeAll(async () => {
   await runMigrations(databaseUrl);
   await runMigrations(databaseUrl);
+  await cleanup.unsafe(`CREATE ROLE ${forgerRole} NOLOGIN`);
+  await cleanup.unsafe(
+    `GRANT SELECT, INSERT, UPDATE, DELETE ON rpc_provider_roles, rpc_consensus_checks, rpc_consensus_provider_observations TO ${forgerRole}`,
+  );
   store = new PostgresIngestionStore({
     databaseUrl,
     selfHostedDefaultOrganization: true,
@@ -64,11 +163,15 @@ beforeAll(async () => {
   transaction = PaymentFixtureSchema.parse(
     JSON.parse(await readFile(fixturePath, "utf8")),
   ).rpcTransaction;
+  setupComplete = true;
 });
 
 beforeEach(async () => {
   await cleanup.unsafe(`
     TRUNCATE TABLE
+      rpc_consensus_provider_observations,
+      rpc_consensus_checks,
+      rpc_provider_roles,
       finality_observations,
       event_references,
       normalized_transfers,
@@ -86,7 +189,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await store.close();
+  if (setupComplete) {
+    await store.close();
+    await cleanup.unsafe(`DROP OWNED BY ${forgerRole}`);
+    await cleanup.unsafe(`DROP ROLE IF EXISTS ${forgerRole}`);
+  }
   await cleanup.end();
 });
 
@@ -173,7 +280,10 @@ describe("PostgresIngestionStore", () => {
       WHERE name IN (
         '0001_durable_ingestion',
         '0002_finality_claim_token',
-        '0003_pending_representation'
+        '0003_pending_representation',
+        '0004_rpc_consensus',
+        '0005_rpc_consensus_error_retryability',
+        '0006_rpc_consensus_internal_evidence'
       )
     `;
 
@@ -186,7 +296,10 @@ describe("PostgresIngestionStore", () => {
       WHERE name IN (
         '0001_durable_ingestion',
         '0002_finality_claim_token',
-        '0003_pending_representation'
+        '0003_pending_representation',
+        '0004_rpc_consensus',
+        '0005_rpc_consensus_error_retryability',
+        '0006_rpc_consensus_internal_evidence'
       )
       ORDER BY name
     `;
@@ -194,7 +307,620 @@ describe("PostgresIngestionStore", () => {
       "0001_durable_ingestion",
       "0002_finality_claim_token",
       "0003_pending_representation",
+      "0004_rpc_consensus",
+      "0005_rpc_consensus_error_retryability",
+      "0006_rpc_consensus_internal_evidence",
     ]);
+  });
+
+  it("stores unique distinct provider roles idempotently", async () => {
+    await seedConsensusProviders();
+
+    await expect(
+      store.setProviderRole({
+        cluster: "mainnet-beta",
+        role: "primary",
+        providerId: "primary",
+        now,
+      }),
+    ).resolves.toMatchObject({ role: "primary", providerId: "primary" });
+    await expect(
+      store.setProviderRole({
+        cluster: "mainnet-beta",
+        role: "secondary",
+        providerId: "primary",
+        now,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+    await store.addProvider({
+      id: "wrong-cluster",
+      cluster: "devnet",
+      endpointEnv: "DEVNET_RPC_URL",
+      endpointLabel: "devnet.example",
+    });
+    await expect(
+      store.setProviderRole({
+        cluster: "mainnet-beta",
+        role: "secondary",
+        providerId: "wrong-cluster",
+        now,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+
+    const rows = await cleanup<{ role: string; provider_id: string }[]>`
+      SELECT role, provider_id FROM rpc_provider_roles ORDER BY role
+    `;
+    expect(rows).toEqual([
+      { role: "primary", provider_id: "primary" },
+      { role: "secondary", provider_id: "secondary" },
+    ]);
+  });
+
+  it("replays terminal consensus without duplicate generations or observations", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).resolves.toEqual({ applied: true, state: "agreed", generation: 1 });
+
+    await expect(
+      store.claimFinalizedConsensus(consensusInput()),
+    ).resolves.toEqual({ kind: "settled", state: "agreed", generation: 1 });
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).resolves.toEqual({ applied: false, state: "agreed", generation: 1 });
+    const [counts] = await cleanup<{ checks: number; observations: number }[]>`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_checks) AS checks,
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations
+    `;
+    expect(counts).toEqual({ checks: 1, observations: 2 });
+  });
+
+  it("uses the database clock for consensus claim leases", async () => {
+    await seedConsensusProviders();
+    const callerNow = new Date("2099-01-01T00:00:00.000Z");
+
+    const claim = await store.claimFinalizedConsensus({
+      ...consensusInput(),
+      now: callerNow,
+    });
+    expect(claim.kind).toBe("claimed");
+
+    const [lease] = await cleanup<
+      { caller_clock_used: boolean; lease_seconds: number }[]
+    >`
+      SELECT
+        started_at = ${callerNow}::timestamptz AS caller_clock_used,
+        extract(epoch FROM claimed_until - started_at)::integer AS lease_seconds
+      FROM rpc_consensus_checks
+    `;
+    expect(lease).toEqual({ caller_clock_used: false, lease_seconds: 60 });
+  });
+
+  it("rejects forged agreement whose component digests differ", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    const observations = matchingObservations();
+    observations[1] = { ...observations[1]!, parsingDigest: "f".repeat(64) };
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "agreed",
+        observations,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+    const [counts] = await cleanup<{ observations: number; state: string }[]>`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations,
+        state
+      FROM rpc_consensus_checks
+    `;
+    expect(counts).toEqual({ observations: 0, state: "pending" });
+  });
+
+  it("rejects forged agreement whose raw execution components differ", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    const observations = matchingObservations();
+    observations[1] = {
+      ...observations[1]!,
+      statusExecutionDigest: "1".repeat(64),
+      transactionExecutionDigest: "1".repeat(64),
+    };
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "agreed",
+        observations,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+    const [counts] = await cleanup<{ observations: number; state: string }[]>`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations,
+        state
+      FROM rpc_consensus_checks
+    `;
+    expect(counts).toEqual({ observations: 0, state: "pending" });
+  });
+
+  it("rejects completion when locked provider IDs differ from the claim", async () => {
+    await seedConsensusProviders();
+    await store.addProvider({
+      id: "replacement-primary",
+      cluster: "mainnet-beta",
+      endpointEnv: "REPLACEMENT_RPC_URL",
+      endpointLabel: "replacement.example",
+    });
+    await store.addProvider({
+      id: "wrong-cluster",
+      cluster: "devnet",
+      endpointEnv: "DEVNET_RPC_URL",
+      endpointLabel: "devnet.example",
+    });
+    const claim = await claimedConsensus();
+    await cleanup.begin(async (sql) => {
+      await sql`
+        ALTER TABLE rpc_consensus_checks
+        DISABLE TRIGGER rpc_consensus_checks_guard
+      `;
+      await sql`
+        UPDATE rpc_consensus_checks
+        SET primary_provider_id = 'replacement-primary',
+          secondary_provider_id = 'wrong-cluster'
+      `;
+      await sql`
+        ALTER TABLE rpc_consensus_checks
+        ENABLE TRIGGER rpc_consensus_checks_guard
+      `;
+    });
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+    const [counts] = await cleanup<
+      {
+        observations: number;
+        state: string;
+        completed_at: Date | null;
+        primary_provider_id: string;
+        secondary_provider_id: string;
+      }[]
+    >`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations,
+        state, completed_at, primary_provider_id, secondary_provider_id
+      FROM rpc_consensus_checks
+    `;
+    expect(counts).toEqual({
+      observations: 0,
+      state: "pending",
+      completed_at: null,
+      primary_provider_id: "replacement-primary",
+      secondary_provider_id: "wrong-cluster",
+    });
+  });
+
+  it("rolls back retryable missing evidence mislabeled as disagreement", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    const observations = matchingObservations();
+    observations[1] = {
+      providerId: "secondary",
+      canonicalDigest: null,
+      snapshotDigest: null,
+      parsingDigest: null,
+      transferIdentityDigest: null,
+      statusSlot: null,
+      slot: null,
+      executionState: null,
+      executionDigest: null,
+      statusExecutionDigest: null,
+      transactionExecutionDigest: null,
+      finality: null,
+      responseTimeMs: 5,
+      safeErrorCode: "rpc_rate_limited",
+      safeErrorRetryable: true,
+      observedAt: now,
+    };
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "disagreed",
+        observations,
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_configuration",
+      retryable: false,
+    });
+    const [counts] = await cleanup<{ observations: number; state: string }[]>`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations,
+        state
+      FROM rpc_consensus_checks
+    `;
+    expect(counts).toEqual({ observations: 0, state: "pending" });
+  });
+
+  it("does not let an expired claim complete a newer generation", async () => {
+    await seedConsensusProviders();
+    const stale = await claimedConsensus();
+    await expireConsensusLeases();
+    const currentClaim = await store.claimFinalizedConsensus(consensusInput());
+    if (currentClaim.kind !== "claimed") throw new Error("Expected new claim");
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim: stale,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).resolves.toEqual({ applied: false, state: "pending", generation: 2 });
+    await expect(
+      store.completeFinalizedConsensus({
+        claim: currentClaim,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).resolves.toEqual({ applied: true, state: "agreed", generation: 2 });
+    const rows = await cleanup<{ generation: number; state: string }[]>`
+      SELECT generation, state FROM rpc_consensus_checks ORDER BY generation
+    `;
+    expect(rows).toEqual([
+      { generation: 1, state: "pending" },
+      { generation: 2, state: "agreed" },
+    ]);
+  });
+
+  it("does not let an expired claim complete without a replacement claim", async () => {
+    await seedConsensusProviders();
+    const stale = await claimedConsensus();
+    await expireConsensusLeases();
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim: stale,
+        state: "agreed",
+        observations: matchingObservations(),
+      }),
+    ).resolves.toEqual({ applied: false, state: "pending", generation: 1 });
+    const [counts] = await cleanup<
+      { observations: number; event_state: string | null }[]
+    >`
+      SELECT
+        (SELECT count(*)::integer FROM rpc_consensus_provider_observations)
+          AS observations,
+        (SELECT current_state FROM chain_events LIMIT 1) AS event_state
+    `;
+    expect(counts).toEqual({ observations: 0, event_state: null });
+  });
+
+  it("durably quarantines matching chain events on disagreement", async () => {
+    await seedConsensusProviders();
+    const raw = createCanonicalSnapshot(transaction);
+    await cleanup`
+      INSERT INTO raw_transactions (
+        provider_id, signature, commitment, digest, canonical_body, body,
+        byte_length, retrieved_at
+      ) VALUES (
+        'primary', ${transaction.signature}, 'finalized', ${raw.digest},
+        ${raw.canonicalJson}, ${raw.canonicalJson}::jsonb, ${raw.byteLength}, ${now}
+      )
+    `;
+    await cleanup`
+      INSERT INTO chain_events (
+        event_id, cluster, signature, outer_instruction_index,
+        inner_instruction_index, raw_transaction_id, current_state
+      ) SELECT 'consensus-event', 'mainnet-beta', ${transaction.signature},
+        0, -1, id, 'finalized'
+      FROM raw_transactions WHERE provider_id = 'primary'
+    `;
+    const claim = await claimedConsensus();
+    const observations = matchingObservations();
+    observations[1] = { ...observations[1]!, canonicalDigest: "b".repeat(64) };
+
+    await store.completeFinalizedConsensus({
+      claim,
+      state: "disagreed",
+      observations,
+    });
+
+    const [row] = await cleanup<
+      { consensus_state: string; event_state: string }[]
+    >`
+      SELECT consensus.state AS consensus_state, event.current_state AS event_state
+      FROM rpc_consensus_checks AS consensus
+      JOIN chain_events AS event
+        ON event.cluster = consensus.cluster
+        AND event.signature = consensus.signature
+    `;
+    expect(row).toEqual({
+      consensus_state: "disagreed",
+      event_state: "quarantined",
+    });
+  });
+
+  it("durably quarantines complete evidence with a finality mismatch", async () => {
+    await seedConsensusProviders();
+    const raw = createCanonicalSnapshot(transaction);
+    await cleanup`
+      INSERT INTO raw_transactions (
+        provider_id, signature, commitment, digest, canonical_body, body,
+        byte_length, retrieved_at
+      ) VALUES (
+        'primary', ${transaction.signature}, 'finalized', ${raw.digest},
+        ${raw.canonicalJson}, ${raw.canonicalJson}::jsonb, ${raw.byteLength}, ${now}
+      )
+    `;
+    await cleanup`
+      INSERT INTO chain_events (
+        event_id, cluster, signature, outer_instruction_index,
+        inner_instruction_index, raw_transaction_id, current_state
+      ) SELECT 'consensus-finality-event', 'mainnet-beta', ${transaction.signature},
+        0, -1, id, 'finalized'
+      FROM raw_transactions WHERE provider_id = 'primary'
+    `;
+    const claim = await claimedConsensus();
+    const observations = matchingObservations();
+    observations[1] = {
+      ...observations[1]!,
+      canonicalDigest: "f".repeat(64),
+      finality: "confirmed/finalized",
+    };
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "disagreed",
+        observations,
+      }),
+    ).resolves.toEqual({ applied: true, state: "disagreed", generation: 1 });
+
+    const [row] = await cleanup<
+      { consensus_state: string; event_state: string; observations: number }[]
+    >`
+      SELECT consensus.state AS consensus_state,
+        event.current_state AS event_state,
+        (SELECT count(*)::integer
+          FROM rpc_consensus_provider_observations) AS observations
+      FROM rpc_consensus_checks AS consensus
+      JOIN chain_events AS event
+        ON event.cluster = consensus.cluster
+        AND event.signature = consensus.signature
+    `;
+    expect(row).toEqual({
+      consensus_state: "disagreed",
+      event_state: "quarantined",
+      observations: 2,
+    });
+  });
+
+  it.each([
+    [
+      "identical internal slot mismatches",
+      (observations: FinalizedProviderObservation[]) =>
+        observations.map((observation) => ({
+          ...observation,
+          statusSlot: (observation.slot ?? 0n) + 1n,
+        })),
+    ],
+    [
+      "identical internal execution mismatches",
+      (observations: FinalizedProviderObservation[]) =>
+        observations.map((observation) => ({
+          ...observation,
+          statusExecutionDigest: "1".repeat(64),
+          transactionExecutionDigest: "2".repeat(64),
+        })),
+    ],
+  ])("durably quarantines %s", async (_name, mismatch) => {
+    await seedConsensusProviders();
+    const raw = createCanonicalSnapshot(transaction);
+    await cleanup`
+      INSERT INTO raw_transactions (
+        provider_id, signature, commitment, digest, canonical_body, body,
+        byte_length, retrieved_at
+      ) VALUES (
+        'primary', ${transaction.signature}, 'finalized', ${raw.digest},
+        ${raw.canonicalJson}, ${raw.canonicalJson}::jsonb, ${raw.byteLength}, ${now}
+      )
+    `;
+    await cleanup`
+      INSERT INTO chain_events (
+        event_id, cluster, signature, outer_instruction_index,
+        inner_instruction_index, raw_transaction_id, current_state
+      ) SELECT 'consensus-internal-mismatch', 'mainnet-beta',
+        ${transaction.signature}, 0, -1, id, 'finalized'
+      FROM raw_transactions WHERE provider_id = 'primary'
+    `;
+    const claim = await claimedConsensus();
+
+    await expect(
+      store.completeFinalizedConsensus({
+        claim,
+        state: "disagreed",
+        observations: mismatch(matchingObservations()),
+      }),
+    ).resolves.toEqual({ applied: true, state: "disagreed", generation: 1 });
+
+    const [row] = await cleanup<
+      { consensus_state: string; event_state: string; observations: number }[]
+    >`
+      SELECT consensus.state AS consensus_state,
+        event.current_state AS event_state,
+        (SELECT count(*)::integer
+          FROM rpc_consensus_provider_observations) AS observations
+      FROM rpc_consensus_checks AS consensus
+      JOIN chain_events AS event
+        ON event.cluster = consensus.cluster
+        AND event.signature = consensus.signature
+    `;
+    expect(row).toEqual({
+      consensus_state: "disagreed",
+      event_state: "quarantined",
+      observations: 2,
+    });
+  });
+
+  it("enforces tenant RLS and immutable observations against direct SQL", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    await store.completeFinalizedConsensus({
+      claim,
+      state: "agreed",
+      observations: matchingObservations(),
+    });
+
+    await expect(
+      cleanup.begin(async (sql) => {
+        await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+        await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+        await sql`
+          INSERT INTO rpc_provider_roles (
+            organization_id, cluster, role, provider_id, created_at
+          ) VALUES (
+            ${organizationId}::uuid, 'devnet', 'primary', 'primary', ${now}
+          )
+        `;
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await expect(
+      cleanup.begin(async (sql) => {
+        await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+        await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+        await sql`
+          UPDATE rpc_consensus_provider_observations
+          SET canonical_digest = ${"c".repeat(64)}
+        `;
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+    const hidden = await cleanup.begin(async (sql) => {
+      await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+      await sql`
+        SELECT set_config(
+          'payops.organization_id',
+          '00000000-0000-4000-8000-000000000099', true
+        )
+      `;
+      return sql`SELECT * FROM rpc_consensus_provider_observations`;
+    });
+    expect(hidden).toEqual([]);
+  });
+
+  it("denies non-owner consensus forgery and privilege grants after tenant GUC setup", async () => {
+    await seedConsensusProviders();
+    const claim = await claimedConsensus();
+    await store.completeFinalizedConsensus({
+      claim,
+      state: "agreed",
+      observations: matchingObservations(),
+    });
+    const [check] = await cleanup<{ id: string }[]>`
+      SELECT id::text FROM rpc_consensus_checks
+    `;
+    if (check === undefined) throw new Error("Expected consensus check");
+
+    await expect(
+      cleanup.begin(async (sql) => {
+        await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+        await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+        await sql`
+          INSERT INTO rpc_consensus_checks (
+            id, organization_id, cluster, signature, generation,
+            primary_provider_id, secondary_provider_id, state, claim_token,
+            claimed_until, started_at
+          ) VALUES (
+            999999, ${organizationId}::uuid, 'mainnet-beta', ${transaction.signature},
+            2, 'primary', 'secondary', 'pending',
+            '00000000-0000-4000-8000-000000000099'::uuid,
+            clock_timestamp() + interval '1 minute', clock_timestamp()
+          )
+        `;
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await expect(
+      cleanup.begin(async (sql) => {
+        await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+        await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+        await sql`
+          INSERT INTO rpc_consensus_provider_observations (
+            id, organization_id, consensus_check_id, generation, provider_id,
+            canonical_digest, snapshot_digest, parsing_digest,
+            transfer_identity_digest, slot, execution_state, execution_digest,
+            finality, response_time_ms, safe_error_code, safe_error_retryable,
+            observed_at, created_at
+          ) VALUES (
+            999999, ${organizationId}::uuid, ${check.id}::bigint, 1, 'primary',
+            ${"a".repeat(64)}, ${"b".repeat(64)}, ${"c".repeat(64)},
+            ${"d".repeat(64)}, 1, 'succeeded', ${"e".repeat(64)},
+            'finalized/finalized', 1, NULL, NULL,
+            clock_timestamp(), clock_timestamp()
+          )
+        `;
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await expect(
+      cleanup.begin(async (sql) => {
+        await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+        await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+        await sql`
+          UPDATE rpc_consensus_checks SET state = 'disagreed'
+          WHERE id = ${check.id}::bigint
+        `;
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+
+    await cleanup.begin(async (sql) => {
+      await sql.unsafe(`SET LOCAL ROLE ${forgerRole}`);
+      await sql`SELECT set_config('payops.organization_id', ${organizationId}, true)`;
+      await sql.unsafe(
+        `GRANT TRUNCATE ON rpc_consensus_checks TO ${forgerRole}`,
+      );
+    });
+    const [privilege] = await cleanup<{ granted: boolean }[]>`
+      SELECT has_table_privilege(
+        ${forgerRole}, 'rpc_consensus_checks', 'TRUNCATE'
+      ) AS granted
+    `;
+    expect(privilege).toEqual({ granted: false });
   });
 
   it("holds an advisory lock on a dedicated connection", async () => {

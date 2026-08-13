@@ -11,6 +11,11 @@ export interface CursorPosition {
   readonly id: string;
 }
 
+export interface VersionCursorPosition {
+  readonly incidentVersion: number;
+  readonly id: string;
+}
+
 export class CursorError extends Error {
   public readonly code = "invalid_cursor";
 
@@ -83,6 +88,43 @@ export function decodeCursor(
   return position;
 }
 
+export function encodeVersionCursor(
+  position: VersionCursorPosition,
+  filterDigest: string,
+): string {
+  validateVersionPosition(position);
+  if (!digestPattern.test(filterDigest)) throw new CursorError();
+  return Buffer.from(
+    canonicalJson({
+      v: 1,
+      incidentVersion: position.incidentVersion,
+      id: position.id,
+      filterDigest,
+    }),
+    "utf8",
+  ).toString("base64url");
+}
+
+export function decodeVersionCursor(
+  value: string,
+  expectedFilterDigest: string,
+): VersionCursorPosition {
+  const record = decodeRecord(value, expectedFilterDigest);
+  if (
+    Object.keys(record).sort().join(",") !==
+      "filterDigest,id,incidentVersion,v" ||
+    !Number.isSafeInteger(record.incidentVersion)
+  ) {
+    throw new CursorError();
+  }
+  const position = {
+    incidentVersion: record.incidentVersion as number,
+    id: record.id as string,
+  };
+  validateVersionPosition(position);
+  return position;
+}
+
 export function parseLimit(value: unknown, fallback = 50): number {
   if (value === undefined) return fallback;
   if (typeof value !== "string" || !/^[1-9]\d{0,2}$/.test(value)) {
@@ -99,6 +141,55 @@ function validatePosition(position: CursorPosition): void {
     !timestampPattern.test(position.createdAt) ||
     !Number.isFinite(new Date(position.createdAt).getTime())
   ) {
+    throw new CursorError();
+  }
+}
+
+function validateVersionPosition(position: VersionCursorPosition): void {
+  if (
+    !uuidPattern.test(position.id) ||
+    !Number.isSafeInteger(position.incidentVersion) ||
+    position.incidentVersion < 1
+  ) {
+    throw new CursorError();
+  }
+}
+
+function decodeRecord(
+  value: string,
+  expectedFilterDigest: string,
+): Record<string, unknown> {
+  if (
+    value.length < 16 ||
+    value.length > 1_024 ||
+    !/^[A-Za-z0-9_-]+$/.test(value) ||
+    !digestPattern.test(expectedFilterDigest)
+  ) {
+    throw new CursorError();
+  }
+  try {
+    const bytes = Buffer.from(value, "base64url");
+    if (bytes.byteLength > 768 || bytes.toString("base64url") !== value) {
+      throw new CursorError();
+    }
+    const parsed: unknown = JSON.parse(bytes.toString("utf8"));
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      throw new CursorError();
+    }
+    const record = parsed as Record<string, unknown>;
+    if (
+      record.v !== 1 ||
+      typeof record.id !== "string" ||
+      record.filterDigest !== expectedFilterDigest
+    ) {
+      throw new CursorError();
+    }
+    return record;
+  } catch {
     throw new CursorError();
   }
 }
