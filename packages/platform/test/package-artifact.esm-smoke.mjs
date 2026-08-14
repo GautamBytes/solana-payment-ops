@@ -10,6 +10,57 @@ const platform = await import("@payops/platform");
 if (typeof platform.runMigrationSet !== "function") {
   throw new Error("@payops/platform migration entrypoint is unavailable");
 }
+if (typeof platform.runHostedMigrations !== "function") {
+  throw new Error(
+    "@payops/platform hosted migration entrypoint is unavailable",
+  );
+}
+
+const missingHostedConfiguration = spawnSync(
+  process.execPath,
+  [fileURLToPath(new URL("../dist/bin.js", import.meta.url)), "migrate-hosted"],
+  {
+    encoding: "utf8",
+    env: {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) => name !== "PAYOPS_MIGRATOR_DATABASE_URL",
+        ),
+      ),
+      DATABASE_URL: "postgresql://must:not-be-used@database.invalid/payops",
+    },
+  },
+);
+if (
+  missingHostedConfiguration.status !== 1 ||
+  missingHostedConfiguration.stdout !== "" ||
+  missingHostedConfiguration.stderr.trim() !== "missing_configuration"
+) {
+  throw new Error("hosted migration command did not fail closed");
+}
+const hostedArguments = spawnSync(
+  process.execPath,
+  [
+    fileURLToPath(new URL("../dist/bin.js", import.meta.url)),
+    "migrate-hosted",
+    "--unexpected",
+  ],
+  {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PAYOPS_MIGRATOR_DATABASE_URL:
+        "postgresql://must:not-connect@database.invalid/payops",
+    },
+  },
+);
+if (
+  hostedArguments.status !== 1 ||
+  hostedArguments.stdout !== "" ||
+  hostedArguments.stderr.trim() !== "invalid_arguments"
+) {
+  throw new Error("hosted migration command accepted arguments");
+}
 
 const directory = mkdtempSync(join(tmpdir(), "payops-evidence-smoke-"));
 const manifestPath = join(directory, "manifest.json");

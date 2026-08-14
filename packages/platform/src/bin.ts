@@ -5,6 +5,7 @@ import { HttpEmailDeliveryPort } from "./auth/http-email-port.js";
 import { verifyEvidencePack } from "./operations/evidence-pack.js";
 import { readBoundedFile } from "./operations/read-bounded-file.js";
 import { bootstrapProductionDatabaseRoles } from "./db/production-role-bootstrap.js";
+import { runHostedMigrations } from "./db/hosted-migrations.js";
 
 void main().catch((error: unknown) => {
   process.stderr.write(`${safeCode(error)}\n`);
@@ -13,6 +14,14 @@ void main().catch((error: unknown) => {
 
 async function main(): Promise<void> {
   const [command, ...arguments_] = process.argv.slice(2);
+  if (command === "migrate-hosted") {
+    if (arguments_.length !== 0) throw commandError("invalid_arguments");
+    const result = await runHostedMigrations(
+      requiredEnvironment("PAYOPS_MIGRATOR_DATABASE_URL"),
+    );
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return;
+  }
   if (command === "verify-evidence") {
     await verifyEvidence(arguments_);
     return;

@@ -23,3 +23,17 @@ if (
 ) {
   throw new Error("API binary did not reject missing configuration safely");
 }
+
+const hostileConfigurationValue = "sensitive-invalid-environment-value";
+const invalidConfig = spawnSync(process.execPath, [binPath], {
+  encoding: "utf8",
+  env: { PAYOPS_ENVIRONMENT: hostileConfigurationValue },
+});
+if (
+  invalidConfig.status !== 1 ||
+  invalidConfig.stdout !== "" ||
+  invalidConfig.stderr !== "invalid_environment\n" ||
+  invalidConfig.stderr.includes(hostileConfigurationValue)
+) {
+  throw new Error("API binary exposed invalid configuration");
+}

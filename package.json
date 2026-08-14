@@ -9,6 +9,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "check": "pnpm build && pnpm format:check && pnpm typecheck && pnpm test",
+    "containers:build": "node scripts/build-containers.mjs",
+    "containers:test": "node deploy/smoke/run.mjs",
     "conformance": "pnpm --filter @payops/core conformance",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -1,0 +1,217 @@
+name: payops-hosted-alpha
+
+x-service-security: &service-security
+  read_only: true
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+  networks: [payops]
+  deploy:
+    resources:
+      limits:
+        cpus: "1.00"
+        memory: 768M
+
+services:
+  postgres:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_DB: ${PAYOPS_DATABASE_NAME:?required}
+      POSTGRES_USER: ${PAYOPS_DATABASE_ADMIN_ROLE:?required}
+      POSTGRES_PASSWORD: ${PAYOPS_DATABASE_ADMIN_PASSWORD:?required}
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      ["/tmp:rw,noexec,nosuid,size=64m", "/run/postgresql:rw,nosuid,size=16m"]
+    networks: [payops]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  upstreams:
+    image: node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e
+    command: [node, /smoke/fake-upstreams.mjs]
+    environment:
+      PAYOPS_SMOKE_TLS_CERT: /run/payops/tls.crt
+      PAYOPS_SMOKE_TLS_KEY: /run/payops/tls.key
+      NODE_EXTRA_CA_CERTS: /run/payops/ca.crt
+    volumes:
+      - ./smoke:/smoke:ro
+      - type: bind
+        source: ${PAYOPS_SMOKE_SECRET_DIRECTORY:?required}
+        target: /run/payops
+        read_only: true
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('https://upstreams/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    <<: *service-security
+
+  role-bootstrap:
+    image: payops-migrate:local
+    command: [node, /smoke/bootstrap-roles.mjs]
+    environment:
+      PAYOPS_DATABASE_ADMIN_URL: ${PAYOPS_DATABASE_ADMIN_URL:?required}
+      PAYOPS_DATABASE_ADMIN_ROLE: ${PAYOPS_DATABASE_ADMIN_ROLE:?required}
+      PAYOPS_MIGRATOR_ROLE: ${PAYOPS_MIGRATOR_ROLE:?required}
+      PAYOPS_MIGRATOR_PASSWORD: ${PAYOPS_MIGRATOR_PASSWORD:?required}
+      PAYOPS_RUNTIME_ROLE: ${PAYOPS_RUNTIME_ROLE:?required}
+      PAYOPS_RUNTIME_PASSWORD: ${PAYOPS_RUNTIME_PASSWORD:?required}
+      PAYOPS_CONTROL_ROLE: ${PAYOPS_CONTROL_ROLE:?required}
+      PAYOPS_CONTROL_PASSWORD: ${PAYOPS_CONTROL_PASSWORD:?required}
+      PAYOPS_READINESS_VERIFIER_ROLE: ${PAYOPS_READINESS_VERIFIER_ROLE:?required}
+      PAYOPS_READINESS_VERIFIER_PASSWORD: ${PAYOPS_READINESS_VERIFIER_PASSWORD:?required}
+      PAYOPS_SHADOW_PROJECTOR_ROLE: ${PAYOPS_SHADOW_PROJECTOR_ROLE:?required}
+      PAYOPS_SHADOW_PROJECTOR_PASSWORD: ${PAYOPS_SHADOW_PROJECTOR_PASSWORD:?required}
+    volumes: ["./smoke:/smoke:ro"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    <<: *service-security
+
+  migrate:
+    image: payops-migrate:local
+    environment:
+      PAYOPS_MIGRATOR_DATABASE_URL: ${PAYOPS_MIGRATOR_DATABASE_URL:?required}
+    depends_on:
+      role-bootstrap: { condition: service_completed_successfully }
+    <<: *service-security
+
+  api:
+    image: payops-api:local
+    environment:
+      DATABASE_URL: ${PAYOPS_RUNTIME_DATABASE_URL:?required}
+      PAYOPS_PRODUCTION_CONTROL_DATABASE_URL: ${PAYOPS_CONTROL_DATABASE_URL:?required}
+      PAYOPS_READINESS_VERIFIER_DATABASE_URL: ${PAYOPS_READINESS_VERIFIER_DATABASE_URL:?required}
+      PAYOPS_ENVIRONMENT: production
+      PAYOPS_API_HOST: 0.0.0.0
+      PAYOPS_API_PORT: "3000"
+      PAYOPS_PUBLIC_API_ORIGIN: ${PAYOPS_PUBLIC_API_ORIGIN:?required}
+      PAYOPS_CHECKOUT_ORIGIN: ${PAYOPS_CHECKOUT_ORIGIN:?required}
+      PAYOPS_TRUSTED_ORIGINS: ${PAYOPS_TRUSTED_ORIGINS:?required}
+      PAYOPS_WALLET_PROOF_DOMAIN: ${PAYOPS_WALLET_PROOF_DOMAIN:?required}
+      PAYOPS_SOLANA_CLUSTER: mainnet-beta
+      PAYOPS_RPC_MODE: dual_provider
+      PAYOPS_RPC_PRIMARY_PROVIDER_ID: ${PAYOPS_RPC_PRIMARY_PROVIDER_ID:?required}
+      PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: PAYOPS_PRIMARY_SOLANA_RPC_URL
+      PAYOPS_PRIMARY_SOLANA_RPC_URL: ${PAYOPS_PRIMARY_SOLANA_RPC_URL:?required}
+      PAYOPS_RPC_SECONDARY_PROVIDER_ID: ${PAYOPS_RPC_SECONDARY_PROVIDER_ID:?required}
+      PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: PAYOPS_SECONDARY_SOLANA_RPC_URL
+      PAYOPS_SECONDARY_SOLANA_RPC_URL: ${PAYOPS_SECONDARY_SOLANA_RPC_URL:?required}
+      PAYOPS_INGESTION_PROVIDER_ID: ${PAYOPS_RPC_PRIMARY_PROVIDER_ID:?required}
+      BETTER_AUTH_SECRETS: ${BETTER_AUTH_SECRETS:?required}
+      PAYOPS_CHECKOUT_TOKEN_KEYS: ${PAYOPS_CHECKOUT_TOKEN_KEYS:?required}
+      PAYOPS_PYTH_HERMES_ENDPOINT: ${PAYOPS_PYTH_HERMES_ENDPOINT:?required}
+      PAYOPS_PYTH_ACCESS_TOKEN: ${PAYOPS_PYTH_ACCESS_TOKEN:?required}
+      PAYOPS_PYTH_USDC_FEED_ID: ${PAYOPS_PYTH_USDC_FEED_ID:?required}
+      PAYOPS_PYTH_USDT_FEED_ID: ${PAYOPS_PYTH_USDT_FEED_ID:?required}
+      PAYOPS_ECB_ENDPOINT: ${PAYOPS_ECB_ENDPOINT:?required}
+      PAYOPS_EMAIL_DELIVERY_MODE: production
+      PAYOPS_AUTH_EMAIL_ENDPOINT: ${PAYOPS_AUTH_EMAIL_ENDPOINT:?required}
+      PAYOPS_AUTH_EMAIL_TOKEN: ${PAYOPS_AUTH_EMAIL_TOKEN:?required}
+      PAYOPS_EVIDENCE_SIGNING_KEY_ID: ${PAYOPS_EVIDENCE_SIGNING_KEY_ID:?required}
+      PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64: ${PAYOPS_EVIDENCE_SIGNING_PRIVATE_KEY_B64:?required}
+      NODE_EXTRA_CA_CERTS: /run/payops/ca.crt
+    volumes:
+      - type: bind
+        source: ${PAYOPS_SMOKE_SECRET_DIRECTORY:?required}
+        target: /run/payops
+        read_only: true
+    ports: ["127.0.0.1:${PAYOPS_SMOKE_API_PORT:?required}:3000"]
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 45
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      upstreams: { condition: service_healthy }
+    restart: unless-stopped
+    <<: *service-security
+
+  worker:
+    image: payops-worker:local
+    environment:
+      DATABASE_URL: ${PAYOPS_RUNTIME_DATABASE_URL:?required}
+      PAYOPS_SHADOW_PROJECTOR_DATABASE_URL: ${PAYOPS_SHADOW_PROJECTOR_DATABASE_URL:?required}
+      PAYOPS_ENVIRONMENT: production
+      PAYOPS_SOLANA_CLUSTER: mainnet-beta
+      PAYOPS_RPC_MODE: dual_provider
+      PAYOPS_RPC_PRIMARY_PROVIDER_ID: ${PAYOPS_RPC_PRIMARY_PROVIDER_ID:?required}
+      PAYOPS_RPC_PRIMARY_ENDPOINT_ENV: PAYOPS_PRIMARY_SOLANA_RPC_URL
+      PAYOPS_PRIMARY_SOLANA_RPC_URL: ${PAYOPS_PRIMARY_SOLANA_RPC_URL:?required}
+      PAYOPS_RPC_SECONDARY_PROVIDER_ID: ${PAYOPS_RPC_SECONDARY_PROVIDER_ID:?required}
+      PAYOPS_RPC_SECONDARY_ENDPOINT_ENV: PAYOPS_SECONDARY_SOLANA_RPC_URL
+      PAYOPS_SECONDARY_SOLANA_RPC_URL: ${PAYOPS_SECONDARY_SOLANA_RPC_URL:?required}
+      PAYOPS_PARSER_VERSION: ${PAYOPS_PARSER_VERSION:?required}
+      PAYOPS_BUILD_REVISION: ${PAYOPS_BUILD_REVISION:?required}
+      PAYOPS_WORKER_INTERVAL_MS: ${PAYOPS_WORKER_INTERVAL_MS:?required}
+      PAYOPS_WORKER_BATCH_SIZE: ${PAYOPS_WORKER_BATCH_SIZE:?required}
+      PAYOPS_WORKER_CONCURRENCY: ${PAYOPS_WORKER_CONCURRENCY:?required}
+      PAYOPS_WORKER_LEASE_MS: ${PAYOPS_WORKER_LEASE_MS:?required}
+      NODE_EXTRA_CA_CERTS: /run/payops/ca.crt
+    volumes:
+      - type: bind
+        source: ${PAYOPS_SMOKE_SECRET_DIRECTORY:?required}
+        target: /run/payops
+        read_only: true
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      upstreams: { condition: service_healthy }
+    restart: unless-stopped
+    <<: *service-security
+
+  web:
+    image: payops-web:local
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "3001"
+      PAYOPS_WEB_ORIGIN: ${PAYOPS_WEB_ORIGIN:?required}
+      PAYOPS_API_ORIGIN: ${PAYOPS_PUBLIC_API_ORIGIN:?required}
+      NEXT_PUBLIC_PAYOPS_API_ORIGIN: ${PAYOPS_PUBLIC_API_ORIGIN:?required}
+    ports: ["127.0.0.1:${PAYOPS_SMOKE_WEB_PORT:?required}:3001"]
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+    <<: *service-security
+
+networks:
+  payops:
+    driver: bridge
+
+volumes:
+  postgres-data:
