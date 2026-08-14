@@ -7,12 +7,12 @@ import {
   readFile,
   readdir,
   rm,
-  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildDeterministicTarGzip } from "./release-archive.mjs";
 import { buildSpdxDocument, loadReleaseManifest } from "./release-lib.mjs";
 
 const repository = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -42,67 +42,27 @@ await cp(
   join(outputDirectory, `payops-v${version}-fixture-manifest.json`),
 );
 
-const temporaryDirectory = await mkdtemp(join(tmpdir(), "payops-evidence-"));
-try {
-  const schemaDirectory = join(temporaryDirectory, "schemas");
-  await cp(
-    join(repository, "packages", "contracts", "schemas"),
-    schemaDirectory,
-    {
-      recursive: true,
-    },
-  );
-  const epoch = Number(
-    process.env.SOURCE_DATE_EPOCH ??
-      execFileSync("git", ["show", "-s", "--format=%ct", "HEAD"], {
-        cwd: repository,
-        encoding: "utf8",
-      }).trim(),
-  );
-  const schemaFiles = (await readdir(schemaDirectory)).sort();
-  for (const file of schemaFiles) {
-    await utimes(join(schemaDirectory, file), epoch, epoch);
-  }
-  await utimes(schemaDirectory, epoch, epoch);
-  const uncompressedArchive = join(temporaryDirectory, "schemas.tar");
-  execFileSync(
-    "tar",
-    [
-      "-cf",
-      uncompressedArchive,
-      "--format",
-      "ustar",
-      "--uid",
-      "0",
-      "--gid",
-      "0",
-      "--uname",
-      "root",
-      "--gname",
-      "root",
-      "-C",
-      temporaryDirectory,
-      ...schemaFiles.map((file) => `schemas/${file}`),
-    ],
-    { env: { ...process.env, COPYFILE_DISABLE: "1" } },
-  );
-  await writeFile(
-    join(outputDirectory, `payops-v${version}-schemas.tar.gz`),
-    execFileSync("gzip", ["-n", "-c", uncompressedArchive]),
-  );
-} finally {
-  await rm(temporaryDirectory, { recursive: true, force: true });
-}
+const sourceDateEpoch = Number(
+  process.env.SOURCE_DATE_EPOCH ??
+    execFileSync("git", ["show", "-s", "--format=%ct", "HEAD"], {
+      cwd: repository,
+      encoding: "utf8",
+    }).trim(),
+);
+const schemaDirectory = join(repository, "packages", "contracts", "schemas");
+const schemaFiles = (await readdir(schemaDirectory)).sort();
+const schemaEntries = await Promise.all(
+  schemaFiles.map(async (file) => ({
+    name: `schemas/${file}`,
+    bytes: await readFile(join(schemaDirectory, file)),
+  })),
+);
+await writeFile(
+  join(outputDirectory, `payops-v${version}-schemas.tar.gz`),
+  buildDeterministicTarGzip(schemaEntries, sourceDateEpoch),
+);
 
-const created = new Date(
-  Number(
-    process.env.SOURCE_DATE_EPOCH ??
-      execFileSync("git", ["show", "-s", "--format=%ct", "HEAD"], {
-        cwd: repository,
-        encoding: "utf8",
-      }).trim(),
-  ) * 1_000,
-).toISOString();
+const created = new Date(sourceDateEpoch * 1_000).toISOString();
 const packageDirectory = await mkdtemp(join(tmpdir(), "payops-evidence-pack-"));
 const packageArtifacts = [];
 try {
