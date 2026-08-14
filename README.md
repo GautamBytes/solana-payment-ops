@@ -69,6 +69,25 @@ it is not presented as a historical mainnet payment.
 Package consumers may use npm, pnpm, or another Node package manager. pnpm is
 required only for repository development.
 
+## Hosted alpha images
+
+The private hosted alpha builds four immutable targets from one revision:
+`payops-api`, `payops-worker`, `payops-web`, and the one-shot
+`payops-migrate`. They run as numeric non-root users against separate database
+capabilities. This repository does not yet claim a public hosted URL or a
+production SLA; the deployment remains an invitation-only alpha until a
+post-merge rollout and backup restore succeed.
+
+```bash
+pnpm containers:build
+pnpm containers:test
+```
+
+The smoke uses generated local credentials and TLS material, applies every
+migration twice, verifies role separation and readiness, tests graceful worker
+shutdown, and removes its exact Compose project. See the
+[hosted-alpha operator runbook](deploy/README.md) before deploying anywhere.
+
 ## Run
 
 ```bash

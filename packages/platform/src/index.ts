@@ -9,6 +9,11 @@ export {
   type MigrationMetadata,
 } from "./db/migrate.js";
 export {
+  runHostedMigrations,
+  type HostedMigrationName,
+  type HostedMigrationResult,
+} from "./db/hosted-migrations.js";
+export {
   bootstrapProductionDatabaseRoles,
   ProductionRoleBootstrapError,
   type ProductionDatabasePrincipals,
