@@ -5,6 +5,15 @@ token account through HTTP JSON-RPC, archives canonical transaction evidence,
 stores instruction-level transfers and reference accounts in PostgreSQL, and
 tracks confirmed transactions through finalization.
 
+Choose this package when an operator needs durable RPC collection and
+PostgreSQL evidence, rather than only offline transaction verification. It
+requires Node.js 22.18 or newer and PostgreSQL 16. After the protected `v0.1.0`
+release workflow publishes it:
+
+```bash
+npm install @payops/ingestion@0.1.0
+```
+
 The process never needs a private key. A production operator supplies a
 PostgreSQL connection and a dedicated RPC endpoint with transaction-history
 access.

@@ -1,6 +1,6 @@
 {
   "name": "@payops/reconciliation",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Deterministic invoice reconciliation for finalized Solana payments",
   "type": "module",
   "license": "Apache-2.0",
@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/reconciliation"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "reconciliation",
+    "invoices",
+    "accounting"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },
@@ -44,7 +55,7 @@
     "postgres": "3.4.7"
   },
   "devDependencies": {
-    "@payops/ingestion": "workspace:^0.2.0",
+    "@payops/ingestion": "workspace:^0.1.0",
     "vitest": "4.1.10"
   }
 }

@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/contracts"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "schemas",
+    "webhooks",
+    "typescript"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },

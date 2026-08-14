@@ -31,6 +31,11 @@
       "name": "@payops/pilot",
       "version": "0.1.0",
       "path": "packages/pilot"
+    },
+    {
+      "name": "@payops/sdk",
+      "version": "0.1.0",
+      "path": "packages/sdk"
     }
   ]
 }

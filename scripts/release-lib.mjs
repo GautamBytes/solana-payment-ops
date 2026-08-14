@@ -46,8 +46,8 @@ export function parseReleaseManifest(value, tag) {
     "Release manifest packages must be an array",
   );
   assert(
-    value.packages.length > 0,
-    "Release manifest must publish at least one package",
+    value.packages.length === RELEASE_PACKAGES.length,
+    "Release manifest must include every public package",
   );
   let previousIndex = -1;
   const packages = value.packages.map((entry, index) => {
@@ -185,6 +185,92 @@ export function verifyReleasePackageManifest(item, packageManifest) {
   );
 }
 
+export function verifyPublicPackageMetadata(
+  packageManifest,
+  { expectedName, expectedDirectory, expectedVersion },
+) {
+  assertObject(packageManifest, `Package manifest for ${expectedName}`);
+  assert(
+    packageManifest.name === expectedName &&
+      packageManifest.version === expectedVersion,
+    `Public package identity is invalid: ${expectedName}`,
+  );
+  assert(
+    !Object.hasOwn(packageManifest, "private"),
+    `Public package must be public: ${expectedName}`,
+  );
+  assert(
+    typeof packageManifest.description === "string" &&
+      packageManifest.description.length > 0 &&
+      packageManifest.description.length <= 160,
+    `Public package description is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.repository?.type === "git" &&
+      packageManifest.repository.url ===
+        "https://github.com/GautamBytes/solana-payment-ops.git" &&
+      packageManifest.repository.directory === expectedDirectory,
+    `Public package repository is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.homepage ===
+      "https://github.com/GautamBytes/solana-payment-ops#readme",
+    `Public package homepage is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.bugs?.url ===
+      "https://github.com/GautamBytes/solana-payment-ops/issues",
+    `Public package issue tracker is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.license === "Apache-2.0",
+    `Public package license is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.engines?.node === ">=22.18.0",
+    `Public package Node engine is invalid: ${expectedName}`,
+  );
+  assert(
+    packageManifest.publishConfig?.access === "public",
+    `Public package must declare public access: ${expectedName}`,
+  );
+
+  const keywords = packageManifest.keywords;
+  assert(
+    Array.isArray(keywords) &&
+      keywords.length >= 3 &&
+      keywords.length <= 6 &&
+      keywords.every(
+        (keyword) =>
+          typeof keyword === "string" &&
+          /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(keyword),
+      ) &&
+      new Set(keywords).size === keywords.length &&
+      keywords.includes("solana") &&
+      keywords.includes("payments"),
+    `Public package keywords are invalid: ${expectedName}`,
+  );
+
+  const files = packageManifest.files;
+  const forbiddenFile =
+    /(^|\/)(?:test|tests|coverage|docs\/superpowers)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$/iu;
+  assert(
+    Array.isArray(files) &&
+      files.length > 0 &&
+      new Set(files).size === files.length &&
+      files.every(
+        (path) =>
+          typeof path === "string" &&
+          path.length > 0 &&
+          !path.startsWith("/") &&
+          !path.includes("\\") &&
+          !path.split("/").includes("..") &&
+          !forbiddenFile.test(path),
+      ),
+    `Public package files are invalid: ${expectedName}`,
+  );
+}
+
 export function classifyPublishedVersion(result, expectedIntegrity) {
   if (result.status === 0) {
     let existing;
@@ -201,6 +287,22 @@ export function classifyPublishedVersion(result, expectedIntegrity) {
   }
   if (`${result.stderr}${result.stdout}`.includes("E404")) return "publish";
   throw new Error("Unable to inspect the published package version");
+}
+
+export function preflightReleasePublication(artifacts, inspect) {
+  assert(Array.isArray(artifacts), "Release artifacts must be an array");
+  assert(typeof inspect === "function", "Registry inspector is required");
+  return Object.freeze(
+    artifacts.map((artifact) =>
+      Object.freeze({
+        ...artifact,
+        publication: classifyPublishedVersion(
+          inspect(artifact),
+          artifact.integrity,
+        ),
+      }),
+    ),
+  );
 }
 
 export function buildSpdxDocument({ tag, created, repositoryUrl, packages }) {

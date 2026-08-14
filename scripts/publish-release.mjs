@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  classifyPublishedVersion,
   loadReleaseManifest,
+  preflightReleasePublication,
   sha512Integrity,
   verifyNpmOwnership,
   verifyReleaseGitState,
@@ -34,6 +34,7 @@ const { manifest } = await loadReleaseManifest(repository, tag);
 const directory = await mkdtemp(join(tmpdir(), "payops-publish-"));
 
 try {
+  const artifacts = [];
   for (const item of manifest.packages) {
     const output = execFileSync(
       "pnpm",
@@ -50,15 +51,23 @@ try {
     const packed = JSON.parse(output);
     const tarball = resolve(directory, packed.filename);
     const integrity = sha512Integrity(await readFile(tarball));
-    const published = spawnSync(
-      "npm",
-      ["view", `${item.name}@${item.version}`, "dist.integrity", "--json"],
-      { encoding: "utf8" },
-    );
-    const publication = classifyPublishedVersion(published, integrity);
+    artifacts.push({ ...item, tarball, integrity });
+  }
+
+  const publicationPlan = preflightReleasePublication(
+    artifacts,
+    ({ name, version }) =>
+      spawnSync(
+        "npm",
+        ["view", `${name}@${version}`, "dist.integrity", "--json"],
+        { encoding: "utf8" },
+      ),
+  );
+
+  for (const { name, version, tarball, publication } of publicationPlan) {
     if (publication === "already-published") {
       process.stdout.write(
-        `${item.name}@${item.version} already published with matching bytes\n`,
+        `${name}@${version} already published with matching bytes\n`,
       );
       continue;
     }

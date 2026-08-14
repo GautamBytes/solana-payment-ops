@@ -25,9 +25,9 @@
   "dependencies": {
     "@better-auth/api-key": "1.6.26",
     "@payops/contracts": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.2.0",
+    "@payops/ingestion": "workspace:^0.1.0",
     "@payops/platform": "workspace:*",
-    "@payops/reconciliation": "workspace:^0.2.0",
+    "@payops/reconciliation": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
     "better-auth": "1.6.26",
     "drizzle-orm": "0.45.2",
@@ -36,7 +36,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@payops/sdk": "workspace:*",
+    "@payops/sdk": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "@types/node": "22.20.1",
     "auth": "1.6.26",

@@ -23,7 +23,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/ingestion": "workspace:^0.2.0",
+    "@payops/ingestion": "workspace:^0.1.0",
     "@payops/platform": "workspace:*",
     "@payops/webhooks": "workspace:^0.1.0",
     "postgres": "3.4.7"

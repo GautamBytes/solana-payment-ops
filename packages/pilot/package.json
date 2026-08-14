@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/pilot"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "audit",
+    "reconciliation",
+    "merchants"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },
@@ -40,8 +51,8 @@
   },
   "dependencies": {
     "@payops/core": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.2.0",
-    "@payops/reconciliation": "workspace:^0.2.0",
+    "@payops/ingestion": "workspace:^0.1.0",
+    "@payops/reconciliation": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "postgres": "3.4.7",

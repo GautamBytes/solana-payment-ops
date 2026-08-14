@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@payops/contracts": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.2.0",
-    "@payops/reconciliation": "workspace:^0.2.0",
+    "@payops/ingestion": "workspace:^0.1.0",
+    "@payops/reconciliation": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
     "@solana/kit": "6.10.0",
     "@solana/pay": "1.0.26",

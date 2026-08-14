@@ -1,6 +1,6 @@
 {
   "name": "@payops/sdk",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Typed client for the PayOps merchant API",
   "type": "module",
   "license": "Apache-2.0",
@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/sdk"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "sdk",
+    "typescript",
+    "api-client"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },
