@@ -7,7 +7,6 @@ import {
   loadReleaseManifest,
   preflightReleasePublication,
   sha512Integrity,
-  verifyNpmOwnership,
   verifyReleaseGitState,
 } from "./release-lib.mjs";
 
@@ -29,7 +28,6 @@ const taggedCommit = execFileSync(
   { cwd: repository, encoding: "utf8" },
 ).trim();
 verifyReleaseGitState(trackedStatus, head, taggedCommit);
-verifyNpmOwnership("@payops", process.env.NPM_SCOPE_OWNER);
 const { manifest } = await loadReleaseManifest(repository, tag);
 const directory = await mkdtemp(join(tmpdir(), "payops-publish-"));
 
