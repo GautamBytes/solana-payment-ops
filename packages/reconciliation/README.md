@@ -5,6 +5,14 @@ payments. It imports merchant invoice expectations, reads finalized transfer
 evidence produced by `@payops/ingestion`, and records either one exact
 allocation or an explicit exception.
 
+Choose this package when finalized ingestion evidence must be matched against
+merchant invoice expectations. It requires Node.js 22.18 or newer and
+PostgreSQL 16. After the protected `v0.1.0` release workflow publishes it:
+
+```bash
+npm install @payops/reconciliation@0.1.0
+```
+
 ## Safety model
 
 - only finalized chain events are eligible;

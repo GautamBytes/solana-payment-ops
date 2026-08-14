@@ -5,6 +5,15 @@ Solana USDC and USDT payment operations. It configures existing PayOps
 ingestion, finality, reconciliation, and report services in a fixed sequence;
 it never signs transactions, holds keys, or moves funds.
 
+Choose this package for a consented, historical merchant audit with private and
+grant-safe output—not live payment processing. It requires Node.js 22.18 or
+newer and PostgreSQL 16. After the protected `v0.1.0` release workflow
+publishes it:
+
+```bash
+npm install @payops/pilot@0.1.0
+```
+
 This workflow is for a consenting merchant pilot. Obtain written approval for
 the wallet or token-account identifiers, time range, invoice file, operators,
 report recipients, and retention period before running it. Keep the manifest,

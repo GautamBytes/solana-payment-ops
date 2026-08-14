@@ -1,6 +1,6 @@
 {
   "name": "@payops/webhooks",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Canonical lifecycle events and webhook signature verification",
   "type": "module",
   "license": "Apache-2.0",
@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/webhooks"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "webhooks",
+    "hmac",
+    "events"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },

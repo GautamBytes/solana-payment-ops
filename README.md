@@ -16,15 +16,19 @@ independently.
 
 ## Open Core v0.1
 
-The release contains seven installable Apache-2.0 packages:
+The `v0.1.0` release candidate contains seven Apache-2.0 packages. Merging its
+preparation code does not make them available on npm: registry availability
+begins only after the protected `v0.1.0` tag workflow succeeds.
 
-- `@payops/contracts`: strict lifecycle contracts and JSON Schemas;
-- `@payops/core`: Solana transaction parsing, verification, and 25 fixtures;
-- `@payops/ingestion`: durable RPC ingestion and finality tracking;
-- `@payops/reconciliation`: deterministic invoice matching and exceptions;
-- `@payops/webhooks`: transactional signed webhook delivery and verification;
-- `@payops/pilot`: resumable, read-only merchant shadow audits;
-- `@payops/sdk`: typed, zero-retry merchant API client.
+| Package                  | Use it for                                              | Install after publication                  |
+| ------------------------ | ------------------------------------------------------- | ------------------------------------------ |
+| `@payops/contracts`      | Lifecycle types, runtime parsing, and JSON Schemas      | `npm install @payops/contracts@0.1.0`      |
+| `@payops/core`           | Solana transaction parsing and payment verification     | `npm install @payops/core@0.1.0`           |
+| `@payops/ingestion`      | Durable RPC ingestion and finality tracking             | `npm install @payops/ingestion@0.1.0`      |
+| `@payops/webhooks`       | Transactional signed delivery and consumer verification | `npm install @payops/webhooks@0.1.0`       |
+| `@payops/reconciliation` | Deterministic invoice matching and exceptions           | `npm install @payops/reconciliation@0.1.0` |
+| `@payops/pilot`          | Resumable, read-only merchant shadow audits             | `npm install @payops/pilot@0.1.0`          |
+| `@payops/sdk`            | Typed, zero-retry merchant API access                   | `npm install @payops/sdk@0.1.0`            |
 
 PayOps Core:
 
@@ -61,6 +65,9 @@ it is not presented as a historical mainnet payment.
 
 - Node.js 22.18 or newer
 - pnpm 11.15.0
+
+Package consumers may use npm, pnpm, or another Node package manager. pnpm is
+required only for repository development.
 
 ## Run
 
@@ -126,13 +133,13 @@ non-USD quoting fails closed; ECB data remains reference-only.
 - accounting exports and exception queues;
 - protocol adapters that prove their payment output follows the same contract.
 
-## Design and roadmap
+## Project policies
 
-The complete product, grant case, architecture, security model, milestones, and
-success metrics are in the
-[product specification](docs/superpowers/specs/2026-08-06-solana-payment-ops-design.md).
-The first implementation slice is tracked in the
-[core plan](docs/superpowers/plans/2026-08-06-payops-core-vertical-slice.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and review requirements,
+[SECURITY.md](SECURITY.md) for private vulnerability reporting,
+[CHANGELOG.md](CHANGELOG.md) for release history, and the
+[release runbook](release/README.md) for the operator-controlled publication
+process.
 
 ## License
 

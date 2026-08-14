@@ -5,6 +5,15 @@ retryable HTTPS requests. Event creation participates in the reconciliation
 database transaction, so an invoice allocation or exception cannot commit
 without its lifecycle event.
 
+Choose this package for transactional event storage, signed HTTPS delivery, or
+safe consumer verification. It requires Node.js 22.18 or newer and PostgreSQL
+16 for durable delivery. After the protected `v0.1.0` release workflow
+publishes it:
+
+```bash
+npm install @payops/webhooks@0.1.0
+```
+
 ## Operator quick start
 
 Set `DATABASE_URL`, run migrations, and register a public HTTPS receiver. The

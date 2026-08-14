@@ -5,6 +5,14 @@ mainnet USDC and USDT. The package accepts versioned raw-RPC fixture data,
 extracts legacy SPL Token `TransferChecked` events, and produces inspectable
 finalized-payment conformance reports.
 
+Choose this package for deterministic, offline parsing and verification—not
+RPC scheduling or invoice persistence. It requires Node.js 22.18 or newer.
+After the protected `v0.1.0` release workflow publishes it:
+
+```bash
+npm install @payops/core@0.1.0
+```
+
 See the [PayOps repository](https://github.com/GautamBytes/solana-payment-ops)
 for documentation, fixtures, roadmap, and source code.
 

@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifyPublicPackageMetadata } from "./release-lib.mjs";
 
 const repository = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packages = [
@@ -20,19 +21,19 @@ const packages = [
   },
   {
     name: "@payops/ingestion",
-    version: "0.2.0",
+    version: "0.1.0",
     path: "packages/ingestion",
     roots: ["dist/", "migrations/"],
   },
   {
     name: "@payops/webhooks",
-    version: "0.1.1",
+    version: "0.1.0",
     path: "packages/webhooks",
     roots: ["dist/", "migrations/", "examples/", "src/examples/"],
   },
   {
     name: "@payops/reconciliation",
-    version: "0.2.0",
+    version: "0.1.0",
     path: "packages/reconciliation",
     roots: ["dist/", "migrations/", "examples/"],
   },
@@ -44,14 +45,14 @@ const packages = [
   },
   {
     name: "@payops/sdk",
-    version: "0.2.0",
+    version: "0.1.0",
     path: "packages/sdk",
     roots: ["dist/"],
   },
 ];
 const alwaysAllowed = new Set(["package.json", "README.md", "LICENSE"]);
 const banned =
-  /(^|\/)(?:test|coverage|docs\/superpowers)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:pem|key|tsbuildinfo)$|\.DS_Store$/;
+  /(^|\/)(?:test|tests|coverage|docs\/superpowers)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$|\.DS_Store$/;
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "payops-packages-"));
 
 try {
@@ -61,6 +62,11 @@ try {
     const sourceManifest = JSON.parse(
       await readFile(join(packageDirectory, "package.json"), "utf8"),
     );
+    verifyPublicPackageMetadata(sourceManifest, {
+      expectedName: definition.name,
+      expectedDirectory: definition.path,
+      expectedVersion: definition.version,
+    });
     const inventory = JSON.parse(
       execFileSync(
         "pnpm",
@@ -76,7 +82,6 @@ try {
       inventory.version === definition.version,
       `${definition.name}: version must be ${definition.version}`,
     );
-    assertRepository(sourceManifest, definition);
     const files = inventory.files.map(({ path }) => path);
     for (const required of alwaysAllowed) {
       assert(
@@ -139,19 +144,30 @@ try {
     const packedManifest = JSON.parse(
       await readFile(join(extracted, "package", "package.json"), "utf8"),
     );
-    assertRepository(packedManifest, definition);
-    for (const [name, range] of Object.entries(
-      packedManifest.dependencies ?? {},
-    )) {
-      if (name.startsWith("@payops/")) {
-        const dependency = packages.find((item) => item.name === name);
-        const releaseLine = dependency?.version
-          .split(".")
-          .slice(0, 2)
-          .join(".");
+    verifyPublicPackageMetadata(packedManifest, {
+      expectedName: definition.name,
+      expectedDirectory: definition.path,
+      expectedVersion: definition.version,
+    });
+    for (const section of [
+      "dependencies",
+      "devDependencies",
+      "optionalDependencies",
+      "peerDependencies",
+    ]) {
+      for (const [name, range] of Object.entries(
+        packedManifest[section] ?? {},
+      )) {
+        if (name.startsWith("@payops/")) {
+          const dependency = packages.find((item) => item.name === name);
+          assert(
+            dependency !== undefined && range === `^${dependency.version}`,
+            `${definition.name}: ${name} must pack as the released minor line`,
+          );
+        }
         assert(
-          releaseLine !== undefined && range === `^${releaseLine}.0`,
-          `${definition.name}: ${name} must pack as the released minor line`,
+          typeof range === "string" && !range.startsWith("workspace:"),
+          `${definition.name}: ${section} contains an unresolved workspace range`,
         );
       }
     }
@@ -223,16 +239,6 @@ try {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function assertRepository(manifest, definition) {
-  assert(
-    manifest.repository?.type === "git" &&
-      manifest.repository.url ===
-        "https://github.com/GautamBytes/solana-payment-ops.git" &&
-      manifest.repository.directory === definition.path,
-    `${definition.name}: repository metadata must identify its monorepo source`,
-  );
 }
 
 function cleanConsumerSmoke() {

@@ -2,6 +2,15 @@
 
 Typed, zero-retry client for the PayOps merchant invoice API.
 
+Choose this package for a typed backend client to a deployed PayOps API; use
+the open-core packages directly when embedding verification or reconciliation.
+It requires Node.js 22.18 or newer. After the protected `v0.1.0` release
+workflow publishes it:
+
+```bash
+npm install @payops/sdk@0.1.0
+```
+
 ```ts
 import { createPayOpsClient } from "@payops/sdk";
 

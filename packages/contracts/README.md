@@ -2,6 +2,14 @@
 
 Stable, framework-neutral lifecycle contracts for PayOps integrations.
 
+Choose this package when a producer or consumer needs the canonical PayOps
+event vocabulary without database or delivery code. It requires Node.js 22.18
+or newer. After the protected `v0.1.0` release workflow publishes it:
+
+```bash
+npm install @payops/contracts@0.1.0
+```
+
 The package exports strict TypeScript types, a fail-closed runtime parser, the
 v0.1 event vocabulary, reconciliation exception codes, and Unicode
 code-point length handling shared by producers and consumers.

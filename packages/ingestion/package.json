@@ -1,6 +1,6 @@
 {
   "name": "@payops/ingestion",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Durable Solana payment ingestion and finality tracking",
   "type": "module",
   "license": "Apache-2.0",
@@ -9,6 +9,17 @@
     "url": "https://github.com/GautamBytes/solana-payment-ops.git",
     "directory": "packages/ingestion"
   },
+  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "bugs": {
+    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+  },
+  "keywords": [
+    "solana",
+    "payments",
+    "ingestion",
+    "finality",
+    "rpc"
+  ],
   "engines": {
     "node": ">=22.18.0"
   },
