@@ -9,6 +9,14 @@ const workflow = await readFile(
 const rootManifest = JSON.parse(
   await readFile(new URL("../../package.json", import.meta.url), "utf8"),
 );
+const verifyTagScript = await readFile(
+  new URL("../verify-release-tag.mjs", import.meta.url),
+  "utf8",
+);
+const publishScript = await readFile(
+  new URL("../publish-release.mjs", import.meta.url),
+  "utf8",
+);
 
 describe("release workflow policy", () => {
   it("runs only for version tags with least privilege", () => {
@@ -48,9 +56,18 @@ describe("release workflow policy", () => {
     }
     assert.match(workflow, /postgres:16-alpine@sha256:[a-f0-9]{64}/u);
     assert.match(workflow, /persist-credentials: false/u);
+    assert.match(
+      workflow,
+      /package-manager-cache: false/u,
+      "release builds must not restore a package-manager cache",
+    );
   });
 
   it("installs safely before running one complete release gate", () => {
+    const setupNode = workflow.indexOf("actions/setup-node@");
+    const npmCli = workflow.indexOf(
+      "npm install --global npm@11.19.0 --ignore-scripts",
+    );
     const install = workflow.indexOf(
       "pnpm install --frozen-lockfile --ignore-scripts",
     );
@@ -62,9 +79,13 @@ describe("release workflow policy", () => {
     assert.equal(
       workflow.indexOf("- run:"),
       workflow.indexOf(
-        "- run: pnpm install --frozen-lockfile --ignore-scripts",
+        "- run: npm install --global npm@11.19.0 --ignore-scripts",
       ),
-      "dependency installation must precede repository commands",
+      "the pinned npm CLI must be the first command",
+    );
+    assert.ok(
+      setupNode >= 0 && setupNode < npmCli && npmCli < install,
+      "trusted publishing must use a pinned supported npm CLI",
     );
     assert.ok(install >= 0 && install < releaseGate);
     assert.ok(
@@ -76,17 +97,15 @@ describe("release workflow policy", () => {
     );
   });
 
-  it("scopes registry and GitHub credentials to required steps", () => {
-    assert.doesNotMatch(workflow, /^\s{4}NODE_AUTH_TOKEN:/mu);
-    assert.doesNotMatch(workflow, /^\s{4}NPM_TOKEN:/mu);
-    assert.equal(
-      [
-        ...workflow.matchAll(
-          /NODE_AUTH_TOKEN:\s*\$\{\{ secrets\.NPM_TOKEN \}\}/gu,
-        ),
-      ].length,
-      2,
+  it("uses OIDC without long-lived npm publication credentials", () => {
+    assert.doesNotMatch(
+      workflow,
+      /\b(?:NODE_AUTH_TOKEN|NPM_TOKEN|NPM_SCOPE_OWNER)\b/u,
     );
+    for (const script of [verifyTagScript, publishScript]) {
+      assert.doesNotMatch(script, /\bverifyNpmOwnership\b/u);
+      assert.doesNotMatch(script, /\bNPM_SCOPE_OWNER\b/u);
+    }
     assert.equal(
       [...workflow.matchAll(/GH_TOKEN:\s*\$\{\{ github\.token \}\}/gu)].length,
       1,

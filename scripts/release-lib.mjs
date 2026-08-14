@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { open, readFile, realpath } from "node:fs/promises";
@@ -136,29 +135,6 @@ export async function loadReleaseManifest(repository, tag) {
     throw new Error(`Release manifest is missing for ${tag}`);
   }
   return { path, manifest: parseReleaseManifest(JSON.parse(raw), tag) };
-}
-
-export function verifyNpmOwnership(scope, expectedOwner, run = execFileSync) {
-  assert(/^@[a-z0-9][a-z0-9-]*$/.test(scope), "Npm scope is invalid");
-  assert(
-    typeof expectedOwner === "string" && expectedOwner.length > 0,
-    "NPM_SCOPE_OWNER ownership evidence is missing",
-  );
-  const whoami = run("npm", ["whoami"], { encoding: "utf8" }).trim();
-  assert(
-    whoami === expectedOwner,
-    "Authenticated npm user does not match NPM_SCOPE_OWNER",
-  );
-  const members = JSON.parse(
-    run("npm", ["org", "ls", scope.slice(1), "--json"], { encoding: "utf8" }),
-  );
-  assert(
-    members !== null &&
-      typeof members === "object" &&
-      !Array.isArray(members) &&
-      members[expectedOwner] === "owner",
-    `Npm user ${expectedOwner} is not an owner of ${scope}`,
-  );
 }
 
 export function environmentWithoutNpmCredentials(environment) {

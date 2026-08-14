@@ -6,7 +6,6 @@ import {
   environmentWithoutNpmCredentials,
   loadReleaseManifest,
   verifyFixtureDigests,
-  verifyNpmOwnership,
   verifyReleaseGitState,
   verifyReleasePackageManifest,
 } from "./release-lib.mjs";
@@ -47,7 +46,6 @@ const fixtureManifest = JSON.parse(
   await readFile(join(fixtureDirectory, "manifest.json"), "utf8"),
 );
 await verifyFixtureDigests(fixtureManifest, fixtureDirectory);
-verifyNpmOwnership("@payops", process.env.NPM_SCOPE_OWNER);
 execFileSync(
   process.execPath,
   [join(repository, "scripts", "verify-public-packages.mjs")],

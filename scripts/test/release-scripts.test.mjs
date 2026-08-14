@@ -20,7 +20,6 @@ import {
   preflightReleasePublication,
   verifyReleaseGitState,
   verifyFixtureDigests,
-  verifyNpmOwnership,
   verifyPublicPackageMetadata,
   verifyReleasePackageManifest,
 } from "../release-lib.mjs";
@@ -378,29 +377,7 @@ describe("fixture digest validation", () => {
   });
 });
 
-describe("npm scope ownership evidence", () => {
-  it("requires the authenticated account to own the scope", () => {
-    const run = (_command, args) =>
-      args[0] === "whoami" ? "gautam\n" : '{"gautam":"owner"}\n';
-
-    assert.throws(
-      () => verifyNpmOwnership("@payops", undefined, run),
-      /missing/i,
-    );
-    assert.throws(
-      () => verifyNpmOwnership("@payops", "someone-else", run),
-      /does not match/i,
-    );
-    assert.doesNotThrow(() => verifyNpmOwnership("@payops", "gautam", run));
-    assert.throws(
-      () =>
-        verifyNpmOwnership("@payops", "gautam", (_command, args) =>
-          args[0] === "whoami" ? "gautam\n" : '{"gautam":"developer"}\n',
-        ),
-      /owner/i,
-    );
-  });
-
+describe("npm credential isolation", () => {
   it("removes publication credentials from unprivileged child steps", () => {
     const environment = environmentWithoutNpmCredentials({
       NODE_AUTH_TOKEN: "node-token",
