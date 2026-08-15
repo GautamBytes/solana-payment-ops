@@ -13,6 +13,8 @@ interface FlowAnimationState {
   prefersReducedMotion: boolean;
 }
 
+export const FLOW_FOCUS_PROGRESS = 0.46;
+
 function createRandom(seed: number) {
   let value = seed >>> 0;
 
@@ -66,37 +68,59 @@ export function flowPoint(
   height: number,
 ) {
   const offset = strand.offset;
-  const baseX = cubicBezier(
-    -width * 0.08,
-    width * 0.3,
-    width * 0.42,
-    width * 1.08,
-    progress,
-  );
-  const baseY = cubicBezier(
-    height * (0.78 + offset * 0.32),
-    height * (0.82 + offset * 0.12),
-    height * (0.58 - offset * 0.08),
-    height * (0.31 + offset * 1.02),
-    progress,
-  );
-  const motionEnvelope = Math.sin(Math.PI * progress);
+  const isBack = progress <= FLOW_FOCUS_PROGRESS;
+  const segmentProgress = isBack
+    ? progress / FLOW_FOCUS_PROGRESS
+    : (progress - FLOW_FOCUS_PROGRESS) / (1 - FLOW_FOCUS_PROGRESS);
+  const baseX = isBack
+    ? cubicBezier(
+        -width * 0.18,
+        width * 0.04,
+        width * 0.32,
+        width * 0.43,
+        segmentProgress,
+      )
+    : cubicBezier(
+        width * 0.43,
+        width * 0.58,
+        width * 0.82,
+        width * 1.18,
+        segmentProgress,
+      );
+  const baseY = isBack
+    ? cubicBezier(
+        height * (0.9 + offset * 0.48),
+        height * (0.86 + offset * 0.32),
+        height * (0.76 + offset * 0.08),
+        height * 0.7,
+        segmentProgress,
+      )
+    : cubicBezier(
+        height * 0.7,
+        height * (0.64 - offset * 0.04),
+        height * (0.45 + offset * 0.5),
+        height * (0.28 + offset * 1.34),
+        segmentProgress,
+      );
+  const motionEnvelope = Math.sin(Math.PI * segmentProgress);
   const sweep =
     Math.sin(
-      elapsedMs * 0.00022 + strand.phase * 0.24 + progress * Math.PI * 1.35,
+      elapsedMs * 0.00022 +
+        strand.phase * 0.24 +
+        segmentProgress * Math.PI * 1.35,
     ) *
     width *
-    0.012 *
+    0.011 *
     strand.amplitude *
     motionEnvelope;
   const morph =
     Math.sin(
       elapsedMs * 0.00034 +
         strand.phase +
-        progress * Math.PI * 2 * strand.frequency,
+        segmentProgress * Math.PI * 2 * strand.frequency,
     ) *
     height *
-    0.052 *
+    0.047 *
     strand.amplitude *
     motionEnvelope;
   const breathing =

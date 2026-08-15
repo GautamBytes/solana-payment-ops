@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FLOW_FOCUS_PROGRESS,
   createFlowStrands,
   flowPoint,
   shouldAnimateFlow,
@@ -32,6 +33,48 @@ describe("PayOps hero flow field", () => {
     const distance = Math.hypot(middleB.x - middleA.x, middleB.y - middleA.y);
     expect(distance).toBeGreaterThan(20);
     expect(distance).toBeLessThan(80);
+  });
+
+  it("fans behind and ahead of a shared payment-truth focal point", () => {
+    const strands = createFlowStrands(24, 2025);
+    const width = 1440;
+    const height = 900;
+    const starts = strands.map((strand) =>
+      flowPoint(strand, 0, 0, width, height),
+    );
+    const focus = strands.map((strand) =>
+      flowPoint(strand, FLOW_FOCUS_PROGRESS, 0, width, height),
+    );
+    const ends = strands.map((strand) =>
+      flowPoint(strand, 1, 0, width, height),
+    );
+
+    expect(Math.max(...starts.map((point) => point.x))).toBeLessThan(
+      -width * 0.1,
+    );
+    expect(Math.min(...ends.map((point) => point.x))).toBeGreaterThan(
+      width * 1.1,
+    );
+    expect(Math.max(...focus.map((point) => point.x))).toBeLessThan(
+      width * 0.48,
+    );
+    expect(Math.min(...focus.map((point) => point.x))).toBeGreaterThan(
+      width * 0.38,
+    );
+
+    const focusSpread =
+      Math.max(...focus.map((point) => point.y)) -
+      Math.min(...focus.map((point) => point.y));
+    const startSpread =
+      Math.max(...starts.map((point) => point.y)) -
+      Math.min(...starts.map((point) => point.y));
+    const endSpread =
+      Math.max(...ends.map((point) => point.y)) -
+      Math.min(...ends.map((point) => point.y));
+
+    expect(focusSpread).toBeLessThan(height * 0.08);
+    expect(startSpread).toBeGreaterThan(height * 0.28);
+    expect(endSpread).toBeGreaterThan(height * 0.72);
   });
 
   it("animates only while visible and motion is allowed", () => {

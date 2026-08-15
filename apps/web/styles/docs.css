@@ -186,8 +186,173 @@
   background: #080b09;
   font-family: "IBM Plex Mono", monospace;
 }
+.docs-section-intro h2 {
+  max-width: 47rem;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.6rem, 4.5vw, 5rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+.docs-section-intro > p:not(.docs-kicker) {
+  max-width: 42rem;
+  margin: 1.2rem 0 0;
+  color: var(--d-muted);
+  line-height: 1.7;
+}
+.docs-problem,
+.docs-audience,
+.docs-truth-flow {
+  margin-top: 7rem;
+}
+.docs-problem {
+  padding: 3rem 0;
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(22rem, 1.2fr);
+  gap: clamp(3rem, 7vw, 7rem);
+  border-top: 1px solid var(--d-line);
+  border-bottom: 1px solid var(--d-line);
+}
+.docs-problem-copy > p {
+  margin: 0 0 1.25rem;
+  color: #a5afa9;
+  font-size: 1.04rem;
+  line-height: 1.78;
+}
+.docs-problem-copy > p:first-child {
+  color: #e3e9e5;
+  font-size: 1.35rem;
+  line-height: 1.55;
+}
+.docs-problem-copy aside {
+  margin-top: 2rem;
+  padding: 1.1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border: 1px solid #19422f;
+  background: #07130d;
+}
+.docs-problem-copy aside svg {
+  color: var(--d-green);
+  flex: 0 0 auto;
+}
+.docs-problem-copy aside span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #92a198;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.docs-problem-copy aside strong {
+  color: #dce6e0;
+}
+.docs-audience-grid {
+  margin-top: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--d-line);
+  border-left: 1px solid var(--d-line);
+}
+.docs-audience-grid article {
+  min-height: 24rem;
+  padding: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--d-line);
+  border-bottom: 1px solid var(--d-line);
+  background: linear-gradient(145deg, rgba(13, 27, 19, 0.42), transparent 48%);
+}
+.docs-audience-grid article > span {
+  color: var(--d-green);
+}
+.docs-audience-grid h3 {
+  margin: 2.8rem 0 0.8rem;
+  font-size: 1.35rem;
+}
+.docs-audience-grid p {
+  margin: 0;
+  color: var(--d-muted);
+  line-height: 1.62;
+}
+.docs-audience-grid ul {
+  margin: auto 0 0;
+  padding: 1.4rem 0 0;
+  display: grid;
+  gap: 0.7rem;
+  border-top: 1px solid var(--d-line);
+  list-style: none;
+}
+.docs-audience-grid li {
+  position: relative;
+  padding-left: 1rem;
+  color: #adb8b1;
+  font-size: 0.82rem;
+}
+.docs-audience-grid li::before {
+  position: absolute;
+  left: 0;
+  color: var(--d-green);
+  content: "•";
+}
+.docs-truth-flow {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.75fr) minmax(25rem, 1.25fr);
+  gap: clamp(3rem, 7vw, 7rem);
+}
+.docs-truth-flow ol {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--d-line);
+  list-style: none;
+}
+.docs-truth-flow li {
+  padding: 1.5rem 0;
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 1rem;
+  border-bottom: 1px solid var(--d-line);
+}
+.docs-truth-flow li > span {
+  color: var(--d-green);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+}
+.docs-truth-flow h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.08rem;
+}
+.docs-truth-flow li p {
+  margin: 0;
+  color: var(--d-muted);
+  line-height: 1.6;
+}
+.docs-scope-note {
+  grid-column: 2;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  border: 1px solid #23342b;
+  background: #080d0a;
+}
+.docs-scope-note svg {
+  color: var(--d-green);
+  flex: 0 0 auto;
+}
+.docs-scope-note p {
+  margin: 0;
+  color: #8f9c94;
+  line-height: 1.6;
+}
+.docs-scope-note strong {
+  color: #cdd6d0;
+}
 .docs-feature-grid {
-  margin-top: 5.5rem;
+  margin-top: 7rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-top: 1px solid var(--d-line);
@@ -368,6 +533,23 @@
   outline-offset: 4px;
 }
 
+@media (max-width: 1100px) {
+  .docs-problem,
+  .docs-truth-flow {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+  .docs-audience-grid {
+    grid-template-columns: 1fr;
+  }
+  .docs-audience-grid article {
+    min-height: 20rem;
+  }
+  .docs-scope-note {
+    grid-column: 1;
+  }
+}
+
 @media (max-width: 800px) {
   .docs-header {
     padding-inline: 1rem;
@@ -401,6 +583,9 @@
   .docs-feature-grid,
   .docs-all-guides {
     grid-template-columns: 1fr;
+  }
+  .docs-audience-grid article {
+    min-height: 21rem;
   }
   .docs-all-guides {
     gap: 2rem;
