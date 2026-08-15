@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   FLOW_FOCUS_PROGRESS,
   createFlowStrands,
+  flowGeometryHeight,
   flowPoint,
   shouldAnimateFlow,
 } from "../components/hero-flow-model";
@@ -98,6 +99,12 @@ describe("PayOps hero flow field", () => {
     expect(focusCenter).toBeLessThan(height * 0.82);
     expect(startSpread).toBeGreaterThan(height * 0.28);
     expect(endSpread).toBeGreaterThan(height * 0.72);
+  });
+
+  it("keeps hero geometry stable while the canvas continues through the facts rail", () => {
+    expect(flowGeometryHeight(900, 120)).toBe(780);
+    expect(flowGeometryHeight(900, -20)).toBe(900);
+    expect(flowGeometryHeight(900, 1_200)).toBe(1);
   });
 
   it("animates only while visible and motion is allowed", () => {

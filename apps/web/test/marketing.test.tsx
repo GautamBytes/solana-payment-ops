@@ -64,6 +64,35 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("API reference");
     expect(markup).toContain('data-hero-flow-field="true"');
     expect(markup).toContain('aria-hidden="true"');
+
+    const stageStart = markup.indexOf('class="hero-stage"');
+    const fieldPosition = markup.indexOf('data-hero-flow-field="true"');
+    const factsPosition = markup.indexOf('class="marketing-proof-rail"');
+
+    expect(stageStart).toBeGreaterThan(-1);
+    expect(fieldPosition).toBeGreaterThan(stageStart);
+    expect(factsPosition).toBeGreaterThan(fieldPosition);
+  });
+
+  it("continues the animated hero field behind the bottom facts area", () => {
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+    const fieldSource = readFileSync(
+      new URL("../components/hero-flow-field.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(css).toContain(".hero-stage");
+    expect(css).toMatch(/\.hero-stage\s*\{[^}]*isolation:\s*isolate/s);
+    expect(css).toMatch(
+      /\.marketing-proof-rail\s*\{[^}]*position:\s*relative[^}]*z-index:\s*1/s,
+    );
+    expect(fieldSource).toContain('querySelector<HTMLElement>(".hero")');
+    expect(fieldSource).toContain(
+      "flowGeometryHeight(stageHeight, railHeight)",
+    );
   });
 
   it("publishes indexable homepage metadata without changing private routes", async () => {

@@ -54,49 +54,51 @@ export function MarketingPage() {
       <MarketingScrollReveal />
       <MarketingHeader />
       <main id="main-content">
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-visual" aria-hidden="true" />
+        <div className="hero-stage">
           <HeroFlowField />
-          <div className="hero-inner">
-            <div className="hero-copy">
-              <p className="signal-pill">
-                <span>Solana payment integrity</span>
-                <strong>USDC + USDT</strong>
-              </p>
-              <h1 id="hero-title">
-                Know exactly which Solana payments got you paid.
-              </h1>
-              <p className="hero-summary">
-                PayOps watches finalized USDC and USDT transfers, matches each
-                one to the right invoice, and preserves proof your product and
-                finance team can trust.
-              </p>
-              <div className="hero-actions">
-                <a className="button" href="#how-it-works">
-                  See how it works <ArrowRight size={18} aria-hidden="true" />
-                </a>
-                <a className="button button-secondary" href="/docs">
-                  Open the docs
-                </a>
+          <section className="hero" aria-labelledby="hero-title">
+            <div className="hero-visual" aria-hidden="true" />
+            <div className="hero-inner">
+              <div className="hero-copy">
+                <p className="signal-pill">
+                  <span>Solana payment integrity</span>
+                  <strong>USDC + USDT</strong>
+                </p>
+                <h1 id="hero-title">
+                  Know exactly which Solana payments got you paid.
+                </h1>
+                <p className="hero-summary">
+                  PayOps watches finalized USDC and USDT transfers, matches each
+                  one to the right invoice, and preserves proof your product and
+                  finance team can trust.
+                </p>
+                <div className="hero-actions">
+                  <a className="button" href="#how-it-works">
+                    See how it works <ArrowRight size={18} aria-hidden="true" />
+                  </a>
+                  <a className="button button-secondary" href="/docs">
+                    Open the docs
+                  </a>
+                </div>
+                <p className="reassurance">
+                  <CheckCircle size={19} weight="fill" aria-hidden="true" />
+                  No custody. No private keys. Read-only by design.
+                </p>
               </div>
-              <p className="reassurance">
-                <CheckCircle size={19} weight="fill" aria-hidden="true" />
-                No custody. No private keys. Read-only by design.
-              </p>
+              <PaymentProof />
             </div>
-            <PaymentProof />
-          </div>
-        </section>
+          </section>
 
-        <section
-          className="marketing-proof-rail"
-          aria-label="PayOps platform facts"
-        >
-          <Metric label="Tokens" value="USDC + USDT" />
-          <Metric label="Chain state" value="Finalized only" />
-          <Metric label="Conformance" value="25 / 25" />
-          <Metric label="Distribution" value="7 npm packages" />
-        </section>
+          <section
+            className="marketing-proof-rail"
+            aria-label="PayOps platform facts"
+          >
+            <Metric label="Tokens" value="USDC + USDT" />
+            <Metric label="Chain state" value="Finalized only" />
+            <Metric label="Conformance" value="25 / 25" />
+            <Metric label="Distribution" value="7 npm packages" />
+          </section>
+        </div>
 
         <section
           className="plain-language marketing-section"

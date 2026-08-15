@@ -149,16 +149,22 @@
   display: none;
 }
 
+.hero-stage {
+  position: relative;
+  isolation: isolate;
+  border-bottom: 1px solid var(--m-line);
+}
+
 .hero {
   position: relative;
+  z-index: 1;
   min-height: 48rem;
   border-bottom: 1px solid var(--m-line);
-  isolation: isolate;
 }
 
 .hero-visual {
   position: absolute;
-  z-index: -3;
+  z-index: -1;
   inset: 0;
   background-image: url("/payops-transaction-flow.png");
   background-position: center right;
@@ -168,7 +174,7 @@
 
 .hero-flow-canvas {
   position: absolute;
-  z-index: -2;
+  z-index: 0;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -211,13 +217,15 @@
 .hero::after {
   content: "";
   position: absolute;
-  z-index: -1;
+  z-index: 0;
   inset: 0;
   background: rgba(5, 7, 6, 0.08);
   pointer-events: none;
 }
 
 .hero-inner {
+  position: relative;
+  z-index: 1;
   width: min(92rem, calc(100% - 3rem));
   min-height: 48rem;
   margin: 0 auto;
@@ -397,11 +405,14 @@
 }
 
 .marketing-proof-rail {
+  position: relative;
+  z-index: 1;
   width: min(92rem, calc(100% - 3rem));
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border-inline: 1px solid var(--m-line);
+  background: rgba(5, 7, 6, 0.24);
 }
 
 .marketing-proof-rail div {

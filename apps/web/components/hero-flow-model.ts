@@ -15,6 +15,17 @@ interface FlowAnimationState {
 
 export const FLOW_FOCUS_PROGRESS = 0.46;
 
+export function flowGeometryHeight(stageHeight: number, railHeight: number) {
+  const safeStageHeight = Number.isFinite(stageHeight)
+    ? Math.max(1, stageHeight)
+    : 1;
+  const safeRailHeight = Number.isFinite(railHeight)
+    ? Math.max(0, railHeight)
+    : 0;
+
+  return Math.max(1, safeStageHeight - safeRailHeight);
+}
+
 function createRandom(seed: number) {
   let value = seed >>> 0;
 

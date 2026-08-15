@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import {
   createFlowStrands,
+  flowGeometryHeight,
   flowPoint,
   shouldAnimateFlow,
 } from "./hero-flow-model";
@@ -21,10 +22,16 @@ function drawFlowField(
 ) {
   const bounds = canvas.getBoundingClientRect();
   const width = Math.max(1, bounds.width);
-  const height = Math.max(1, bounds.height);
+  const stageHeight = Math.max(1, bounds.height);
+  const heroHeight =
+    canvas.parentElement
+      ?.querySelector<HTMLElement>(".hero")
+      ?.getBoundingClientRect().height ?? stageHeight;
+  const railHeight = Math.max(0, stageHeight - heroHeight);
+  const flowHeight = flowGeometryHeight(stageHeight, railHeight);
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   const renderWidth = Math.round(width * pixelRatio);
-  const renderHeight = Math.round(height * pixelRatio);
+  const renderHeight = Math.round(stageHeight * pixelRatio);
 
   if (canvas.width !== renderWidth || canvas.height !== renderHeight) {
     canvas.width = renderWidth;
@@ -32,15 +39,15 @@ function drawFlowField(
   }
 
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  context.clearRect(0, 0, width, height);
+  context.clearRect(0, 0, width, stageHeight);
   context.globalCompositeOperation = "lighter";
 
   const strands = width < 720 ? MOBILE_STRANDS : DESKTOP_STRANDS;
   const gradient = context.createLinearGradient(
     width * 0.08,
-    height * 0.82,
+    flowHeight * 0.82,
     width,
-    height * 0.12,
+    flowHeight * 0.12,
   );
   gradient.addColorStop(0, "#0b7f61");
   gradient.addColorStop(0.42, "#18e299");
@@ -52,7 +59,7 @@ function drawFlowField(
 
     for (let step = 0; step <= FIELD_RESOLUTION; step += 1) {
       const progress = step / FIELD_RESOLUTION;
-      const point = flowPoint(strand, progress, elapsedMs, width, height);
+      const point = flowPoint(strand, progress, elapsedMs, width, flowHeight);
 
       if (step === 0) context.moveTo(point.x, point.y);
       else context.lineTo(point.x, point.y);
@@ -70,7 +77,7 @@ function drawFlowField(
   const particleTail = Math.max(0, particleHead - 0.075);
   const particleGradient = context.createLinearGradient(
     width * particleTail,
-    height,
+    flowHeight,
     width * particleHead,
     0,
   );
@@ -81,7 +88,13 @@ function drawFlowField(
   context.beginPath();
   for (let step = 0; step <= 18; step += 1) {
     const progress = particleTail + (particleHead - particleTail) * (step / 18);
-    const point = flowPoint(particleStrand, progress, elapsedMs, width, height);
+    const point = flowPoint(
+      particleStrand,
+      progress,
+      elapsedMs,
+      width,
+      flowHeight,
+    );
 
     if (step === 0) context.moveTo(point.x, point.y);
     else context.lineTo(point.x, point.y);
