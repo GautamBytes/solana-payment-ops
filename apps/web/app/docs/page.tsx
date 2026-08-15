@@ -87,6 +87,11 @@ const truthFlow = [
   },
 ] as const;
 
+const totalReadingMinutes = docPages.reduce(
+  (total, page) => total + Number.parseInt(page.readingTime, 10),
+  0,
+);
+
 export default function DocsPage() {
   return (
     <DocsShell>
@@ -212,18 +217,58 @@ export default function DocsPage() {
           );
         })}
       </section>
-      <section className="docs-all-guides">
-        <div>
-          <p className="docs-kicker">All guides</p>
-          <h2>From first transfer to production operations.</h2>
+      <section
+        className="docs-guide-overview"
+        aria-labelledby="docs-guide-overview-title"
+      >
+        <div className="docs-guide-overview-intro">
+          <p className="docs-kicker">Documentation path</p>
+          <h2 id="docs-guide-overview-title">
+            From first transfer to production operations.
+          </h2>
+          <p>
+            Start with the working path, then go deeper into architecture,
+            events, security, package boundaries, and the API surface as your
+            integration grows.
+          </p>
+          <dl className="docs-guide-metrics">
+            <div>
+              <dt>Guides</dt>
+              <dd>{docPages.length} guides</dd>
+            </div>
+            <div>
+              <dt>Reading time</dt>
+              <dd>{totalReadingMinutes} min total</dd>
+            </div>
+            <div>
+              <dt>Contract</dt>
+              <dd>v0.1 stable</dd>
+            </div>
+          </dl>
         </div>
-        <div>
+        <div className="docs-guide-path">
           {docPages.map((page, index) => (
-            <a href={`/docs/${page.slug}`} key={page.slug}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <strong>{page.label}</strong>
-              <small>{page.readingTime}</small>
-              <ArrowRight size={17} aria-hidden="true" />
+            <a
+              className={
+                index === 0
+                  ? "docs-guide-card docs-guide-card-featured"
+                  : "docs-guide-card"
+              }
+              href={`/docs/${page.slug}`}
+              key={page.slug}
+            >
+              <div className="docs-guide-card-top">
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <small>{index === 0 ? "Start here" : "Guide"}</small>
+              </div>
+              <h3>{page.label}</h3>
+              <p>{page.summary}</p>
+              <footer>
+                <small>{page.readingTime} read</small>
+                <span>
+                  Open guide <ArrowRight size={17} aria-hidden="true" />
+                </span>
+              </footer>
             </a>
           ))}
         </div>

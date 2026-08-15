@@ -33,6 +33,13 @@ describe("PayOps website documentation", () => {
     expect(markup).toContain("Product and backend teams");
     expect(markup).toContain("Infrastructure and operations teams");
     expect(markup).toContain("How payment truth moves through PayOps");
+    expect(markup).toContain('class="docs-guide-overview"');
+    expect(markup).toContain(
+      'class="docs-guide-card docs-guide-card-featured"',
+    );
+    expect(markup).toContain("Start here");
+    expect(markup).toContain("7 guides");
+    expect(markup).toContain("79 min total");
     expect(markup).toContain('class="payops-brand-seal"');
     expect(markup).not.toContain('src="/icon.svg"');
     expect(markup).not.toContain(
@@ -90,6 +97,10 @@ describe("PayOps website documentation", () => {
     expect(markup).toContain("npm install @payops/core");
     expect(markup).toContain("Verify before parsing");
     expect(markup).toContain("Choose the path that fits your team");
+    expect(markup).toContain('class="doc-at-a-glance"');
+    expect(markup).toContain('class="doc-section-index"');
+    expect(markup).toContain('class="doc-section-content"');
+    expect(markup).toContain("On this page");
     expect(markup).toContain("Previous");
     expect(markup).toContain("Next");
   });

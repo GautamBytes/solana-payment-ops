@@ -81,29 +81,59 @@ export function DocArticle({ page }: { readonly page: DocPage }) {
         <p className="docs-kicker">{page.label}</p>
         <h1>{page.title}</h1>
         <p>{page.summary}</p>
-        <span>{page.readingTime} read</span>
+        <div className="doc-article-meta">
+          <span>
+            Guide {index + 1} of {docPages.length}
+          </span>
+          <span>{page.readingTime} read</span>
+          <span>v0.1 stable</span>
+        </div>
       </header>
+      <nav className="doc-at-a-glance" aria-label="On this page">
+        <div>
+          <small>On this page</small>
+          <strong>{page.sections.length} focused sections</strong>
+        </div>
+        <ol>
+          {page.sections.map((section, sectionIndex) => (
+            <li key={section.title}>
+              <a href={`#${section.title.toLowerCase().replaceAll(" ", "-")}`}>
+                <span>{String(sectionIndex + 1).padStart(2, "0")}</span>
+                {section.title}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
       <div className="doc-article-body">
-        {page.sections.map((section) => (
+        {page.sections.map((section, sectionIndex) => (
           <section
             key={section.title}
             id={section.title.toLowerCase().replaceAll(" ", "-")}
           >
-            <h2>{section.title}</h2>
-            {section.body.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-            {section.code ? (
-              <pre>
-                <code>{section.code}</code>
-              </pre>
-            ) : null}
-            {section.callout ? (
-              <aside className="doc-callout">
-                <CheckCircle size={20} weight="fill" aria-hidden="true" />
-                <p>{section.callout}</p>
-              </aside>
-            ) : null}
+            <span className="doc-section-index">
+              {String(sectionIndex + 1).padStart(2, "0")}
+            </span>
+            <div className="doc-section-content">
+              <h2>{section.title}</h2>
+              {section.body.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              {section.code ? (
+                <div className="doc-code-block">
+                  <span>Example</span>
+                  <pre>
+                    <code>{section.code}</code>
+                  </pre>
+                </div>
+              ) : null}
+              {section.callout ? (
+                <aside className="doc-callout">
+                  <CheckCircle size={20} weight="fill" aria-hidden="true" />
+                  <p>{section.callout}</p>
+                </aside>
+              ) : null}
+            </div>
           </section>
         ))}
       </div>
