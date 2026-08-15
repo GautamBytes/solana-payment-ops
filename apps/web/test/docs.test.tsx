@@ -33,6 +33,8 @@ describe("PayOps website documentation", () => {
     expect(markup).toContain("Product and backend teams");
     expect(markup).toContain("Infrastructure and operations teams");
     expect(markup).toContain("How payment truth moves through PayOps");
+    expect(markup).toContain('class="payops-brand-seal"');
+    expect(markup).not.toContain('src="/icon.svg"');
     expect(markup).not.toContain(
       "github.com/GautamBytes/solana-payment-ops/tree",
     );

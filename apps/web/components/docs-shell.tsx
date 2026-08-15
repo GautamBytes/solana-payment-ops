@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CheckCircle,
   GithubLogo,
+  SealCheck,
 } from "@phosphor-icons/react/ssr";
 import type { ReactNode } from "react";
 import { docPages, type DocPage } from "./docs-content";
@@ -22,7 +23,9 @@ export function DocsShell({
       </a>
       <header className="docs-header">
         <a className="docs-brand" href="/" aria-label="PayOps home">
-          <img src="/icon.svg" width="32" height="32" alt="" />
+          <span className="payops-brand-seal" aria-hidden="true">
+            <SealCheck size={32} weight="fill" />
+          </span>
           <span>PayOps</span>
           <em>Docs</em>
         </a>

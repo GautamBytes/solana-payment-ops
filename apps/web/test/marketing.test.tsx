@@ -139,7 +139,9 @@ describe("PayOps marketing homepage", () => {
     );
 
     expect(markup).toContain('class="marketing-brand-copy"');
-    expect(markup).toContain("Solana payments");
+    expect(markup).toContain("Verified Solana payments");
+    expect(markup).toContain('class="payops-brand-seal"');
+    expect(markup).not.toContain('src="/icon.svg"');
     expect(markup).toContain('class="header-cta-icon"');
     expect(css).toMatch(
       /\.marketing-header\s*\{[^}]*position:\s*sticky[^}]*backdrop-filter:\s*blur\(18px\)/s,
@@ -213,6 +215,17 @@ describe("PayOps marketing homepage", () => {
     expect(markup).not.toContain("review—never");
     expect(css).toMatch(
       /\.exception-note\s*\{[^}]*border:\s*1px solid rgba\(22, 229, 162,[^}]*background:\s*rgba\(7, 24, 17,/s,
+    );
+  });
+
+  it("uses the PayOps emerald palette for selected text", () => {
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /\.marketing ::selection,\s*\.docs-site ::selection\s*\{[^}]*color:\s*#03120c;[^}]*background:\s*rgba\(22, 229, 162, 0\.92\);/s,
     );
   });
 

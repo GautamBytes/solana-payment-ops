@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, List, X } from "@phosphor-icons/react";
+import { ArrowUpRight, List, SealCheck, X } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { marketingDestinations } from "./marketing-destinations";
@@ -19,10 +19,12 @@ export function MarketingHeader() {
     <header className="marketing-header">
       <div className="marketing-header-inner">
         <a className="marketing-brand" href="#top" aria-label="PayOps home">
-          <img src="/icon.svg" width="34" height="34" alt="" />
+          <span className="payops-brand-seal" aria-hidden="true">
+            <SealCheck size={34} weight="fill" />
+          </span>
           <span className="marketing-brand-copy">
             <strong>PayOps</strong>
-            <small>Solana payments</small>
+            <small>Verified Solana payments</small>
           </span>
         </a>
 

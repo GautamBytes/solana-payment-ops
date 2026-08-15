@@ -15,6 +15,12 @@
   font-family: "Archivo Variable", Arial, sans-serif;
 }
 
+.marketing ::selection,
+.docs-site ::selection {
+  color: #03120c;
+  background: rgba(22, 229, 162, 0.92);
+}
+
 .marketing main {
   position: relative;
   background:
@@ -83,32 +89,30 @@
 .marketing-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.72rem;
-  min-width: 11.5rem;
+  gap: 0.6rem;
+  min-width: 12.5rem;
 }
 
-.marketing-brand img,
-.footer-brand img,
-.mini-brand img {
-  border-radius: 0.45rem;
-}
-
-.marketing-brand img {
-  width: 2.25rem;
-  height: 2.25rem;
-  box-shadow:
-    0 0 0 1px rgba(178, 255, 82, 0.08),
-    0 0 1.4rem rgba(22, 229, 162, 0.12);
+.payops-brand-seal {
+  width: 2.3rem;
+  height: 2.3rem;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--m-green);
+  filter: drop-shadow(0 0 0.75rem rgba(22, 229, 162, 0.2));
   transition:
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 180ms ease;
+    filter 180ms ease;
 }
 
-.marketing-brand:hover img {
-  transform: translateY(-1px) rotate(-2deg);
-  box-shadow:
-    0 0 0 1px rgba(178, 255, 82, 0.18),
-    0 0 1.7rem rgba(22, 229, 162, 0.2);
+.payops-brand-seal svg {
+  display: block;
+}
+
+.marketing-brand:hover .payops-brand-seal {
+  transform: translateY(-1px) rotate(-3deg);
+  filter: drop-shadow(0 0 1rem rgba(22, 229, 162, 0.34));
 }
 
 .marketing-brand-copy {
@@ -126,9 +130,9 @@
 .marketing-brand-copy small {
   color: #78877f;
   font-family: "IBM Plex Mono", monospace;
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   font-weight: 500;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.075em;
   text-transform: uppercase;
 }
 
@@ -790,7 +794,11 @@
   align-items: center;
   gap: 0.55rem;
 }
-.mini-brand span {
+.mini-brand .payops-brand-seal {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+.mini-brand-context {
   padding-left: 0.55rem;
   border-left: 1px solid #34413a;
   color: #7d8982;
@@ -1090,11 +1098,22 @@
 .footer-brand {
   max-width: 18rem;
 }
+.footer-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.footer-brand-lockup .payops-brand-seal {
+  width: 2rem;
+  height: 2rem;
+}
 .footer-brand strong {
-  margin-left: 0.6rem;
+  margin: 0;
   color: var(--m-text);
   font-size: 1.05rem;
-  vertical-align: 0.6rem;
+}
+.footer-brand p {
+  margin-top: 0.8rem;
 }
 .marketing-footer p {
   line-height: 1.55;

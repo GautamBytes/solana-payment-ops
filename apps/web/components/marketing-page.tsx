@@ -7,6 +7,7 @@ import {
   FileText,
   GithubLogo,
   LockKey,
+  SealCheck,
   ShieldCheck,
   Storefront,
   WebhooksLogo,
@@ -194,9 +195,11 @@ export function MarketingPage() {
             >
               <aside>
                 <div className="mini-brand">
-                  <img src="/icon.svg" width="26" height="26" alt="" />
+                  <span className="payops-brand-seal" aria-hidden="true">
+                    <SealCheck size={26} weight="fill" />
+                  </span>
                   <strong>PayOps</strong>
-                  <span>Docs</span>
+                  <span className="mini-brand-context">Docs</span>
                 </div>
                 <p>Get started</p>
                 {guideCards.map((guide, index) => (
@@ -465,9 +468,13 @@ function MarketingFooter() {
   return (
     <footer className="marketing-footer" data-scroll-reveal="true">
       <div className="footer-brand">
-        <img src="/icon.svg" width="32" height="32" alt="" />
-        <strong>PayOps</strong>
-        <p>Payment integrity for Solana commerce.</p>
+        <div className="footer-brand-lockup">
+          <span className="payops-brand-seal" aria-hidden="true">
+            <SealCheck size={32} weight="fill" />
+          </span>
+          <strong>PayOps</strong>
+        </div>
+        <p>Verified payment integrity for Solana commerce.</p>
       </div>
       <div>
         <strong>Product</strong>

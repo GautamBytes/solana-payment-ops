@@ -38,8 +38,17 @@
   gap: 0.65rem;
   font-weight: 700;
 }
-.docs-brand img {
-  border-radius: 0.4rem;
+.docs-brand .payops-brand-seal {
+  width: 2rem;
+  height: 2rem;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--d-green);
+  filter: drop-shadow(0 0 0.65rem rgba(22, 229, 162, 0.18));
+}
+.docs-brand .payops-brand-seal svg {
+  display: block;
 }
 .docs-brand em {
   padding-left: 0.65rem;
