@@ -26,11 +26,11 @@ export function renderAuditHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Grant-safe merchant shadow audit</title>
+<title>Redacted merchant shadow audit</title>
 <style>body{font-family:system-ui,sans-serif;max-width:72rem;margin:2rem auto;padding:0 1rem;color:#172033}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd3dd;padding:.5rem;text-align:left}code{overflow-wrap:anywhere}</style>
 </head>
 <body>
-<h1>Grant-safe merchant shadow audit</h1>
+<h1>Redacted merchant shadow audit</h1>
 <p>Run <code>${escapeHtml(report.runId)}</code>, generated ${escapeHtml(report.generatedAt)}.</p>
 <h2>Totals</h2>
 <ul>
