@@ -4,6 +4,7 @@ import "../styles/tokens.css";
 import "../styles/checkout.css";
 import "../styles/operations.css";
 import "../styles/marketing.css";
+import "../styles/docs.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 

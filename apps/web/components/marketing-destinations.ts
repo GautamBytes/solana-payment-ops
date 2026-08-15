@@ -1,7 +1,11 @@
 const githubUrl = "https://github.com/GautamBytes/solana-payment-ops";
 
 export const marketingDestinations = {
-  docsUrl: `${githubUrl}/tree/main/docs/open-core`,
+  docsUrl: "/docs",
+  integrationUrl: "/docs/integration",
+  packagesUrl: "/docs/packages",
+  securityUrl: "/docs/security",
+  apiUrl: "/docs/api",
   githubUrl,
   talkUrl:
     `${githubUrl}/issues/new?title=Question%20about%20PayOps&body=` +

@@ -7,9 +7,9 @@ import { marketingDestinations } from "./marketing-destinations";
 
 const links = [
   { href: "#how-it-works", label: "How it works" },
-  { href: "#merchants", label: "For merchants" },
-  { href: "#developers", label: "For developers" },
-  { href: "#trust", label: "Security" },
+  { href: "#merchants", label: "Solutions" },
+  { href: "/docs", label: "Documentation" },
+  { href: "/docs/packages", label: "Packages" },
 ] as const;
 
 export function MarketingHeader() {
@@ -29,7 +29,6 @@ export function MarketingHeader() {
               {link.label}
             </a>
           ))}
-          <a href={marketingDestinations.docsUrl}>Docs</a>
           <a href={marketingDestinations.githubUrl}>GitHub</a>
         </nav>
 
@@ -67,9 +66,6 @@ export function MarketingHeader() {
             {link.label}
           </a>
         ))}
-        <a href={marketingDestinations.docsUrl} onClick={() => setOpen(false)}>
-          Docs
-        </a>
         <a
           href={marketingDestinations.githubUrl}
           onClick={() => setOpen(false)}

@@ -1,16 +1,12 @@
 import {
   ArrowRight,
   ArrowsClockwise,
-  BracketsCurly,
   Check,
   CheckCircle,
   Code,
-  Cube,
   FileText,
-  GitBranch,
+  GithubLogo,
   LockKey,
-  Package,
-  Receipt,
   ShieldCheck,
   Storefront,
   Warning,
@@ -20,10 +16,32 @@ import { marketingDestinations } from "./marketing-destinations";
 import { MarketingHeader } from "./marketing-header";
 import { SdkCopy } from "./sdk-copy";
 
-const checkoutUrl =
-  "https://github.com/GautamBytes/solana-payment-ops/tree/main/apps/web";
-const sdkUrl =
-  "https://github.com/GautamBytes/solana-payment-ops/tree/main/packages/sdk";
+const guideCards = [
+  {
+    href: "/docs/quickstart",
+    index: "01",
+    title: "Quickstart",
+    detail: "Reconcile your first finalized transfer in five minutes.",
+  },
+  {
+    href: "/docs/architecture",
+    index: "02",
+    title: "Architecture",
+    detail: "See how payment facts become replayable evidence.",
+  },
+  {
+    href: "/docs/lifecycle",
+    index: "03",
+    title: "Lifecycle events",
+    detail: "Consume signed, versioned invoice and exception events.",
+  },
+  {
+    href: "/docs/api",
+    index: "04",
+    title: "API reference",
+    detail: "Build merchant workflows against typed HTTP endpoints.",
+  },
+] as const;
 
 export function MarketingPage() {
   return (
@@ -32,98 +50,57 @@ export function MarketingPage() {
         Skip to content
       </a>
       <MarketingHeader />
-
       <main id="main-content">
-        <section
-          className="hero marketing-section"
-          aria-labelledby="hero-title"
-        >
-          <div className="hero-copy">
-            <p className="eyebrow">Solana payment reconciliation</p>
-            <h1 id="hero-title">Turn Solana payments into paid invoices.</h1>
-            <p className="hero-summary">
-              PayOps watches finalized USDC and USDT transfers, verifies every
-              payment, matches it to the right invoice, and gives your team
-              accounting-ready proof.
-            </p>
-            <div className="hero-actions">
-              <a className="button" href="#how-it-works">
-                See how it works <ArrowRight size={18} aria-hidden="true" />
-              </a>
-              <a
-                className="button button-secondary"
-                href={marketingDestinations.pilotUrl}
-              >
-                Start a read-only pilot
-              </a>
+        <section className="hero" aria-labelledby="hero-title">
+          <div className="hero-visual" aria-hidden="true" />
+          <div className="hero-inner">
+            <div className="hero-copy">
+              <p className="signal-pill">
+                <span>Solana payment integrity</span>
+                <strong>USDC + USDT</strong>
+              </p>
+              <h1 id="hero-title">
+                Know exactly which Solana payments got you paid.
+              </h1>
+              <p className="hero-summary">
+                PayOps watches finalized USDC and USDT transfers, matches each
+                one to the right invoice, and preserves proof your product and
+                finance team can trust.
+              </p>
+              <div className="hero-actions">
+                <a className="button" href="#how-it-works">
+                  See how it works <ArrowRight size={18} aria-hidden="true" />
+                </a>
+                <a className="button button-secondary" href="/docs">
+                  Open the docs
+                </a>
+              </div>
+              <p className="reassurance">
+                <CheckCircle size={19} weight="fill" aria-hidden="true" />
+                No custody. No private keys. Read-only by design.
+              </p>
             </div>
-            <p className="reassurance">
-              <CheckCircle size={19} weight="fill" aria-hidden="true" />
-              No custody. No private keys. Read-only by design.
-            </p>
+            <PaymentProof />
           </div>
-
-          <article
-            className="proof-panel"
-            aria-label="Example reconciled invoice"
-          >
-            <header className="proof-panel-header">
-              <div>
-                <span>Invoice</span>
-                <strong>INV-0421</strong>
-              </div>
-              <span className="proof-status">
-                <CheckCircle size={17} weight="fill" aria-hidden="true" />
-                Matched with proof
-              </span>
-            </header>
-            <ol className="proof-steps">
-              <ProofStep
-                label="Customer sent 1,250 USDC"
-                detail="1,250.00 USDC"
-              />
-              <ProofStep
-                label="Payment finalized on Solana"
-                detail="Finalized 09:38 UTC"
-              />
-              <ProofStep
-                label="Exact amount and recipient verified"
-                detail="USDC on Solana"
-              />
-              <ProofStep
-                label="Invoice INV-0421 automatically marked paid"
-                detail="Paid 09:41 UTC"
-              />
-            </ol>
-            <footer className="proof-panel-footer">
-              <div>
-                <span>Transaction signature</span>
-                <code>5zXk...yQ3e</code>
-              </div>
-              <a href={marketingDestinations.githubUrl}>
-                View evidence <ArrowRight size={16} aria-hidden="true" />
-              </a>
-            </footer>
-          </article>
         </section>
 
-        <section className="trust-strip" aria-label="PayOps platform facts">
-          <TrustItem
-            icon={<Receipt />}
-            title="USDC + USDT"
-            detail="on Solana Mainnet"
-          />
-          <TrustItem
-            icon={<ShieldCheck />}
-            title="Finalized"
-            detail="payments only"
-          />
-          <TrustItem
-            icon={<BracketsCurly />}
-            title="Apache-2.0"
-            detail="open source"
-          />
-          <TrustItem icon={<Package />} title="7 npm" detail="packages" />
+        <section
+          className="marketing-proof-rail"
+          aria-label="PayOps platform facts"
+        >
+          <Metric label="Tokens" value="USDC + USDT" />
+          <Metric label="Chain state" value="Finalized only" />
+          <Metric label="Conformance" value="25 / 25" />
+          <Metric label="Distribution" value="7 npm packages" />
+        </section>
+
+        <section className="plain-language marketing-section">
+          <p className="eyebrow">The job PayOps does</p>
+          <p>
+            Your customer sends stablecoins. PayOps proves what arrived,
+            identifies the invoice it belongs to, and gives every downstream
+            system the same answer.
+          </p>
         </section>
 
         <section
@@ -132,30 +109,106 @@ export function MarketingPage() {
           aria-labelledby="process-title"
         >
           <div className="section-heading">
-            <p className="eyebrow">From payment to proof</p>
+            <p className="eyebrow">From transfer to trusted record</p>
             <h2 id="process-title">What happens after your customer pays?</h2>
+            <p>
+              Four explicit stages turn a Solana transfer into an accounting
+              decision without hiding uncertainty.
+            </p>
           </div>
           <ol className="process-grid">
-            <ProcessStep number="1" title="Detect">
-              PayOps watches your settlement wallet.
+            <ProcessStep number="01" title="Detect">
+              Watch the settlement wallet for finalized USDC and USDT.
             </ProcessStep>
-            <ProcessStep number="2" title="Verify">
-              It checks finality, token, recipient, amount, and invoice
-              reference.
+            <ProcessStep number="02" title="Verify">
+              Check token, recipient, amount, reference, and finality.
             </ProcessStep>
-            <ProcessStep number="3" title="Match">
-              The correct invoice is closed automatically.
+            <ProcessStep number="03" title="Match">
+              Close only the invoice that exactly matches those facts.
             </ProcessStep>
-            <ProcessStep number="4" title="Prove">
-              Your team receives signed events and exportable evidence.
+            <ProcessStep number="04" title="Prove">
+              Store replayable evidence and deliver a signed lifecycle event.
             </ProcessStep>
           </ol>
           <div className="exception-note">
-            <Warning size={21} weight="fill" aria-hidden="true" />
+            <Warning size={22} weight="fill" aria-hidden="true" />
             <p>
               If anything is unclear, it goes to review—never falsely marked
               paid.
             </p>
+          </div>
+        </section>
+
+        <section className="docs-showcase marketing-section" id="developers">
+          <div className="docs-showcase-copy">
+            <p className="eyebrow">Documentation built into the product site</p>
+            <h2>Understand the system before you integrate it.</h2>
+            <p>
+              Learn the data flow, event contract, security boundaries,
+              packages, and API without jumping between repository files.
+            </p>
+            <a className="button" href="/docs">
+              Open the docs <ArrowRight size={18} aria-hidden="true" />
+            </a>
+          </div>
+          <div
+            className="docs-window"
+            aria-label="PayOps documentation preview"
+          >
+            <aside>
+              <div className="mini-brand">
+                <img src="/icon.svg" width="26" height="26" alt="" />
+                <strong>PayOps</strong>
+                <span>Docs</span>
+              </div>
+              <p>Get started</p>
+              {guideCards.map((guide, index) => (
+                <a
+                  className={index === 0 ? "active" : undefined}
+                  href={guide.href}
+                  key={guide.href}
+                >
+                  {guide.title}
+                </a>
+              ))}
+              <a href="/docs/security">Security</a>
+              <a href="/docs/packages">Packages</a>
+            </aside>
+            <div className="docs-window-main">
+              <p className="window-tabs">
+                <span>Guide</span>
+                <span>API</span>
+                <span>Packages</span>
+              </p>
+              <small>Getting started</small>
+              <h3>Start reconciling Solana payments</h3>
+              <p>
+                Install the SDK, define an invoice, and turn a finalized
+                transfer into a deterministic decision.
+              </p>
+              <code>npm install @payops/sdk</code>
+              <div className="window-checks">
+                <span>
+                  <Check size={15} /> Verify finality
+                </span>
+                <span>
+                  <Check size={15} /> Match exact amount
+                </span>
+                <span>
+                  <Check size={15} /> Save evidence
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="guide-grid">
+            {guideCards.map((guide) => (
+              <a href={guide.href} key={guide.href}>
+                <span>{guide.index}</span>
+                <h3>{guide.title}</h3>
+                <p>{guide.detail}</p>
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
+            ))}
           </div>
         </section>
 
@@ -164,48 +217,36 @@ export function MarketingPage() {
           aria-labelledby="paths-title"
         >
           <div className="section-heading">
-            <p className="eyebrow">Choose your path</p>
-            <h2 id="paths-title">One product. Two ways to use it.</h2>
+            <p className="eyebrow">Use PayOps at your boundary</p>
+            <h2 id="paths-title">One payment truth. Two teams unblocked.</h2>
           </div>
           <div className="path-grid">
             <article className="path" id="merchants">
-              <Storefront size={40} aria-hidden="true" />
-              <div>
-                <p className="path-label">For merchants</p>
-                <h3>
-                  Accept stablecoin invoices and reconcile them automatically.
-                </h3>
-                <p>
-                  See what happened, close the right invoice, and send clean
-                  evidence to finance.
-                </p>
-                <div className="path-actions">
-                  <a className="button" href={marketingDestinations.pilotUrl}>
-                    Run a shadow audit
-                  </a>
-                  <a className="text-link" href={checkoutUrl}>
-                    View checkout <ArrowRight size={16} aria-hidden="true" />
-                  </a>
-                </div>
-              </div>
+              <Storefront size={34} aria-hidden="true" />
+              <p className="path-label">For merchants</p>
+              <h3>Stop reconciling stablecoin invoices by hand.</h3>
+              <p>
+                Know which invoices are paid, which transfers need review, and
+                what evidence belongs in finance.
+              </p>
+              <a href={marketingDestinations.pilotUrl}>
+                Start a read-only pilot{" "}
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
             </article>
-            <article className="path" id="developers">
-              <Code size={42} aria-hidden="true" />
-              <div>
-                <p className="path-label">For developers</p>
-                <h3>
-                  Add deterministic Solana payment verification to your product.
-                </h3>
-                <p>
-                  Build on typed contracts, signed lifecycle events, and a
-                  replayable conformance corpus.
-                </p>
-                <div className="path-actions developer-actions">
-                  <a className="button" href={sdkUrl}>
-                    Explore the SDK
-                  </a>
-                  <SdkCopy />
-                </div>
+            <article className="path">
+              <Code size={36} aria-hidden="true" />
+              <p className="path-label">For developers</p>
+              <h3>Add deterministic payment state to your product.</h3>
+              <p>
+                Build on typed contracts, signed events, replayable fixtures,
+                and explicit exceptions.
+              </p>
+              <div className="developer-actions">
+                <a href={marketingDestinations.integrationUrl}>
+                  Integration guide <ArrowRight size={17} aria-hidden="true" />
+                </a>
+                <SdkCopy />
               </div>
             </article>
           </div>
@@ -217,33 +258,34 @@ export function MarketingPage() {
           aria-labelledby="trust-title"
         >
           <div className="section-heading">
-            <p className="eyebrow">Clear boundaries, reproducible results</p>
+            <p className="eyebrow">Inspect the boundaries</p>
             <h2 id="trust-title">Why teams trust PayOps</h2>
           </div>
           <div className="trust-grid">
             <ProofPoint icon={<ArrowsClockwise />} title="Deterministic">
-              Same transaction, same result.
+              Same canonical transfer and invoice, same result.
             </ProofPoint>
             <ProofPoint icon={<LockKey />} title="Non-custodial">
-              PayOps never signs or moves funds.
+              PayOps never signs transactions or moves funds.
             </ProofPoint>
             <ProofPoint icon={<FileText />} title="Auditable">
-              Every decision includes replayable evidence.
+              Every payment decision preserves replayable evidence.
             </ProofPoint>
           </div>
           <div className="evidence-strip">
             <span>
-              <CheckCircle size={20} weight="fill" aria-hidden="true" /> 25 / 25
-              conformance
+              <CheckCircle size={20} weight="fill" /> 25 / 25 conformance
             </span>
             <span>
-              <WebhooksLogo size={21} aria-hidden="true" /> Signed webhooks
-              delivered
+              <WebhooksLogo size={21} /> Exact-byte signed webhooks
             </span>
             <span>
-              <GitBranch size={21} aria-hidden="true" /> Open evidence contract
+              <ShieldCheck size={21} /> Fail-closed exceptions
             </span>
           </div>
+          <a className="trust-link" href={marketingDestinations.securityUrl}>
+            Read the security model <ArrowRight size={17} aria-hidden="true" />
+          </a>
         </section>
 
         <section
@@ -252,13 +294,13 @@ export function MarketingPage() {
           aria-labelledby="pilot-title"
         >
           <div>
-            <p className="eyebrow">Read-only merchant pilot</p>
+            <p className="eyebrow">Start with evidence, not a migration</p>
             <h2 id="pilot-title">
               See what PayOps finds in your payment flow.
             </h2>
             <p>
-              Run a shadow audit on historical Solana payments. No changes to
-              your checkout or funds.
+              Run a read-only shadow audit on historical Solana payments. No
+              checkout changes. No signing authority. No funds moved.
             </p>
           </div>
           <div className="pilot-actions">
@@ -269,14 +311,43 @@ export function MarketingPage() {
               className="button button-secondary"
               href={marketingDestinations.talkUrl}
             >
-              Talk to us
+              Ask a question
             </a>
           </div>
         </section>
       </main>
-
       <MarketingFooter />
     </div>
+  );
+}
+
+function PaymentProof() {
+  return (
+    <article className="proof-panel" aria-label="Example reconciled invoice">
+      <header>
+        <span>Payment decision</span>
+        <strong>
+          <CheckCircle size={17} weight="fill" /> Matched
+        </strong>
+      </header>
+      <div className="proof-invoice">
+        <p>Invoice</p>
+        <h2>INV-0421</h2>
+        <span>1,250.00 USDC</span>
+      </div>
+      <ol>
+        <ProofStep label="Transfer finalized" detail="09:38:12 UTC" />
+        <ProofStep label="Mint and recipient verified" detail="USDC · Solana" />
+        <ProofStep label="Exact amount matched" detail="1,250.00" />
+        <ProofStep label="Evidence persisted" detail="evt_8b31…e2" />
+      </ol>
+      <footer>
+        <span>Signed lifecycle event ready</span>
+        <a href="/docs/lifecycle">
+          Inspect event <ArrowRight size={15} />
+        </a>
+      </footer>
+    </article>
   );
 }
 
@@ -289,35 +360,26 @@ function ProofStep({
 }) {
   return (
     <li>
-      <span className="proof-check">
-        <Check size={15} weight="bold" aria-hidden="true" />
+      <span>
+        <Check size={14} weight="bold" aria-hidden="true" />
       </span>
-      <div>
-        <strong>{label}</strong>
-        <span>{detail}</span>
-      </div>
+      <strong>{label}</strong>
+      <small>{detail}</small>
     </li>
   );
 }
 
-function TrustItem({
-  icon,
-  title,
-  detail,
+function Metric({
+  label,
+  value,
 }: {
-  readonly icon: React.ReactNode;
-  readonly title: string;
-  readonly detail: string;
+  readonly label: string;
+  readonly value: string;
 }) {
   return (
-    <div className="trust-item">
-      <span className="trust-icon" aria-hidden="true">
-        {icon}
-      </span>
-      <div>
-        <strong>{title}</strong>
-        <span>{detail}</span>
-      </div>
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -333,7 +395,7 @@ function ProcessStep({
 }) {
   return (
     <li>
-      <span className="process-number">{number}</span>
+      <span>{number}</span>
       <h3>{title}</h3>
       <p>{children}</p>
     </li>
@@ -351,11 +413,9 @@ function ProofPoint({
 }) {
   return (
     <article className="proof-point">
-      <span aria-hidden="true">{icon}</span>
-      <div>
-        <h3>{title}</h3>
-        <p>{children}</p>
-      </div>
+      <span>{icon}</span>
+      <h3>{title}</h3>
+      <p>{children}</p>
     </article>
   );
 }
@@ -375,20 +435,19 @@ function MarketingFooter() {
         <a href="#developers">For developers</a>
       </div>
       <div>
-        <strong>Developers</strong>
-        <a href={sdkUrl}>SDK</a>
-        <a href={marketingDestinations.docsUrl}>Docs</a>
-        <a href={marketingDestinations.githubUrl}>GitHub</a>
+        <strong>Documentation</strong>
+        <a href="/docs/quickstart">Quickstart</a>
+        <a href="/docs/integration">Integration</a>
+        <a href="/docs/api">API reference</a>
+        <a href="/docs/packages">Packages</a>
       </div>
       <div>
         <strong>Trust</strong>
-        <a href={marketingDestinations.githubUrl + "/blob/main/SECURITY.md"}>
-          Security
+        <a href="/docs/security">Security</a>
+        <a href="/docs/architecture">Architecture</a>
+        <a href={marketingDestinations.githubUrl}>
+          <GithubLogo size={16} /> GitHub
         </a>
-        <a href={marketingDestinations.githubUrl + "/blob/main/LICENSE"}>
-          Apache-2.0
-        </a>
-        <a href={marketingDestinations.githubUrl + "/actions"}>Build status</a>
       </div>
       <p className="footer-note">
         © 2026 PayOps. Open infrastructure for verifiable Solana payments.

@@ -10,7 +10,9 @@ describe("PayOps marketing homepage", () => {
     const { default: HomePage } = await import("../app/page");
     const markup = renderToStaticMarkup(createElement(HomePage));
 
-    expect(markup).toContain("Turn Solana payments into paid invoices.");
+    expect(markup).toContain(
+      "Know exactly which Solana payments got you paid.",
+    );
     expect(markup).toContain("watches finalized USDC and USDT transfers");
     expect(markup).toContain("No custody. No private keys.");
     expect(markup).toContain("What happens after your customer pays?");
@@ -26,7 +28,7 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("npm install @payops/sdk");
   });
 
-  it("uses real section, repository, documentation, and pilot destinations", async () => {
+  it("keeps product education on the website and reserves GitHub for source", async () => {
     const { default: HomePage } = await import("../app/page");
     const markup = renderToStaticMarkup(createElement(HomePage));
 
@@ -36,14 +38,30 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain(
       'href="https://github.com/GautamBytes/solana-payment-ops"',
     );
-    expect(markup).toContain(
-      'href="https://github.com/GautamBytes/solana-payment-ops/tree/main/docs/open-core"',
-    );
+    expect(markup).toContain('href="/docs"');
+    expect(markup).toContain('href="/docs/integration"');
+    expect(markup).toContain('href="/docs/packages"');
+    expect(markup).toContain('href="/docs/security"');
+    expect(markup).not.toContain("/tree/main/docs/");
     expect(markup).toContain(
       'href="https://github.com/GautamBytes/solana-payment-ops/issues/new',
     );
     expect(markup).toContain("title=Question%20about%20PayOps");
     expect(markup).not.toContain("/discussions");
+  });
+
+  it("uses the approved plain-language hero and documentation preview", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+
+    expect(markup).toContain(
+      "Know exactly which Solana payments got you paid.",
+    );
+    expect(markup).toContain("Open the docs");
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain("Architecture");
+    expect(markup).toContain("Lifecycle events");
+    expect(markup).toContain("API reference");
   });
 
   it("publishes indexable homepage metadata without changing private routes", async () => {
@@ -54,7 +72,7 @@ describe("PayOps marketing homepage", () => {
     );
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.openGraph).toMatchObject({
-      title: "Turn Solana payments into paid invoices.",
+      title: "Know exactly which Solana payments got you paid.",
       type: "website",
     });
   });
