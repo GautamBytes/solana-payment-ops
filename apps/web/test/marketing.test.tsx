@@ -95,6 +95,15 @@ describe("PayOps marketing homepage", () => {
     );
   });
 
+  it("keeps the payment proof panel lifted within the desktop hero", () => {
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(css).toMatch(/\.proof-panel\s*\{[^}]*margin-bottom:\s*-1\.5rem/s);
+  });
+
   it("publishes indexable homepage metadata without changing private routes", async () => {
     const { metadata } = await import("../app/page");
 
