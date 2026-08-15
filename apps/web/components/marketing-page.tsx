@@ -15,6 +15,7 @@ import {
 import { marketingDestinations } from "./marketing-destinations";
 import { HeroFlowField } from "./hero-flow-field";
 import { MarketingHeader } from "./marketing-header";
+import { MarketingScrollReveal } from "./marketing-scroll-reveal";
 import { SdkCopy } from "./sdk-copy";
 
 const guideCards = [
@@ -50,6 +51,7 @@ export function MarketingPage() {
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
+      <MarketingScrollReveal />
       <MarketingHeader />
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
@@ -96,7 +98,10 @@ export function MarketingPage() {
           <Metric label="Distribution" value="7 npm packages" />
         </section>
 
-        <section className="plain-language marketing-section">
+        <section
+          className="plain-language marketing-section"
+          data-scroll-reveal="true"
+        >
           <p className="eyebrow">The job PayOps does</p>
           <p>
             Your customer sends stablecoins. PayOps proves what arrived,
@@ -109,6 +114,7 @@ export function MarketingPage() {
           className="process marketing-section"
           id="how-it-works"
           aria-labelledby="process-title"
+          data-scroll-reveal="true"
         >
           <div className="section-heading">
             <p className="eyebrow">From transfer to trusted record</p>
@@ -141,7 +147,11 @@ export function MarketingPage() {
           </div>
         </section>
 
-        <section className="docs-showcase marketing-section" id="developers">
+        <section
+          className="docs-showcase marketing-section"
+          id="developers"
+          data-scroll-reveal="true"
+        >
           <div className="docs-showcase-copy">
             <p className="eyebrow">Documentation built into the product site</p>
             <h2>Understand the system before you integrate it.</h2>
@@ -217,6 +227,7 @@ export function MarketingPage() {
         <section
           className="paths marketing-section"
           aria-labelledby="paths-title"
+          data-scroll-reveal="true"
         >
           <div className="section-heading">
             <p className="eyebrow">Use PayOps at your boundary</p>
@@ -258,6 +269,7 @@ export function MarketingPage() {
           className="trust marketing-section"
           id="trust"
           aria-labelledby="trust-title"
+          data-scroll-reveal="true"
         >
           <div className="section-heading">
             <p className="eyebrow">Inspect the boundaries</p>
@@ -294,6 +306,7 @@ export function MarketingPage() {
           className="pilot marketing-section"
           id="pilot"
           aria-labelledby="pilot-title"
+          data-scroll-reveal="true"
         >
           <div>
             <p className="eyebrow">Start with evidence, not a migration</p>
@@ -424,7 +437,7 @@ function ProofPoint({
 
 function MarketingFooter() {
   return (
-    <footer className="marketing-footer">
+    <footer className="marketing-footer" data-scroll-reveal="true">
       <div className="footer-brand">
         <img src="/icon.svg" width="32" height="32" alt="" />
         <strong>PayOps</strong>

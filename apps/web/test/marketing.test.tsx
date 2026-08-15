@@ -99,4 +99,24 @@ describe("PayOps marketing homepage", () => {
     expect(css).not.toMatch(/^\.button(?:-|\s|\{|,)/m);
     expect(css).not.toMatch(/^\.mobile-nav(?:-|\s|\{|,)/m);
   });
+
+  it("reveals compact sections progressively without hiding content from no-JS users", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(markup.match(/data-scroll-reveal="true"/g)).toHaveLength(7);
+    expect(markup).toContain('data-marketing-reveal-controller="true"');
+    expect(css).toContain("content-visibility: auto");
+    expect(css).toContain("contain-intrinsic-size: auto 36rem");
+    expect(css).toContain(
+      '.marketing.reveal-enabled [data-scroll-reveal="true"]',
+    );
+    expect(css).toContain("filter: blur(8px)");
+    expect(css).toContain("cubic-bezier(0.22, 1, 0.36, 1)");
+    expect(css).toContain("padding: clamp(4.75rem, 7vw, 6.25rem) 0");
+  });
 });

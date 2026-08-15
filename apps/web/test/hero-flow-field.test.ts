@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   FLOW_FOCUS_PROGRESS,
@@ -7,6 +8,24 @@ import {
 } from "../components/hero-flow-model";
 
 describe("PayOps hero flow field", () => {
+  it("renders a denser production field with clear primary strands", () => {
+    const componentSource = readFileSync(
+      new URL("../components/hero-flow-field.tsx", import.meta.url),
+      "utf8",
+    );
+    const strands = createFlowStrands(40, 2025);
+
+    expect(componentSource).toContain("const DESKTOP_STRAND_COUNT = 40");
+    expect(componentSource).toContain("const MOBILE_STRAND_COUNT = 24");
+    expect(strands).toHaveLength(40);
+    expect(
+      Math.max(...strands.map((strand) => strand.thickness)),
+    ).toBeGreaterThan(1.8);
+    expect(
+      strands.filter((strand) => strand.thickness >= 1.2).length,
+    ).toBeGreaterThanOrEqual(8);
+  });
+
   it("creates the same 24-strand desktop field for the same seed", () => {
     const first = createFlowStrands(24, 2025);
     const second = createFlowStrands(24, 2025);
@@ -65,6 +84,8 @@ describe("PayOps hero flow field", () => {
     const focusSpread =
       Math.max(...focus.map((point) => point.y)) -
       Math.min(...focus.map((point) => point.y));
+    const focusCenter =
+      focus.reduce((total, point) => total + point.y, 0) / focus.length;
     const startSpread =
       Math.max(...starts.map((point) => point.y)) -
       Math.min(...starts.map((point) => point.y));
@@ -73,6 +94,8 @@ describe("PayOps hero flow field", () => {
       Math.min(...ends.map((point) => point.y));
 
     expect(focusSpread).toBeLessThan(height * 0.08);
+    expect(focusCenter).toBeGreaterThan(height * 0.75);
+    expect(focusCenter).toBeLessThan(height * 0.82);
     expect(startSpread).toBeGreaterThan(height * 0.28);
     expect(endSpread).toBeGreaterThan(height * 0.72);
   });

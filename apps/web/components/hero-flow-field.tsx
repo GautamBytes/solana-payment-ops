@@ -7,8 +7,8 @@ import {
   shouldAnimateFlow,
 } from "./hero-flow-model";
 
-const DESKTOP_STRAND_COUNT = 24;
-const MOBILE_STRAND_COUNT = 16;
+const DESKTOP_STRAND_COUNT = 40;
+const MOBILE_STRAND_COUNT = 24;
 const FIELD_RESOLUTION = 80;
 const PARTICLE_STRAND_INDEX = 14;
 const DESKTOP_STRANDS = createFlowStrands(DESKTOP_STRAND_COUNT, 2025);

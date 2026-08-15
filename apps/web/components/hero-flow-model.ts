@@ -32,14 +32,15 @@ export function createFlowStrands(count = 24, seed = 2025): FlowStrand[] {
 
   return Array.from({ length: count }, (_, index) => {
     const orderedOffset = count === 1 ? 0 : index / (count - 1) - 0.5;
+    const isPrimary = index % 5 === 0;
 
     return {
       amplitude: 0.52 + random() * 0.48,
-      alpha: 0.19 + random() * 0.42,
+      alpha: (isPrimary ? 0.3 : 0.18) + random() * 0.4,
       frequency: 0.72 + random() * 0.7,
       offset: orderedOffset + (random() - 0.5) * 0.035,
       phase: random() * Math.PI * 2,
-      thickness: 0.55 + random() * 0.9,
+      thickness: isPrimary ? 1.35 + random() * 0.85 : 0.72 + random() * 0.88,
     };
   });
 }
@@ -92,12 +93,12 @@ export function flowPoint(
         height * (0.9 + offset * 0.48),
         height * (0.86 + offset * 0.32),
         height * (0.76 + offset * 0.08),
-        height * 0.7,
+        height * 0.78,
         segmentProgress,
       )
     : cubicBezier(
-        height * 0.7,
-        height * (0.64 - offset * 0.04),
+        height * 0.78,
+        height * (0.7 - offset * 0.04),
         height * (0.45 + offset * 0.5),
         height * (0.28 + offset * 1.34),
         segmentProgress,
