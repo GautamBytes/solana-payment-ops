@@ -86,9 +86,9 @@ export function flowPoint(
     : (progress - FLOW_FOCUS_PROGRESS) / (1 - FLOW_FOCUS_PROGRESS);
   const baseX = isBack
     ? cubicBezier(
-        -width * 0.18,
+        -width * 0.32,
         width * 0.04,
-        width * 0.32,
+        width * 0.28,
         width * 0.43,
         segmentProgress,
       )
@@ -101,9 +101,9 @@ export function flowPoint(
       );
   const baseY = isBack
     ? cubicBezier(
-        height * (0.9 + offset * 0.48),
-        height * (0.86 + offset * 0.32),
-        height * (0.76 + offset * 0.08),
+        height * (1.28 - offset * 1.34),
+        height * (1.11 - offset * 0.5),
+        height * (0.86 + offset * 0.04),
         height * 0.78,
         segmentProgress,
       )

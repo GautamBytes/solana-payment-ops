@@ -97,8 +97,23 @@ describe("PayOps hero flow field", () => {
     expect(focusSpread).toBeLessThan(height * 0.08);
     expect(focusCenter).toBeGreaterThan(height * 0.75);
     expect(focusCenter).toBeLessThan(height * 0.82);
-    expect(startSpread).toBeGreaterThan(height * 0.28);
+    expect(startSpread).toBeGreaterThan(height * 1.2);
     expect(endSpread).toBeGreaterThan(height * 0.72);
+    expect(Math.abs(startSpread - endSpread)).toBeLessThan(height * 0.02);
+
+    for (let index = 0; index < strands.length; index += 1) {
+      const start = starts[index];
+      const focalPoint = focus[index];
+      const end = ends[index];
+
+      expect(start).toBeDefined();
+      expect(focalPoint).toBeDefined();
+      expect(end).toBeDefined();
+      if (!start || !focalPoint || !end) continue;
+
+      expect(start.x + end.x).toBeCloseTo(2 * focalPoint.x, 8);
+      expect(start.y + end.y).toBeCloseTo(2 * focalPoint.y, 8);
+    }
   });
 
   it("keeps hero geometry stable while the canvas continues through the facts rail", () => {
