@@ -303,32 +303,75 @@ export function MarketingPage() {
           <div className="section-heading">
             <p className="eyebrow">Inspect the boundaries</p>
             <h2 id="trust-title">Why teams trust PayOps</h2>
+            <p>
+              Clear rules at every boundary, with evidence you can inspect and
+              replay.
+            </p>
           </div>
-          <div className="trust-grid">
-            <ProofPoint icon={<ArrowsClockwise />} title="Deterministic">
-              Same canonical transfer and invoice, same result.
-            </ProofPoint>
-            <ProofPoint icon={<LockKey />} title="Non-custodial">
-              PayOps never signs transactions or moves funds.
-            </ProofPoint>
-            <ProofPoint icon={<FileText />} title="Auditable">
-              Every payment decision preserves replayable evidence.
-            </ProofPoint>
+          <div className="trust-surface">
+            <div className="trust-grid">
+              <ProofPoint
+                number="01"
+                icon={<ArrowsClockwise size={24} weight="bold" />}
+                title="Deterministic"
+              >
+                Same canonical transfer and invoice, same result.
+              </ProofPoint>
+              <ProofPoint
+                number="02"
+                icon={<LockKey size={24} weight="bold" />}
+                title="Non-custodial"
+              >
+                PayOps never signs transactions or moves funds.
+              </ProofPoint>
+              <ProofPoint
+                number="03"
+                icon={<FileText size={24} weight="bold" />}
+                title="Auditable"
+              >
+                Every payment decision preserves replayable evidence.
+              </ProofPoint>
+            </div>
+            <div className="evidence-strip" aria-label="PayOps trust evidence">
+              <span className="evidence-item">
+                <span className="evidence-icon">
+                  <CheckCircle size={20} weight="fill" />
+                </span>
+                <span className="evidence-copy">
+                  <small>Contract</small>
+                  <strong>25 / 25 conformance</strong>
+                </span>
+              </span>
+              <span className="evidence-item">
+                <span className="evidence-icon">
+                  <WebhooksLogo size={21} />
+                </span>
+                <span className="evidence-copy">
+                  <small>Delivery</small>
+                  <strong>Exact-byte signed webhooks</strong>
+                </span>
+              </span>
+              <span className="evidence-item">
+                <span className="evidence-icon">
+                  <ShieldCheck size={21} />
+                </span>
+                <span className="evidence-copy">
+                  <small>Exceptions</small>
+                  <strong>Fail-closed by default</strong>
+                </span>
+              </span>
+            </div>
+            <div className="trust-footer">
+              <p>Built for verification before automation.</p>
+              <a
+                className="trust-link"
+                href={marketingDestinations.securityUrl}
+              >
+                Read the security model
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
+            </div>
           </div>
-          <div className="evidence-strip">
-            <span>
-              <CheckCircle size={20} weight="fill" /> 25 / 25 conformance
-            </span>
-            <span>
-              <WebhooksLogo size={21} /> Exact-byte signed webhooks
-            </span>
-            <span>
-              <ShieldCheck size={21} /> Fail-closed exceptions
-            </span>
-          </div>
-          <a className="trust-link" href={marketingDestinations.securityUrl}>
-            Read the security model <ArrowRight size={17} aria-hidden="true" />
-          </a>
         </section>
 
         <section
@@ -447,17 +490,22 @@ function ProcessStep({
 }
 
 function ProofPoint({
+  number,
   icon,
   title,
   children,
 }: {
+  readonly number: string;
   readonly icon: React.ReactNode;
   readonly title: string;
   readonly children: React.ReactNode;
 }) {
   return (
     <article className="proof-point">
-      <span>{icon}</span>
+      <div className="proof-point-top">
+        <span className="proof-point-icon">{icon}</span>
+        <span className="proof-point-number">{number}</span>
+      </div>
       <h3>{title}</h3>
       <p>{children}</p>
     </article>

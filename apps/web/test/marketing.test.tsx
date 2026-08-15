@@ -25,6 +25,9 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("For developers");
     expect(markup).toContain("Why teams trust PayOps");
     expect(markup).toContain("25 / 25 conformance");
+    expect(markup).toContain('class="trust-surface"');
+    expect(markup).toContain('class="proof-point-number"');
+    expect(markup).toContain("Built for verification before automation.");
     expect(markup).toContain("npm install @payops/sdk");
   });
 
