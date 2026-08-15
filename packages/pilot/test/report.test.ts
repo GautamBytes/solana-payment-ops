@@ -32,7 +32,7 @@ afterEach(async () => {
 });
 
 describe("audit reports", () => {
-  it("writes deterministic private and grant-safe artifacts from one result", async () => {
+  it("writes deterministic private and redacted artifacts from one result", async () => {
     const fixture = await outputFixture();
     const dependencies = artifactDependencies();
 
@@ -72,7 +72,11 @@ describe("audit reports", () => {
     expect(redactedJson).toContain("invoice_");
     expect(redactedJson).toContain("customer_");
     expect(redactedHtml).not.toContain("<script>");
-    expect(redactedHtml).toContain("Grant-safe merchant shadow audit");
+    expect(redactedHtml).toContain("Redacted merchant shadow audit");
+    expect(first.redactedArtifacts.map((artifact) => artifact.path)).toEqual([
+      expect.stringContaining("redacted-audit.json"),
+      expect.stringContaining("redacted-audit.html"),
+    ]);
     const redactedJsonArtifact = first.redactedArtifacts.find(
       (artifact) => artifact.format === "json",
     )!;

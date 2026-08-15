@@ -113,7 +113,7 @@ secrets, and replays failed deliveries.
 
 The [merchant shadow-audit runbook](packages/pilot/README.md) validates a
 consented pilot manifest, resumes historical ingestion and reconciliation, and
-produces private plus grant-safe reports without signing or moving funds.
+produces private plus redacted reports without signing or moving funds.
 
 The [merchant API SDK guide](packages/sdk/README.md) covers invitation-only
 organization setup, verified Solana settlement wallets, USDC/USDT customer

@@ -478,7 +478,7 @@ function artifactPath(
     audience === "private"
       ? input.privateOutputDirectory
       : input.redactedOutputDirectory;
-  const name = audience === "private" ? "private-audit" : "grant-audit";
+  const name = audience === "private" ? "private-audit" : "redacted-audit";
   return join(directory, `${name}.${format}`);
 }
 

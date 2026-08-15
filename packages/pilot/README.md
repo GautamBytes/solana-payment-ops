@@ -21,7 +21,7 @@ npx payops-pilot audit run \
   --redacted-output /secure/pilot/redacted
 ```
 
-The command writes private merchant reports and grant-safe reports with stable
+The command writes private merchant reports and redacted reports with stable
 HMAC-derived pseudonyms. Files are atomic and mode `0600`; neither output
 contains RPC URLs, secrets, raw transaction bodies, or wallet signatures.
 Warnings such as incomplete coverage or pending finality must remain visible

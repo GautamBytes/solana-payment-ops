@@ -62,13 +62,13 @@ export async function buildAuditArtifacts(
   ]);
   const redactedArtifacts = await writeAll([
     writeAuditArtifact(
-      join(input.redactedOutputDirectory, "grant-audit.json"),
+      join(input.redactedOutputDirectory, "redacted-audit.json"),
       "redacted",
       "json",
       redactedJson,
     ),
     writeAuditArtifact(
-      join(input.redactedOutputDirectory, "grant-audit.html"),
+      join(input.redactedOutputDirectory, "redacted-audit.html"),
       "redacted",
       "html",
       redactedHtml,
