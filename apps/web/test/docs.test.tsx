@@ -62,6 +62,17 @@ describe("PayOps website documentation", () => {
     );
   });
 
+  it("documents only public package boundaries and executable reconciliation commands", async () => {
+    const { docPages } = await import("../components/docs-content");
+    const content = JSON.stringify(docPages);
+
+    expect(content).not.toContain("reconcilePayment(");
+    expect(content).toContain("verifyPayment");
+    expect(content).toContain("payops-reconciliation reconcile run");
+    expect(content).toContain("@payops/sdk");
+    expect(content).toContain("@payops/reconciliation");
+  });
+
   it("renders every guide inside the documentation shell", async () => {
     const { default: DocPage, generateStaticParams } =
       await import("../app/docs/[slug]/page");

@@ -35,10 +35,10 @@ export const docPages: readonly DocPage[] = [
       {
         title: "Install the packages",
         body: [
-          "Use the SDK when your product calls a deployed PayOps service. Use core when reconciliation runs inside your own backend. Contracts gives producers and consumers one shared definition of invoices, transfers, decisions, evidence, and lifecycle events.",
-          "Most product teams begin with the SDK and contracts. Infrastructure teams that own ingestion, persistence, and workers can add the lower-level packages later.",
+          "Use the SDK when your product calls a deployed PayOps merchant API. Use reconciliation when your operations backend imports invoice expectations, allocates finalized transfer evidence, and persists decisions in PostgreSQL. Contracts gives event producers and consumers one shared lifecycle envelope.",
+          "Core is the offline parser and verifier for canonical Solana payment fixtures. It is useful for conformance and evidence checks, but it does not schedule RPC requests or persist invoices.",
         ],
-        code: "npm install @payops/sdk @payops/contracts\n# or, for an embedded backend\nnpm install @payops/core @payops/contracts",
+        code: "# Product/API integration\nnpm install @payops/sdk @payops/contracts\n\n# Operated reconciliation backend\nnpm install @payops/ingestion @payops/reconciliation @payops/webhooks",
       },
       {
         title: "Define the invoice",
@@ -46,7 +46,7 @@ export const docPages: readonly DocPage[] = [
           "Store the expected mint, recipient, exact amount, and invoice reference before asking PayOps to reconcile a transfer.",
           "Amounts are compared in integer base units, not floating-point display values. The supported mint and settlement recipient are explicit, and the invoice expectation is treated as immutable evidence after issue.",
         ],
-        code: 'const invoice = {\n  id: "your-stable-invoice-id",\n  currency: "USDC",\n  recipient: process.env.SETTLEMENT_WALLET,\n  amountMinor: "1250000000",\n  reference: "INV-0421"\n};',
+        code: "invoice_id,customer_id,expected_mint,destination_token_account,amount_base_units,reference_address,issued_at,due_at\ninv-0421,customer-acme,<USDC_MINT>,<TOKEN_ACCOUNT>,1250000000,<REFERENCE>,<ISSUED_AT>,<DUE_AT>",
       },
       {
         title: "Record finalized transfer facts",
@@ -61,7 +61,7 @@ export const docPages: readonly DocPage[] = [
           "Reconciliation compares the finalized transfer with the invoice expectation. A paid decision requires the supported mint, settlement recipient, exact amount, reference, and network scope to agree. The decision and its evidence are persisted atomically before a lifecycle event is queued.",
           "Missing, conflicting, duplicated, or ambiguous facts do not become a guessed match. They become an explicit payment exception that an operator can investigate without silently changing the invoice.",
         ],
-        code: 'const decision = reconcilePayment({ invoice, transfer });\nif (decision.kind === "paid") await saveEvidence(decision);',
+        code: "npx payops-reconciliation migrate\nnpx payops-reconciliation invoice import --file ./invoices.csv\nnpx payops-reconciliation reconcile run\nnpx payops-reconciliation report --format json",
       },
       {
         title: "Move from replay to production",
@@ -86,9 +86,17 @@ export const docPages: readonly DocPage[] = [
         title: "Choose the path that fits your team",
         body: [
           "Product teams can use @payops/sdk to create invoices, issue checkout links, inspect status, and consume typed API responses from a PayOps deployment. This keeps payment truth behind a service boundary and gives frontend and backend code a small integration surface.",
-          "Platform teams can embed @payops/core and the storage packages when they already operate Solana ingestion, PostgreSQL, and workers. The same contracts and reference fixtures still define the expected outcomes.",
+          "Platform teams that operate Solana ingestion, PostgreSQL, and workers use @payops/ingestion and @payops/reconciliation for the durable pipeline. Use @payops/core separately when you need offline transaction parsing, fixture verification, or conformance checks.",
         ],
-        code: "# Service boundary\nnpm install @payops/sdk @payops/contracts\n\n# Embedded backend\nnpm install @payops/core @payops/ingestion @payops/reconciliation",
+        code: "# Service boundary\nnpm install @payops/sdk @payops/contracts\n\n# Operated backend\nnpm install @payops/ingestion @payops/reconciliation @payops/webhooks\n\n# Offline verification\nnpm install @payops/core",
+      },
+      {
+        title: "Verify canonical payment evidence offline",
+        body: [
+          "@payops/core parses canonical Solana transaction fixtures and verifies the selected transfer against the fixture expectation. This is the right boundary for deterministic evidence checks and conformance—not durable invoice allocation.",
+          "Parse the fixture and transfer through the package's public helpers, then call verifyPayment with the fixture, selected transfer, and all parsed transfers. The report contains the complete ordered checks and a single verified result.",
+        ],
+        code: 'import { verifyPayment } from "@payops/core";\n\nconst report = verifyPayment(fixture, selectedTransfer, allTransfers);\nif (!report.verified) throw new Error("payment evidence did not verify");',
       },
       {
         title: "Record exact payment expectations",
@@ -295,7 +303,7 @@ export const docPages: readonly DocPage[] = [
     label: "Packages",
     title: "Use only the PayOps pieces you need",
     summary:
-      "Seven focused npm packages cover contracts, core reconciliation, ingestion, storage, webhooks, SDK access, and reference fixtures.",
+      "Seven focused npm packages cover contracts, offline verification, ingestion, durable reconciliation, webhooks, SDK access, and reference fixtures.",
     readingTime: "9 min",
     sections: [
       {
@@ -308,8 +316,8 @@ export const docPages: readonly DocPage[] = [
       {
         title: "Product integration",
         body: [
-          "@payops/sdk is the typed API client. @payops/core contains deterministic domain logic. @payops/contracts defines the stable shared event and evidence contracts.",
-          "Use the SDK for merchant and checkout workflows. Use contracts when producing or consuming lifecycle events. Use core when your backend owns the reconciliation call directly.",
+          "@payops/sdk is the typed merchant API client. @payops/core parses and verifies canonical Solana payment fixtures offline. @payops/contracts defines the stable shared lifecycle event contracts.",
+          "Use the SDK for merchant and checkout workflows. Use contracts when producing or consuming lifecycle events. Use core for deterministic transaction evidence and conformance checks, not invoice persistence.",
         ],
         code: "npm install @payops/sdk @payops/contracts",
       },
@@ -323,7 +331,7 @@ export const docPages: readonly DocPage[] = [
       {
         title: "Package responsibilities",
         body: [
-          "Keep chain parsing in ingestion, pure comparison rules in core, transaction and reporting concerns in reconciliation, and endpoint delivery in webhooks. Avoid importing storage internals into product code when the SDK or public contracts provide the required boundary.",
+          "Keep fixture parsing and offline verification in core, chain observation in ingestion, invoice allocation plus transaction and reporting concerns in reconciliation, and endpoint delivery in webhooks. Avoid importing storage internals into product code when the SDK or public contracts provide the required boundary.",
           "This separation makes upgrades reviewable: a parser change can be replayed, a reconciliation rule can be fixture-tested, and a delivery change cannot rewrite an earlier payment decision.",
         ],
       },
