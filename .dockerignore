@@ -20,6 +20,5 @@ playwright-report
 **/test/fixtures
 local-evidence
 .superpowers
-docs/superpowers
 .worktrees
 .DS_Store

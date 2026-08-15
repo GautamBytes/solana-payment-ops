@@ -1,6 +1,5 @@
 coverage
 dist
-docs/superpowers
 fixtures/v0.1/cases/truncated-rpc-envelope-rejection.json
 node_modules
 packages/contracts/schemas

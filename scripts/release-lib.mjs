@@ -229,7 +229,7 @@ export function verifyPublicPackageMetadata(
 
   const files = packageManifest.files;
   const forbiddenFile =
-    /(^|\/)(?:test|tests|coverage|docs\/superpowers)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$/iu;
+    /(^|\/)(?:test|tests|coverage|internal-notes|private-notes)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$/iu;
   assert(
     Array.isArray(files) &&
       files.length > 0 &&

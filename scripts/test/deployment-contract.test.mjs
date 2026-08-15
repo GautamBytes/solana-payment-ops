@@ -78,7 +78,6 @@ test("container build contract", async () => {
     ".git",
     "node_modules",
     "dist",
-    "docs/superpowers",
     "test-results",
     "*.pem",
   ]) {
