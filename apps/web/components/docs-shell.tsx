@@ -137,7 +137,10 @@ export function DocArticle({ page }: { readonly page: DocPage }) {
           </section>
         ))}
       </div>
-      <nav className="doc-pagination" aria-label="Guide pagination">
+      <nav
+        className={`doc-pagination${previous && next ? "" : " doc-pagination-single"}`}
+        aria-label="Guide pagination"
+      >
         {previous ? (
           <a href={`/docs/${previous.slug}`}>
             <ArrowLeft size={18} aria-hidden="true" />
@@ -146,9 +149,7 @@ export function DocArticle({ page }: { readonly page: DocPage }) {
               {previous.label}
             </span>
           </a>
-        ) : (
-          <span />
-        )}
+        ) : null}
         {next ? (
           <a href={`/docs/${next.slug}`}>
             <span>

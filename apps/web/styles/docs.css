@@ -770,20 +770,30 @@
   color: #b5beb8;
 }
 .doc-pagination {
-  margin-top: 2.5rem;
+  width: min(100%, 48rem);
+  margin: 2rem auto 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+.doc-pagination-single {
+  grid-template-columns: minmax(0, 23.625rem);
+  justify-content: center;
 }
 .doc-pagination > a {
-  min-height: 5rem;
-  padding: 1rem;
+  min-height: 3.75rem;
+  padding: 0.7rem 0.8rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--d-line);
-  border-radius: 0.7rem;
-  background: rgba(7, 14, 10, 0.7);
+  border-radius: 0.6rem;
+  background: linear-gradient(
+    135deg,
+    rgba(9, 24, 16, 0.88),
+    rgba(5, 12, 8, 0.72)
+  );
+  box-shadow: inset 0 1px 0 rgba(166, 255, 205, 0.035);
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
@@ -791,8 +801,12 @@
 }
 .doc-pagination > a:hover {
   border-color: #2a6148;
-  background: #0a1810;
-  transform: translateY(-2px);
+  background: linear-gradient(
+    135deg,
+    rgba(11, 33, 21, 0.94),
+    rgba(6, 16, 10, 0.82)
+  );
+  transform: translateY(-1px);
 }
 .doc-pagination > a:last-child {
   text-align: right;
@@ -800,17 +814,24 @@
 .doc-pagination span {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.9rem;
+  gap: 0.08rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.2;
 }
 .doc-pagination small {
   color: #6f7b74;
-  font-size: 0.7rem;
+  font-size: 0.58rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
 }
 .doc-pagination svg {
   color: var(--d-green);
+  padding: 0.3rem;
+  border: 1px solid rgba(25, 215, 154, 0.2);
+  border-radius: 999px;
+  box-sizing: content-box;
 }
 .docs-site a:focus-visible {
   outline: 2px solid #b2ff52;
@@ -897,7 +918,11 @@
     grid-template-columns: 1fr;
   }
   .doc-pagination {
+    width: 100%;
     grid-template-columns: 1fr;
+  }
+  .doc-pagination-single {
+    justify-content: stretch;
   }
   .docs-guide-overview {
     margin-top: 4.5rem;
