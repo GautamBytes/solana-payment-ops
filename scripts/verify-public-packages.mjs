@@ -52,7 +52,7 @@ const packages = [
 ];
 const alwaysAllowed = new Set(["package.json", "README.md", "LICENSE"]);
 const banned =
-  /(^|\/)(?:test|tests|coverage|docs\/superpowers)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$|\.DS_Store$/;
+  /(^|\/)(?:test|tests|coverage|internal-notes|private-notes)(?:\/|$)|(^|\/)\.env(?:\.|$)|\.(?:cer|crt|key|p12|pfx|pem|tsbuildinfo)$|\.DS_Store$/;
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "payops-packages-"));
 
 try {

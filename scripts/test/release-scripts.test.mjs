@@ -280,8 +280,8 @@ describe("public package metadata", () => {
       /package files/i,
     ],
     [
-      "private planning path",
-      { files: ["dist", "README.md", "LICENSE", "docs/superpowers"] },
+      "private repository notes",
+      { files: ["dist", "README.md", "LICENSE", "private-notes"] },
       /package files/i,
     ],
   ]) {
