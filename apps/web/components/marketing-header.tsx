@@ -1,6 +1,6 @@
 "use client";
 
-import { List, X } from "@phosphor-icons/react";
+import { ArrowUpRight, List, X } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { marketingDestinations } from "./marketing-destinations";
@@ -20,7 +20,10 @@ export function MarketingHeader() {
       <div className="marketing-header-inner">
         <a className="marketing-brand" href="#top" aria-label="PayOps home">
           <img src="/icon.svg" width="34" height="34" alt="" />
-          <span>PayOps</span>
+          <span className="marketing-brand-copy">
+            <strong>PayOps</strong>
+            <small>Solana payments</small>
+          </span>
         </a>
 
         <nav className="desktop-nav" aria-label="Primary navigation">
@@ -36,7 +39,12 @@ export function MarketingHeader() {
           className="button button-small header-cta"
           href={marketingDestinations.pilotUrl}
         >
-          Start a pilot
+          <span>Start a pilot</span>
+          <ArrowUpRight
+            className="header-cta-icon"
+            size={17}
+            aria-hidden="true"
+          />
         </a>
 
         <button
@@ -78,6 +86,7 @@ export function MarketingHeader() {
           onClick={() => setOpen(false)}
         >
           Start a pilot
+          <ArrowUpRight size={18} aria-hidden="true" />
         </a>
       </nav>
     </header>

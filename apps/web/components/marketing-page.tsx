@@ -9,7 +9,6 @@ import {
   LockKey,
   ShieldCheck,
   Storefront,
-  Warning,
   WebhooksLogo,
 } from "@phosphor-icons/react/ssr";
 import { marketingDestinations } from "./marketing-destinations";
@@ -104,12 +103,33 @@ export function MarketingPage() {
           className="plain-language marketing-section"
           data-scroll-reveal="true"
         >
-          <p className="eyebrow">The job PayOps does</p>
-          <p>
-            Your customer sends stablecoins. PayOps proves what arrived,
-            identifies the invoice it belongs to, and gives every downstream
-            system the same answer.
-          </p>
+          <div className="plain-language-card">
+            <div className="plain-language-copy">
+              <p className="eyebrow">The job PayOps does</p>
+              <p className="plain-language-statement">
+                Your customer sends stablecoins. PayOps proves what arrived,
+                identifies the invoice it belongs to, and gives every downstream
+                system the same answer.
+              </p>
+            </div>
+            <div
+              className="plain-language-cues"
+              aria-label="PayOps in three steps"
+            >
+              <span>
+                <CheckCircle size={18} weight="fill" aria-hidden="true" />
+                Observe finalized transfers
+              </span>
+              <span>
+                <CheckCircle size={18} weight="fill" aria-hidden="true" />
+                Resolve the right invoice
+              </span>
+              <span>
+                <CheckCircle size={18} weight="fill" aria-hidden="true" />
+                Preserve one trusted answer
+              </span>
+            </div>
+          </div>
         </section>
 
         <section
@@ -141,10 +161,12 @@ export function MarketingPage() {
             </ProcessStep>
           </ol>
           <div className="exception-note">
-            <Warning size={22} weight="fill" aria-hidden="true" />
+            <span className="exception-note-icon">
+              <ShieldCheck size={21} weight="fill" aria-hidden="true" />
+            </span>
             <p>
-              If anything is unclear, it goes to review—never falsely marked
-              paid.
+              <strong>Unclear payments go to review.</strong>
+              <span>PayOps never marks them paid.</span>
             </p>
           </div>
         </section>
@@ -165,64 +187,66 @@ export function MarketingPage() {
               Open the docs <ArrowRight size={18} aria-hidden="true" />
             </a>
           </div>
-          <div
-            className="docs-window"
-            aria-label="PayOps documentation preview"
-          >
-            <aside>
-              <div className="mini-brand">
-                <img src="/icon.svg" width="26" height="26" alt="" />
-                <strong>PayOps</strong>
-                <span>Docs</span>
-              </div>
-              <p>Get started</p>
-              {guideCards.map((guide, index) => (
-                <a
-                  className={index === 0 ? "active" : undefined}
-                  href={guide.href}
-                  key={guide.href}
-                >
-                  {guide.title}
-                </a>
-              ))}
-              <a href="/docs/security">Security</a>
-              <a href="/docs/packages">Packages</a>
-            </aside>
-            <div className="docs-window-main">
-              <p className="window-tabs">
-                <span>Guide</span>
-                <span>API</span>
-                <span>Packages</span>
-              </p>
-              <small>Getting started</small>
-              <h3>Start reconciling Solana payments</h3>
-              <p>
-                Install the SDK, define an invoice, and turn a finalized
-                transfer into a deterministic decision.
-              </p>
-              <code>npm install @payops/sdk</code>
-              <div className="window-checks">
-                <span>
-                  <Check size={15} /> Verify finality
-                </span>
-                <span>
-                  <Check size={15} /> Match exact amount
-                </span>
-                <span>
-                  <Check size={15} /> Save evidence
-                </span>
+          <div className="docs-window-shell">
+            <div
+              className="docs-window"
+              aria-label="PayOps documentation preview"
+            >
+              <aside>
+                <div className="mini-brand">
+                  <img src="/icon.svg" width="26" height="26" alt="" />
+                  <strong>PayOps</strong>
+                  <span>Docs</span>
+                </div>
+                <p>Get started</p>
+                {guideCards.map((guide, index) => (
+                  <a
+                    className={index === 0 ? "active" : undefined}
+                    href={guide.href}
+                    key={guide.href}
+                  >
+                    {guide.title}
+                  </a>
+                ))}
+                <a href="/docs/security">Security</a>
+                <a href="/docs/packages">Packages</a>
+              </aside>
+              <div className="docs-window-main">
+                <p className="window-tabs">
+                  <span>Guide</span>
+                  <span>API</span>
+                  <span>Packages</span>
+                </p>
+                <small>Getting started</small>
+                <h3>Start reconciling Solana payments</h3>
+                <p>
+                  Install the SDK, define an invoice, and turn a finalized
+                  transfer into a deterministic decision.
+                </p>
+                <code>npm install @payops/sdk</code>
+                <div className="window-checks">
+                  <span>
+                    <Check size={15} /> Verify finality
+                  </span>
+                  <span>
+                    <Check size={15} /> Match exact amount
+                  </span>
+                  <span>
+                    <Check size={15} /> Save evidence
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="guide-grid">
-            {guideCards.map((guide) => (
-              <a href={guide.href} key={guide.href}>
-                <span>{guide.index}</span>
-                <h3>{guide.title}</h3>
-                <p>{guide.detail}</p>
-                <ArrowRight size={17} aria-hidden="true" />
-              </a>
-            ))}
+            <div className="guide-grid">
+              {guideCards.map((guide) => (
+                <a href={guide.href} key={guide.href}>
+                  <span>{guide.index}</span>
+                  <h3>{guide.title}</h3>
+                  <p>{guide.detail}</p>
+                  <ArrowRight size={17} aria-hidden="true" />
+                </a>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -411,7 +435,7 @@ function ProcessStep({
   readonly children: React.ReactNode;
 }) {
   return (
-    <li>
+    <li className="process-card">
       <span>{number}</span>
       <h3>{title}</h3>
       <p>{children}</p>

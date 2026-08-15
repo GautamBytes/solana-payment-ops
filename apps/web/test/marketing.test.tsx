@@ -20,7 +20,7 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("Verify");
     expect(markup).toContain("Match");
     expect(markup).toContain("Prove");
-    expect(markup).toContain("never falsely marked paid");
+    expect(markup).toContain("PayOps never marks them paid.");
     expect(markup).toContain("For merchants");
     expect(markup).toContain("For developers");
     expect(markup).toContain("Why teams trust PayOps");
@@ -101,7 +101,9 @@ describe("PayOps marketing homepage", () => {
       "utf8",
     );
 
-    expect(css).toMatch(/\.proof-panel\s*\{[^}]*margin-bottom:\s*-1\.5rem/s);
+    expect(css).toMatch(
+      /\.proof-panel\s*\{[^}]*transform:\s*translateY\(-0\.75rem\)/s,
+    );
   });
 
   it("publishes indexable homepage metadata without changing private routes", async () => {
@@ -126,6 +128,92 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain('aria-label="Open navigation"');
     expect(markup).toContain('aria-label="Copy SDK install command"');
     expect(markup).toContain('aria-live="polite"');
+  });
+
+  it("presents a polished responsive marketing navigation", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(markup).toContain('class="marketing-brand-copy"');
+    expect(markup).toContain("Solana payments");
+    expect(markup).toContain('class="header-cta-icon"');
+    expect(css).toMatch(
+      /\.marketing-header\s*\{[^}]*position:\s*sticky[^}]*backdrop-filter:\s*blur\(18px\)/s,
+    );
+    expect(css).toMatch(
+      /\.desktop-nav\s*\{[^}]*border:\s*1px solid[^}]*border-radius:\s*999px/s,
+    );
+    expect(css).toMatch(/\.desktop-nav a::after\s*\{/);
+    expect(css).toMatch(/\.header-cta\s*\{[^}]*box-shadow:/s);
+    expect(css).toMatch(
+      /\.marketing-header \.mobile-nav\s*\{[^}]*border-radius:/s,
+    );
+  });
+
+  it("keeps the landing page compact across desktop and mobile", async () => {
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /\.hero\s*\{[^}]*min-height:\s*clamp\(38rem,\s*calc\(100svh - 4\.5rem\),\s*44rem\)/s,
+    );
+    expect(css).toMatch(
+      /\.hero-inner\s*\{[^}]*padding:\s*clamp\(2\.75rem,\s*4\.5vw,\s*4rem\) 0 clamp\(3\.5rem,\s*5\.5vw,\s*5rem\)/s,
+    );
+    expect(css).toMatch(
+      /\.marketing-section\s*\{[^}]*padding:\s*clamp\(3\.75rem,\s*5vw,\s*5\.25rem\) 0/s,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?\.hero-inner\s*\{[^}]*padding:\s*2rem 0 2\.75rem/s,
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*720px\)[\s\S]*?\.marketing-section\s*\{[^}]*padding-block:\s*3\.25rem/s,
+    );
+  });
+
+  it("gives the editorial, process, and documentation sections visual depth", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(markup).toContain('class="plain-language-card"');
+    expect(markup).toContain('class="plain-language-cues"');
+    expect(markup.match(/class="process-card"/g)).toHaveLength(4);
+    expect(markup).toContain('class="docs-window-shell"');
+    expect(css).toMatch(
+      /\.plain-language-card\s*\{[^}]*border:\s*1px solid[^}]*box-shadow:/s,
+    );
+    expect(css).toMatch(
+      /\.process-card:hover\s*\{[^}]*transform:\s*translateY\(-0\.3rem\)/s,
+    );
+    expect(css).toMatch(
+      /\.docs-window-shell\s*\{[^}]*border:\s*1px solid[^}]*box-shadow:/s,
+    );
+  });
+
+  it("uses an on-brand review assurance instead of a warning treatment", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    expect(markup).toContain("Unclear payments go to review.");
+    expect(markup).toContain("PayOps never marks them paid.");
+    expect(markup).not.toContain("review—never");
+    expect(css).toMatch(
+      /\.exception-note\s*\{[^}]*border:\s*1px solid rgba\(22, 229, 162,[^}]*background:\s*rgba\(7, 24, 17,/s,
+    );
   });
 
   it("keeps generic marketing controls isolated from checkout and operations", () => {
@@ -155,6 +243,6 @@ describe("PayOps marketing homepage", () => {
     );
     expect(css).toContain("filter: blur(8px)");
     expect(css).toContain("cubic-bezier(0.22, 1, 0.36, 1)");
-    expect(css).toContain("padding: clamp(4.75rem, 7vw, 6.25rem) 0");
+    expect(css).toContain("padding: clamp(3.75rem, 5vw, 5.25rem) 0");
   });
 });
