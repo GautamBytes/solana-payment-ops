@@ -62,6 +62,8 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("Architecture");
     expect(markup).toContain("Lifecycle events");
     expect(markup).toContain("API reference");
+    expect(markup).toContain('data-hero-flow-field="true"');
+    expect(markup).toContain('aria-hidden="true"');
   });
 
   it("publishes indexable homepage metadata without changing private routes", async () => {

@@ -13,6 +13,7 @@ import {
   WebhooksLogo,
 } from "@phosphor-icons/react/ssr";
 import { marketingDestinations } from "./marketing-destinations";
+import { HeroFlowField } from "./hero-flow-field";
 import { MarketingHeader } from "./marketing-header";
 import { SdkCopy } from "./sdk-copy";
 
@@ -53,6 +54,7 @@ export function MarketingPage() {
       <main id="main-content">
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-visual" aria-hidden="true" />
+          <HeroFlowField />
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="signal-pill">

@@ -142,12 +142,54 @@
 
 .hero-visual {
   position: absolute;
-  z-index: -2;
+  z-index: -3;
   inset: 0;
   background-image: url("/payops-transaction-flow.png");
   background-position: center right;
   background-size: cover;
-  opacity: 0.84;
+  opacity: 0.24;
+}
+
+.hero-flow-canvas {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.96;
+  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      transparent 0%,
+      #000 7%,
+      #000 94%,
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 7%,
+      #000 94%,
+      transparent 100%
+    );
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent 0%,
+      #000 7%,
+      #000 94%,
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 7%,
+      #000 94%,
+      transparent 100%
+    );
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
 
 .hero::after {
@@ -887,7 +929,7 @@
   }
   .hero-visual {
     background-position: 65% center;
-    opacity: 0.48;
+    opacity: 0.2;
   }
   .guide-grid {
     grid-template-columns: 1fr 1fr;
@@ -1020,5 +1062,13 @@
   .marketing *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .hero-flow-canvas {
+    display: none;
+  }
+
+  .hero-visual {
+    opacity: 0.72;
   }
 }
