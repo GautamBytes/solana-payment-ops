@@ -5,6 +5,13 @@ reconciliation project. PayOps Core turns raw Solana transaction data into
 deterministic, inspectable payment verification reports that invoice systems,
 commerce products, and accounting tools can build on.
 
+## Try PayOps
+
+The product website includes a self-serve `/try` workspace with realistic,
+synthetic invoices, payment decisions, exceptions, and evidence. It requires no
+account, wallet connection, or pilot application. The published open-core
+packages and self-hosted production stack remain separate deployment choices.
+
 ## Why this exists
 
 A successful transaction signature is not enough to mark an invoice paid.

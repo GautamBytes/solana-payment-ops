@@ -112,11 +112,15 @@ function DecisionLabel({
   const matched = decision.state === "matched";
   return (
     <>
-      <span>{decision.invoiceReference}</span>
-      <strong>
+      <span className="try-decision-reference">
+        {decision.invoiceReference}
+      </span>
+      <strong className="try-decision-amount">
         {decision.amountTokens} {decision.assetSymbol}
       </strong>
-      <em>
+      <em
+        className={`try-decision-badge ${matched ? "is-matched" : "is-exception"}`}
+      >
         {matched ? (
           <CheckCircle aria-hidden="true" />
         ) : (
@@ -139,7 +143,14 @@ function DecisionDetail({
       aria-live="polite"
       aria-labelledby="decision-title"
     >
-      <p>{decision.state === "matched" ? "Payment matched" : "Needs review"}</p>
+      <p className="try-decision-state">
+        <span>
+          {decision.state === "matched" ? "Payment matched" : "Needs review"}
+        </span>
+        {decision.exceptionLabel ? (
+          <strong>{decision.exceptionLabel}</strong>
+        ) : null}
+      </p>
       <h2 id="decision-title">{decision.invoiceReference}</h2>
       <dl>
         <div>
@@ -158,8 +169,10 @@ function DecisionDetail({
       <ol className="try-evidence">
         {decision.evidence.map((step) => (
           <li key={step.stage} data-outcome={step.outcome}>
-            <ShieldCheck aria-hidden="true" />
-            <span>{step.stage}</span>
+            <div className="try-evidence-heading">
+              <ShieldCheck aria-hidden="true" />
+              <span>{step.stage}</span>
+            </div>
             <strong>{step.label}</strong>
             <p>{step.detail}</p>
           </li>

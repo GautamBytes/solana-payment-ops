@@ -1370,10 +1370,19 @@
     width: min(100% - 2rem, 42rem);
   }
   .header-cta {
-    display: none !important;
+    min-width: 0;
+    min-height: 2.6rem;
+    padding: 0.58rem 0.72rem;
+    justify-self: end;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .header-cta-icon {
+    display: none;
   }
   .marketing-header-inner {
     grid-template-columns: auto 1fr auto;
+    gap: 0.55rem;
   }
   .marketing-brand {
     min-width: 0;
