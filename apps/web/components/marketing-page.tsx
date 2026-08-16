@@ -543,7 +543,7 @@ function ProofPoint({
   );
 }
 
-function MarketingFooter() {
+export function MarketingFooter() {
   return (
     <footer className="marketing-footer" data-scroll-reveal="true">
       <div className="footer-brand">

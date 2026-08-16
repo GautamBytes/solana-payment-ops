@@ -6,6 +6,7 @@ import "../styles/operations.css";
 import "../styles/try.css";
 import "../styles/marketing.css";
 import "../styles/docs.css";
+import "../styles/trust-pages.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
