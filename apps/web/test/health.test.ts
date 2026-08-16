@@ -40,6 +40,16 @@ describe("web container health", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  test("requires the server and browser API origins to match exactly", () => {
+    expect(() =>
+      parseWebRuntimeConfig({
+        PAYOPS_WEB_ORIGIN: "https://payops.example",
+        PAYOPS_API_ORIGIN: "https://api.payops.example",
+        NEXT_PUBLIC_PAYOPS_API_ORIGIN: "https://api-alt.payops.example",
+      }),
+    ).toThrow("invalid_web_origin_configuration");
+  });
+
   test.each([
     ["missing", {}],
     [

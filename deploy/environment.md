@@ -10,6 +10,15 @@ PayOps treats configuration as capability assignment. A secret store must inject
 | worker         | runtime and shadow-projector URLs                    | dual RPC identity and bounded worker settings                                       |
 | web            | none                                                 | exact web/API origins; only `NEXT_PUBLIC_PAYOPS_API_ORIGIN` is client-visible       |
 
+The web deployment uses the same hosted API origin in server and browser
+contexts:
+
+| Web variable                    | Source                    | Rule                                         |
+| ------------------------------- | ------------------------- | -------------------------------------------- |
+| `PAYOPS_WEB_ORIGIN`             | Public web deployment URL | Exact HTTPS origin                           |
+| `PAYOPS_API_ORIGIN`             | Hosted API deployment URL | Exact HTTPS origin                           |
+| `NEXT_PUBLIC_PAYOPS_API_ORIGIN` | Hosted API deployment URL | Must equal `PAYOPS_API_ORIGIN` byte for byte |
+
 The administrator is used only to create restricted principals and capability roles. Remove it from the deployment job before migrations. The migrator is a one-shot capability and must never be present in API, worker, or web.
 
 Production requires `PAYOPS_ENVIRONMENT=production`, HTTPS exact origins, `mainnet-beta`, two distinct provider IDs with separately named endpoint variables, production email delivery, and an Ed25519 evidence-signing key. Without both authenticated commercial-FX variables, only USD invoices are enabled.
