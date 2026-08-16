@@ -14,6 +14,7 @@ describe("public trust routes", () => {
     expect(markup).toContain("address lookup tables");
     expect(markup).toContain("CPI token transfers");
     expect(markup).toContain("Token-2022 is not supported");
+    expect(aboutMetadata.title).toBe("About the project");
     expect(aboutMetadata.robots).toMatchObject({ index: true, follow: true });
   });
 
@@ -28,6 +29,7 @@ describe("public trust routes", () => {
     );
     expect(markup).toContain("Backup restore and incident drill evidence");
     expect(markup).not.toContain("Structured operational logging and alerts");
+    expect(roadmapMetadata.title).toBe("Roadmap");
     expect(roadmapMetadata.robots).toMatchObject({ index: true, follow: true });
   });
 });

@@ -81,6 +81,11 @@ test("publishes an accessible factual About page", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
+  const footer = page.locator(".marketing-footer");
+  await footer.scrollIntoViewIfNeeded();
+  await expect(footer).toBeVisible();
+  await expect(footer.getByRole("link", { name: "Security" })).toBeVisible();
+
   await expectNoOverflow(page);
   await expectNoSeriousAccessibilityViolations(page);
 });
