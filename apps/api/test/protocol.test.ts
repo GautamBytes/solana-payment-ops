@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import Fastify from "fastify";
+import Fastify, { LogController } from "fastify";
 import { describe, expect, it } from "vitest";
 import { installErrorHandler, ApiError } from "../src/protocol/api-error.js";
 import {
@@ -13,6 +13,52 @@ import {
 import { installRequestContext } from "../src/protocol/request-context.js";
 
 describe("API protocol", () => {
+  it("logs only stable fields for rejected API requests", async () => {
+    const captured: Record<string, unknown>[] = [];
+    const server = Fastify({
+      logger: {
+        level: "info",
+        stream: {
+          write(line: string) {
+            captured.push(JSON.parse(line) as Record<string, unknown>);
+          },
+        },
+      },
+      logController: new LogController({ disableRequestLogging: true }),
+    });
+    installRequestContext(server);
+    installErrorHandler(server);
+    server.get("/limited", async () => {
+      throw new ApiError(
+        429,
+        "rate_limit_exceeded",
+        "Rate limit exceeded for wallet SecretWalletAddress",
+      );
+    });
+    try {
+      const response = await server.inject({
+        method: "GET",
+        url: "/limited",
+        headers: { authorization: "Bearer secret-token" },
+      });
+      expect(response.statusCode).toBe(429);
+      expect(captured).toContainEqual(
+        expect.objectContaining({
+          event: "api_request_rejected",
+          code: "rate_limit_exceeded",
+          route: "/limited",
+          statusClass: "4xx",
+        }),
+      );
+      const serialized = JSON.stringify(captured);
+      expect(serialized).not.toContain("SecretWalletAddress");
+      expect(serialized).not.toContain("secret-token");
+      expect(serialized).not.toContain("Rate limit exceeded");
+    } finally {
+      await server.close();
+    }
+  });
+
   it("binds a canonical request ID and emits stable bounded errors", async () => {
     const server = Fastify({ bodyLimit: 256 * 1_024 });
     installRequestContext(server);
