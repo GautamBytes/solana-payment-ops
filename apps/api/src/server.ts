@@ -27,6 +27,7 @@ import {
 } from "@payops/platform";
 import { analyzePublicWallet, HttpSolanaRpc } from "@payops/ingestion";
 import Fastify, {
+  LogController,
   type FastifyInstance,
   type FastifyReply,
   type FastifyRequest,
@@ -34,6 +35,10 @@ import Fastify, {
 import { createPayOpsAuth, hashAuthPassword } from "./auth/better-auth.js";
 import { createAuthContextResolver } from "./auth/context.js";
 import { hasReadyRpcConfiguration, type ApiConfig } from "./config.js";
+import {
+  apiLoggerOptions,
+  installApiRequestLogging,
+} from "./observability/logger.js";
 import { installErrorHandler } from "./protocol/api-error.js";
 import { errorBody } from "./protocol/api-error.js";
 import { installRequestContext } from "./protocol/request-context.js";
@@ -56,11 +61,13 @@ export function buildApiServer(
   dependencies: ApiServerDependencies,
 ): FastifyInstance {
   const server = Fastify({
-    logger: false,
+    logger: apiLoggerOptions(config.environment),
+    logController: new LogController({ disableRequestLogging: true }),
     bodyLimit: 256 * 1_024,
     requestTimeout: 30_000,
   });
   installRequestContext(server);
+  installApiRequestLogging(server);
   installErrorHandler(server);
   server.addHook("preHandler", async (request, reply) => {
     if (
