@@ -1,15 +1,22 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TryWorkspaceView } from "../components/try-workspace";
 import {
   analyzeWallet,
   parsePublicWalletAnalysis,
   PublicWalletClientError,
+  type PublicWalletAnalysis,
 } from "../lib/public-wallet-analysis";
 import { sampleWorkspace } from "../lib/try/sample-workspace";
 
@@ -21,7 +28,7 @@ vi.mock("../lib/public-wallet-analysis", async (importOriginal) => ({
 const walletAddress = "LcNR2RPX9mMG1a23dfG6yQNvLUctx4sniKXKH9TV3ym";
 const requestId = "00000000-0000-4000-8000-000000000123";
 
-function validResponse() {
+function validResponse(): PublicWalletAnalysis {
   return {
     schemaVersion: "0.1",
     walletAddress,
@@ -55,6 +62,8 @@ function validResponse() {
 beforeEach(() => {
   vi.mocked(analyzeWallet).mockReset();
 });
+
+afterEach(cleanup);
 
 describe("public wallet analysis client", () => {
   it("parses a complete bounded response", () => {
@@ -171,5 +180,28 @@ describe("public wallet analysis mode", () => {
     expect(wallet).toHaveProperty("value", walletAddress);
     expect(amount).toHaveProperty("value", "12.1234567");
     expect(analyzeWallet).not.toHaveBeenCalled();
+  });
+
+  it("uses the server-provided public API origin", async () => {
+    vi.mocked(analyzeWallet).mockResolvedValueOnce(validResponse());
+    render(
+      <TryWorkspaceView
+        workspace={sampleWorkspace}
+        publicWalletEnabled={true}
+        publicApiOrigin="https://api.payops.example"
+      />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Use a public wallet" }));
+    fireEvent.change(screen.getByLabelText("Public wallet address"), {
+      target: { value: walletAddress },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Analyze wallet" }));
+
+    await waitFor(() =>
+      expect(analyzeWallet).toHaveBeenCalledWith(
+        { walletAddress, rangeDays: 7 },
+        "https://api.payops.example",
+      ),
+    );
   });
 });

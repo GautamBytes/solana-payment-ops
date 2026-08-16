@@ -138,6 +138,7 @@ export function registerPublicWalletAnalysisRoutes(
 
 function setCorsHeaders(reply: FastifyReply, origin: string): void {
   reply.header("access-control-allow-origin", origin);
+  reply.header("access-control-expose-headers", "retry-after");
   reply.header("vary", "Origin");
   reply.header("cache-control", "no-store");
 }

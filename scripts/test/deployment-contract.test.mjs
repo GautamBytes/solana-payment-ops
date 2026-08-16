@@ -6,13 +6,15 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 
 test("hosted runtime source contract", async () => {
-  const [nextConfig, apiBin, workerBin, webLive, webReady] = await Promise.all([
-    source("apps/web/next.config.ts"),
-    source("apps/api/src/bin.ts"),
-    source("apps/worker/src/bin.ts"),
-    source("apps/web/app/health/live/route.ts"),
-    source("apps/web/app/health/ready/route.ts"),
-  ]);
+  const [nextConfig, apiBin, workerBin, webLive, webReady, tryPage] =
+    await Promise.all([
+      source("apps/web/next.config.ts"),
+      source("apps/api/src/bin.ts"),
+      source("apps/worker/src/bin.ts"),
+      source("apps/web/app/health/live/route.ts"),
+      source("apps/web/app/health/ready/route.ts"),
+      source("apps/web/app/try/page.tsx"),
+    ]);
 
   assert.match(nextConfig, /output:\s*["']standalone["']/u);
   assert.match(nextConfig, /process\.env\.VERCEL\s*===\s*["']1["']/u);
@@ -27,6 +29,8 @@ test("hosted runtime source contract", async () => {
   assert.doesNotMatch(workerBin, /process\.exit\(/u);
   assert.doesNotMatch(webLive, /process\.env|fetch\s*\(/u);
   assert.doesNotMatch(webReady, /fetch\s*\(/u);
+  assert.match(tryPage, /export const dynamic\s*=\s*"force-dynamic"/u);
+  assert.match(tryPage, /process\.env\.PAYOPS_API_ORIGIN/u);
 });
 
 test("container build contract", async () => {
@@ -207,6 +211,32 @@ test("provider-neutral Compose and environment capability contract", async () =>
   for (const name of referenced) {
     assert.ok(documented.has(name), `undocumented Compose variable ${name}`);
   }
+  for (const name of [
+    "PAYOPS_PUBLIC_ANALYSIS_ENABLED",
+    "PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET",
+    "PAYOPS_PUBLIC_ANALYSIS_CLIENT_LIMIT",
+    "PAYOPS_PUBLIC_ANALYSIS_GLOBAL_LIMIT",
+    "PAYOPS_PUBLIC_ANALYSIS_WINDOW_SECONDS",
+    "PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED",
+  ]) {
+    assert.ok(documented.has(name), `missing public-analysis variable ${name}`);
+  }
+  assert.equal(
+    model.services.api.environment.PAYOPS_PUBLIC_ANALYSIS_ENABLED,
+    "${PAYOPS_PUBLIC_ANALYSIS_ENABLED:?required}",
+  );
+  assert.equal(
+    model.services.api.environment.PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET,
+    "${PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET:?required}",
+  );
+  assert.equal(
+    model.services.web.environment.PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED,
+    "${PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED:?required}",
+  );
+  assert.equal(
+    model.services.web.environment.PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET,
+    undefined,
+  );
   assert.doesNotMatch(
     example,
     /-----BEGIN|postgres(?:ql)?:\/\/[^<\n]+:[^<\n]+@|https:\/\/(?:api|app|pay)\.[a-z0-9-]+\.(?:com|io)/iu,
@@ -256,6 +286,9 @@ test("CI container gate and operator documentation contract", async () => {
     /payops-api[\s\S]*payops-worker[\s\S]*payops-web[\s\S]*payops-migrate/u,
   );
   assert.match(rootReadme, /invitation-only alpha/u);
+  assert.match(rootReadme, /public-wallet analysis[\s\S]*read-only/iu);
+  assert.doesNotMatch(runbook, /pilot traffic/iu);
+  assert.match(runbook, /live merchant traffic/iu);
   assert.doesNotMatch(rootReadme, /https:\/\/payops\.[a-z]+/iu);
 });
 
@@ -276,6 +309,12 @@ test("smoke lifecycle is interruption-safe and output-bounded", async () => {
   assert.match(smoke, /^\s+signal,$/mu);
   assert.match(smoke, /process\.removeListener\("SIGINT"/u);
   assert.match(smoke, /process\.removeListener\("SIGTERM"/u);
+  assert.match(smoke, /PAYOPS_PUBLIC_ANALYSIS_ENABLED:\s*"false"/u);
+  assert.match(smoke, /PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED:\s*"false"/u);
+  assert.match(
+    smoke,
+    /PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET:\s*randomBytes\(32\)\.toString\("base64url"\)/u,
+  );
   assert.match(
     smoke,
     /try\s*\{\s*if \(temporary\) await rm[\s\S]{0,180}cleanupFailure/u,

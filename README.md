@@ -9,8 +9,11 @@ commerce products, and accounting tools can build on.
 
 The product website includes a self-serve `/try` workspace with realistic,
 synthetic invoices, payment decisions, exceptions, and evidence. It requires no
-account, wallet connection, or pilot application. The published open-core
-packages and self-hosted production stack remain separate deployment choices.
+account, wallet connection, or pilot application. When operators enable the
+optional public-wallet analysis, anyone can inspect bounded, read-only finalized
+USDC or USDT activity for a public address. PayOps never asks users to connect,
+sign, or provide a seed phrase or private key. The published open-core packages
+and self-hosted production stack remain separate deployment choices.
 
 ## Why this exists
 

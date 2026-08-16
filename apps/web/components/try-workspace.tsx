@@ -24,9 +24,11 @@ import type { TryPaymentDecision, TryWorkspace } from "../lib/try/types";
 export function TryWorkspaceView({
   workspace,
   publicWalletEnabled,
+  publicApiOrigin,
 }: {
   readonly workspace: TryWorkspace;
   readonly publicWalletEnabled: boolean;
+  readonly publicApiOrigin?: string;
 }) {
   const [mode, setMode] = useState<"sample" | "wallet">("sample");
   const [selectedId, setSelectedId] = useState(workspace.decisions[0]!.id);
@@ -142,7 +144,10 @@ export function TryWorkspaceView({
       </section>
 
       {publicWalletEnabled ? (
-        <PublicWalletPanel hidden={mode !== "wallet"} />
+        <PublicWalletPanel
+          hidden={mode !== "wallet"}
+          {...(publicApiOrigin === undefined ? {} : { publicApiOrigin })}
+        />
       ) : null}
     </main>
   );
@@ -152,7 +157,13 @@ type FieldName =
   "walletAddress" | "assetSymbol" | "amountTokens" | "recipient" | "reference";
 type FieldErrors = Partial<Record<FieldName, string>>;
 
-function PublicWalletPanel({ hidden }: { readonly hidden: boolean }) {
+function PublicWalletPanel({
+  hidden,
+  publicApiOrigin,
+}: {
+  readonly hidden: boolean;
+  readonly publicApiOrigin?: string;
+}) {
   const [walletAddress, setWalletAddress] = useState("");
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const [assetSymbol, setAssetSymbol] = useState<"" | PublicAssetSymbol>("");
@@ -226,7 +237,7 @@ function PublicWalletPanel({ hidden }: { readonly hidden: boolean }) {
     setAnalysis(undefined);
     setStatus("Analyzing finalized public transfers…");
     try {
-      const result = await analyzeWallet(input);
+      const result = await analyzeWallet(input, publicApiOrigin);
       setAnalysis(result);
       setStatus("Public wallet analysis complete.");
     } catch (error) {

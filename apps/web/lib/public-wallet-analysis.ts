@@ -110,10 +110,11 @@ export class PublicWalletClientError extends Error {
 
 export async function analyzeWallet(
   input: PublicWalletAnalysisRequest,
+  apiOrigin = process.env.NEXT_PUBLIC_PAYOPS_API_ORIGIN,
 ): Promise<PublicWalletAnalysis> {
   let response: Response;
   try {
-    const origin = exactApiOrigin(process.env.NEXT_PUBLIC_PAYOPS_API_ORIGIN);
+    const origin = exactApiOrigin(apiOrigin);
     response = await fetch(`${origin}/v1/public/wallet-analysis`, {
       method: "POST",
       cache: "no-store",

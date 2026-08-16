@@ -5,6 +5,8 @@ const webOrigin = "http://127.0.0.1:3400";
 const mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const recipient = "11111111111111111111111111111111";
 const reference = "Cmn8RVNLZAtyq51B31RXDrrS24DYphEftzDCX4FzPLM";
+const publicWallet = "7dHbWXmci3dT8UFYWYZweBLj7D6kvsUNsAjpUXy5x8Ci";
+const usdtMint = "Es9vMFrzaCERmJfrF4H2FYD5Uw8pGmLZVgFZkQwVRhD";
 const baseAttempt = {
   publicAttemptId: "00000000-0000-4000-8000-000000000101",
   assetSymbol: "USDC",
@@ -96,6 +98,43 @@ createServer(async (request, response) => {
     cors(response);
     response.writeHead(204).end();
     return;
+  }
+  if (
+    url.pathname === "/v1/public/wallet-analysis" &&
+    request.method === "POST"
+  ) {
+    const body = await readJson(request);
+    if (containsForbiddenPublicField(body)) {
+      return json(response, 400, {
+        code: "invalid_request",
+        message: "Request body is invalid",
+        requestId: "00000000-0000-4000-8000-000000000301",
+      });
+    }
+    if (state.scenario === "wallet-rate-limit") {
+      response.setHeader("retry-after", "42");
+      return json(response, 429, {
+        code: "rate_limited",
+        message: "Request limit reached",
+        requestId: "00000000-0000-4000-8000-000000000302",
+      });
+    }
+    if (state.scenario === "wallet-unavailable") {
+      return json(response, 503, {
+        code: "public_analysis_unavailable",
+        message: "Public analysis is unavailable",
+        requestId: "00000000-0000-4000-8000-000000000303",
+      });
+    }
+    return json(
+      response,
+      200,
+      publicWalletAnalysis(
+        body,
+        state.scenario === "wallet-partial" ? "partial" : "complete",
+        state.scenario === "wallet-success",
+      ),
+    );
   }
   if (url.pathname === "/v1/exceptions" && request.method === "GET") {
     if (["viewer", "developer"].includes(state.scenario)) {
@@ -352,12 +391,63 @@ function expiredAttempt() {
 
 function cors(response) {
   response.setHeader("access-control-allow-origin", webOrigin);
+  response.setHeader("access-control-expose-headers", "retry-after");
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
   response.setHeader(
     "access-control-allow-headers",
     "content-type,idempotency-key,if-none-match",
   );
   response.setHeader("vary", "origin");
+}
+
+function publicWalletAnalysis(body, coverage, includeTransfer) {
+  const walletAddress =
+    typeof body.walletAddress === "string" ? body.walletAddress : publicWallet;
+  const rangeDays = body.rangeDays === 30 ? 30 : 7;
+  const throughTime = "2026-08-16T12:00:00.000Z";
+  const fromTime = new Date(
+    Date.parse(throughTime) - rangeDays * 86_400_000,
+  ).toISOString();
+  return {
+    schemaVersion: "0.1",
+    walletAddress,
+    fromTime,
+    throughTime,
+    coverage,
+    transfers: includeTransfer
+      ? [
+          {
+            signature: "A".repeat(64),
+            slot: "345678901",
+            blockTime: "2026-08-15T10:30:00.000Z",
+            assetSymbol: "USDC",
+            mint,
+            amountBaseUnits: "12500000",
+            amountTokens: "12.500000",
+            sourceTokenAccount: publicWallet,
+            destinationTokenAccount: usdtMint,
+            references: [reference],
+            expectationStatus: "matched",
+            expectationChecks: [
+              { field: "asset", passed: true },
+              { field: "amount", passed: true },
+              { field: "recipient", passed: true },
+              { field: "reference", passed: true },
+            ],
+          },
+        ]
+      : [],
+  };
+}
+
+function containsForbiddenPublicField(value) {
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsForbiddenPublicField);
+  return Object.entries(value).some(
+    ([key, nested]) =>
+      ["seedPhrase", "privateKey", "signature"].includes(key) ||
+      containsForbiddenPublicField(nested),
+  );
 }
 
 function json(response, status, body) {

@@ -193,6 +193,9 @@ describe("public wallet analysis routes", () => {
 
     expect(response.statusCode).toBe(429);
     expect(response.headers["retry-after"]).toBe("42");
+    expect(response.headers["access-control-expose-headers"]).toBe(
+      "retry-after",
+    );
     expect(response.json()).toMatchObject({
       code: "public_analysis_rate_limited",
       requestId: expect.any(String),
