@@ -25,13 +25,16 @@ function signatureEntry(
   };
 }
 
-function createRpc(entries: readonly AddressSignature[]): SolanaRpcPort {
+function createRpc(
+  entries: readonly AddressSignature[],
+  transactionResult = transaction,
+): SolanaRpcPort {
   return {
     async getSignaturesForAddress(request) {
       return request.before === undefined ? entries : [];
     },
     async getTransaction(requestedSignature) {
-      return requestedSignature === signature ? transaction : null;
+      return requestedSignature === signature ? transactionResult : null;
     },
     async getSignatureStatuses() {
       return [];
@@ -114,5 +117,37 @@ describe("analyzePublicWallet", () => {
     });
 
     expect(result.coverage).toBe("partial");
+  });
+
+  it("bounds references and transfers in the public response", async () => {
+    const originalInstruction =
+      transaction.transaction.message.instructions[0]!;
+    const boundedTransaction = RpcTransactionEnvelopeSchema.parse({
+      ...transaction,
+      transaction: {
+        ...transaction.transaction,
+        message: {
+          ...transaction.transaction.message,
+          instructions: Array.from({ length: 101 }, () => ({
+            ...originalInstruction,
+            accounts: [
+              ...originalInstruction.accounts,
+              ...Array.from({ length: 20 }, () => 5),
+            ],
+          })),
+        },
+      },
+    });
+
+    const result = await analyzePublicWallet(input(), {
+      rpc: createRpc([signatureEntry(signature)], boundedTransaction),
+      ...limits,
+    });
+
+    expect(result.coverage).toBe("partial");
+    expect(result.transfers).toHaveLength(100);
+    expect(
+      result.transfers.every((item) => item.references.length === 16),
+    ).toBe(true);
   });
 });

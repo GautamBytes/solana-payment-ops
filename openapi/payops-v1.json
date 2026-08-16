@@ -25,6 +25,63 @@
         }
       }
     },
+    "/v1/public/wallet-analysis": {
+      "post": {
+        "operationId": "analyzePublicWallet",
+        "security": [],
+        "description": "Analyze finalized canonical USDC and USDT transfers for a public Solana wallet without an account or wallet signature. The request requires an Origin header that exactly matches a configured trusted origin. Results are read-only public-chain evidence and do not by themselves mean an invoice is paid or reconciled.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "format": "uri", "maxLength": 2048 }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicWalletAnalysisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bounded finalized public-wallet transfer evidence",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicWalletAnalysis"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError" },
+          "403": { "$ref": "#/components/responses/ApiError" },
+          "429": {
+            "description": "Public analysis rate limit exceeded",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "Retry-After": {
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ApiError" }
+        }
+      }
+    },
     "/v1/auth/bootstrap/accept": {
       "post": {
         "operationId": "acceptBootstrapInvitation",
@@ -1542,6 +1599,136 @@
             "additionalProperties": {
               "type": ["string", "number", "boolean", "null"]
             }
+          }
+        }
+      },
+      "SolanaAddress": {
+        "type": "string",
+        "minLength": 32,
+        "maxLength": 44,
+        "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+      },
+      "PublicWalletExpectation": {
+        "type": "object",
+        "additionalProperties": false,
+        "dependentRequired": { "recipient": ["assetSymbol"] },
+        "properties": {
+          "assetSymbol": { "type": "string", "enum": ["USDC", "USDT"] },
+          "amountTokens": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,6})?$"
+          },
+          "recipient": { "$ref": "#/components/schemas/SolanaAddress" },
+          "reference": { "$ref": "#/components/schemas/SolanaAddress" }
+        }
+      },
+      "PublicWalletAnalysisRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["walletAddress", "rangeDays"],
+        "properties": {
+          "walletAddress": { "$ref": "#/components/schemas/SolanaAddress" },
+          "rangeDays": { "type": "integer", "enum": [7, 30] },
+          "expectation": {
+            "$ref": "#/components/schemas/PublicWalletExpectation"
+          }
+        }
+      },
+      "PublicExpectationCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "passed"],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": ["asset", "amount", "recipient", "reference"]
+          },
+          "passed": { "type": "boolean" }
+        }
+      },
+      "PublicWalletTransfer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signature",
+          "slot",
+          "blockTime",
+          "assetSymbol",
+          "mint",
+          "amountBaseUnits",
+          "amountTokens",
+          "sourceTokenAccount",
+          "destinationTokenAccount",
+          "references",
+          "expectationStatus",
+          "expectationChecks"
+        ],
+        "properties": {
+          "signature": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 128,
+            "pattern": "^[1-9A-HJ-NP-Za-km-z]+$"
+          },
+          "slot": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+          "blockTime": { "$ref": "#/components/schemas/Timestamp" },
+          "assetSymbol": { "type": "string", "enum": ["USDC", "USDT"] },
+          "mint": { "$ref": "#/components/schemas/SolanaAddress" },
+          "amountBaseUnits": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "amountTokens": {
+            "type": "string",
+            "maxLength": 48,
+            "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,6})?$"
+          },
+          "sourceTokenAccount": {
+            "$ref": "#/components/schemas/SolanaAddress"
+          },
+          "destinationTokenAccount": {
+            "$ref": "#/components/schemas/SolanaAddress"
+          },
+          "references": {
+            "type": "array",
+            "maxItems": 16,
+            "items": { "$ref": "#/components/schemas/SolanaAddress" }
+          },
+          "expectationStatus": {
+            "type": "string",
+            "enum": ["not_provided", "partial", "matched", "not_matched"]
+          },
+          "expectationChecks": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/PublicExpectationCheck"
+            }
+          }
+        }
+      },
+      "PublicWalletAnalysis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "walletAddress",
+          "fromTime",
+          "throughTime",
+          "coverage",
+          "transfers"
+        ],
+        "properties": {
+          "schemaVersion": { "type": "string", "const": "0.1" },
+          "walletAddress": { "$ref": "#/components/schemas/SolanaAddress" },
+          "fromTime": { "$ref": "#/components/schemas/Timestamp" },
+          "throughTime": { "$ref": "#/components/schemas/Timestamp" },
+          "coverage": { "type": "string", "enum": ["complete", "partial"] },
+          "transfers": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/PublicWalletTransfer" }
           }
         }
       },

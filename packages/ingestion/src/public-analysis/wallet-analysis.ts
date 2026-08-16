@@ -277,6 +277,7 @@ function formatTokenAmount(amountBaseUnits: string, decimals: number): string {
 function evaluateExpectation(
   transfer: ParsedTransfer,
   assetSymbol: PublicAssetSymbol,
+  references: readonly string[],
   expectation: PublicWalletExpectation | undefined,
 ): {
   readonly status: ExpectationStatus;
@@ -318,7 +319,7 @@ function evaluateExpectation(
       : [
           {
             field: "reference" as const,
-            passed: transfer.references.includes(expectation.reference),
+            passed: references.includes(expectation.reference),
           },
         ]),
   ];
@@ -394,10 +395,15 @@ export async function analyzePublicWallet(
               ) {
                 return [];
               }
+              const references = transfer.references.slice(0, 16);
+              if (references.length !== transfer.references.length) {
+                partial = true;
+              }
               seenEvents.add(transfer.eventId);
               const expectation = evaluateExpectation(
                 transfer,
                 assetSymbol,
+                references,
                 input.expectation,
               );
               return [
@@ -414,7 +420,7 @@ export async function analyzePublicWallet(
                   ),
                   sourceTokenAccount: transfer.sourceTokenAccount,
                   destinationTokenAccount: transfer.destinationTokenAccount,
-                  references: transfer.references,
+                  references,
                   expectationStatus: expectation.status,
                   expectationChecks: expectation.checks,
                 },
@@ -425,13 +431,15 @@ export async function analyzePublicWallet(
       },
     );
 
+    const boundedTransfers = transfers.slice(0, dependencies.maxTransactions);
+    if (boundedTransfers.length !== transfers.length) partial = true;
     return {
       schemaVersion: "0.1",
       walletAddress: input.walletAddress,
       fromTime: input.fromTime.toISOString(),
       throughTime: input.throughTime.toISOString(),
       coverage: partial ? "partial" : "complete",
-      transfers,
+      transfers: boundedTransfers,
     };
   } catch (error) {
     if (error instanceof PublicWalletAnalysisError) throw error;

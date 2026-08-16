@@ -36,6 +36,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/public/wallet-analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Analyze finalized canonical USDC and USDT transfers for a public Solana wallet without an account or wallet signature. The request requires an Origin header that exactly matches a configured trusted origin. Results are read-only public-chain evidence and do not by themselves mean an invoice is paid or reconciled. */
+    post: operations["analyzePublicWallet"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/bootstrap/accept": {
     parameters: {
       query?: never;
@@ -632,6 +649,51 @@ export interface components {
       details?: {
         [key: string]: string | number | boolean | null;
       };
+    };
+    SolanaAddress: string;
+    PublicWalletExpectation: {
+      /** @enum {string} */
+      assetSymbol?: "USDC" | "USDT";
+      amountTokens?: string;
+      recipient?: components["schemas"]["SolanaAddress"];
+      reference?: components["schemas"]["SolanaAddress"];
+    };
+    PublicWalletAnalysisRequest: {
+      walletAddress: components["schemas"]["SolanaAddress"];
+      /** @enum {integer} */
+      rangeDays: 7 | 30;
+      expectation?: components["schemas"]["PublicWalletExpectation"];
+    };
+    PublicExpectationCheck: {
+      /** @enum {string} */
+      field: "asset" | "amount" | "recipient" | "reference";
+      passed: boolean;
+    };
+    PublicWalletTransfer: {
+      signature: string;
+      slot: string;
+      blockTime: components["schemas"]["Timestamp"];
+      /** @enum {string} */
+      assetSymbol: "USDC" | "USDT";
+      mint: components["schemas"]["SolanaAddress"];
+      amountBaseUnits: string;
+      amountTokens: string;
+      sourceTokenAccount: components["schemas"]["SolanaAddress"];
+      destinationTokenAccount: components["schemas"]["SolanaAddress"];
+      references: components["schemas"]["SolanaAddress"][];
+      /** @enum {string} */
+      expectationStatus: "not_provided" | "partial" | "matched" | "not_matched";
+      expectationChecks: components["schemas"]["PublicExpectationCheck"][];
+    };
+    PublicWalletAnalysis: {
+      /** @constant */
+      schemaVersion: "0.1";
+      walletAddress: components["schemas"]["SolanaAddress"];
+      fromTime: components["schemas"]["Timestamp"];
+      throughTime: components["schemas"]["Timestamp"];
+      /** @enum {string} */
+      coverage: "complete" | "partial";
+      transfers: components["schemas"]["PublicWalletTransfer"][];
     };
     /** @enum {string} */
     ActivationMode: "shadow" | "live";
@@ -1312,6 +1374,47 @@ export interface operations {
     responses: {
       200: components["responses"]["Health"];
       503: components["responses"]["UnavailableHealth"];
+    };
+  };
+  analyzePublicWallet: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublicWalletAnalysisRequest"];
+      };
+    };
+    responses: {
+      /** @description Bounded finalized public-wallet transfer evidence */
+      200: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublicWalletAnalysis"];
+        };
+      };
+      400: components["responses"]["ApiError"];
+      403: components["responses"]["ApiError"];
+      /** @description Public analysis rate limit exceeded */
+      429: {
+        headers: {
+          "X-Request-Id": components["headers"]["RequestId"];
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiError"];
+        };
+      };
+      503: components["responses"]["ApiError"];
     };
   };
   acceptBootstrapInvitation: {
