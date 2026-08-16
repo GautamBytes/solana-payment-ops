@@ -19,6 +19,7 @@ test("hosted runtime source contract", async () => {
     ingestionPackage,
     corePackage,
     contractsPackage,
+    vercelConfig,
   ] = await Promise.all([
     source("apps/web/next.config.ts"),
     source("apps/api/src/bin.ts"),
@@ -32,6 +33,7 @@ test("hosted runtime source contract", async () => {
     source("packages/ingestion/package.json").then(JSON.parse),
     source("packages/core/package.json").then(JSON.parse),
     source("packages/contracts/package.json").then(JSON.parse),
+    source("apps/web/vercel.json").then(JSON.parse),
   ]);
 
   assert.match(nextConfig, /output:\s*["']standalone["']/u);
@@ -65,6 +67,10 @@ test("hosted runtime source contract", async () => {
   assert.ok(ingestionPackage.exports["./public-analysis"]);
   assert.ok(corePackage.exports["./public-analysis"]);
   assert.ok(contractsPackage.exports["./unicode-length"]);
+  assert.equal(
+    vercelConfig.buildCommand,
+    "pnpm --filter @payops/web... build",
+  );
 });
 
 test("container build contract", async () => {
