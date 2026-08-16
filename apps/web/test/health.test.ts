@@ -14,6 +14,12 @@ const validEnvironment = {
   NEXT_PUBLIC_PAYOPS_API_ORIGIN: "https://api.example.com",
 };
 
+const validEmbeddedEnvironment = {
+  PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED: "true",
+  PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED: "true",
+  PAYOPS_PUBLIC_SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com",
+};
+
 describe("web container health", () => {
   test("liveness is static, bounded, and never cached", async () => {
     const response = await live();
@@ -62,6 +68,61 @@ describe("web container health", () => {
     expect(response.status).toBe(503);
     expect(await response.text()).toBe(
       '{"status":"not_ready","code":"api_unavailable"}',
+    );
+  });
+
+  test("is ready in embedded mode without calling an external API", async () => {
+    for (const [name, value] of Object.entries(validEmbeddedEnvironment)) {
+      vi.stubEnv(name, value);
+    }
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    expect(parseWebRuntimeConfig(validEmbeddedEnvironment)).toEqual({
+      mode: "embedded",
+      rpcUrl: "https://api.mainnet-beta.solana.com/",
+    });
+    const response = await ready();
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('{"status":"ok"}');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      "missing edge rate-limit gate",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED: undefined,
+      },
+    ],
+    [
+      "insecure RPC",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_PUBLIC_SOLANA_RPC_URL: "http://api.mainnet-beta.solana.com",
+      },
+    ],
+    [
+      "invalid feature flag",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED: "yes",
+      },
+    ],
+  ])("fails closed for embedded mode with %s", async (_name, environment) => {
+    for (const [name, value] of Object.entries(environment)) {
+      if (value !== undefined) vi.stubEnv(name, value);
+    }
+
+    expect(() => parseWebRuntimeConfig(environment)).toThrow(
+      "invalid_web_origin_configuration",
+    );
+    const response = await ready();
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe(
+      '{"status":"not_ready","code":"invalid_web_origin_configuration"}',
     );
   });
 

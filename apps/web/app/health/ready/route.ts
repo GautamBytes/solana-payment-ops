@@ -6,15 +6,19 @@ const headers = {
 } as const;
 
 export async function GET(): Promise<Response> {
-  let apiOrigin: string;
+  let config: ReturnType<typeof parseWebRuntimeConfig>;
   try {
-    apiOrigin = parseWebRuntimeConfig(process.env).apiOrigin;
+    config = parseWebRuntimeConfig(process.env);
   } catch {
     return notReady("invalid_web_origin_configuration");
   }
 
+  if (config.mode === "embedded") {
+    return new Response('{"status":"ok"}', { status: 200, headers });
+  }
+
   try {
-    const response = await fetch(`${apiOrigin}/health/ready`, {
+    const response = await fetch(`${config.apiOrigin}/health/ready`, {
       cache: "no-store",
       signal: AbortSignal.timeout(3_000),
     });

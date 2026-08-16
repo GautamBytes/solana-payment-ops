@@ -114,8 +114,11 @@ export async function analyzeWallet(
 ): Promise<PublicWalletAnalysis> {
   let response: Response;
   try {
-    const origin = exactApiOrigin(apiOrigin);
-    response = await fetch(`${origin}/v1/public/wallet-analysis`, {
+    const endpoint =
+      apiOrigin === undefined
+        ? "/v1/public-wallet-analysis"
+        : `${exactApiOrigin(apiOrigin)}/v1/public-wallet-analysis`;
+    response = await fetch(endpoint, {
       method: "POST",
       cache: "no-store",
       credentials: "omit",
