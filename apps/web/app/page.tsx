@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { MarketingPage } from "../components/marketing-page";
 
 export const metadata: Metadata = {
-  title: "PayOps — Solana payment reconciliation for real businesses",
+  title: "PayOps | Solana payment reconciliation for real businesses",
   description:
     "PayOps verifies finalized Solana USDC and USDT payments, matches them to invoices, and preserves accounting-ready evidence.",
   robots: { index: true, follow: true },

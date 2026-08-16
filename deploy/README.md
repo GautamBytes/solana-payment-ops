@@ -1,6 +1,6 @@
 # Hosted alpha operator runbook
 
-This is a provider-neutral deployment contract, not a hosted service. Do not accept pilot traffic until every item in the first-deployment checklist has evidence attached.
+This is a provider-neutral deployment contract, not a hosted service. Do not accept live merchant traffic until every item in the first-deployment checklist has evidence attached.
 
 ## Initial deployment order
 
@@ -14,7 +14,7 @@ This is a provider-neutral deployment contract, not a hosted service. Do not acc
 8. Wait for API and web liveness, then durable API readiness. Keep public traffic off while readiness is 503.
 9. Bootstrap the first owner with the one-shot platform command and immediately expire any unused invitation.
 10. Perform one low-value internal mainnet checkout through finality, reconciliation, signed webhook, evidence pack, and accounting export.
-11. Prove alert delivery and restore the latest backup into an isolated database before accepting a pilot.
+11. Prove alert delivery and restore the latest backup into an isolated database before accepting live merchant traffic.
 
 ## Backup and restore
 

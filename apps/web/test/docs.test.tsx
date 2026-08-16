@@ -45,6 +45,9 @@ describe("PayOps website documentation", () => {
     expect(markup).not.toContain(
       "github.com/GautamBytes/solana-payment-ops/tree",
     );
+    expect(markup).toContain('href="/try"');
+    expect(markup).toContain("Try PayOps");
+    expect(markup).not.toContain(["Start a ", "pilot"].join(""));
   });
 
   it("gives every guide enough context to be useful without repository notes", async () => {

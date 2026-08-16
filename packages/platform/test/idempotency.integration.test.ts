@@ -9,6 +9,7 @@ import {
   digestIdempotentRequest,
   IdempotencyStore,
   OrganizationDatabase,
+  PublicAnalysisRateLimitStore,
   RateLimitStore,
 } from "../src/index.js";
 import {
@@ -223,6 +224,41 @@ describeDatabase("durable API protocol storage", () => {
       ).resolves.toMatchObject({ allowed: true, remaining: 1 });
     } finally {
       await Promise.all([firstDatabase.close(), secondDatabase.close()]);
+    }
+  });
+
+  it("enforces shared public client and global analysis limits", async () => {
+    const first = new PublicAnalysisRateLimitStore(databaseUrl!, {
+      clientLimit: 2,
+      globalLimit: 3,
+      windowSeconds: 60,
+    });
+    const second = new PublicAnalysisRateLimitStore(databaseUrl!, {
+      clientLimit: 2,
+      globalLimit: 3,
+      windowSeconds: 60,
+    });
+    const now = new Date("2026-08-12T00:00:30.000Z");
+    try {
+      await expect(
+        first.consume({ clientDigest: "a".repeat(64), now }),
+      ).resolves.toMatchObject({ allowed: true, remaining: 1 });
+      await expect(
+        second.consume({ clientDigest: "a".repeat(64), now }),
+      ).resolves.toMatchObject({ allowed: true, remaining: 0 });
+      await expect(
+        first.consume({ clientDigest: "a".repeat(64), now }),
+      ).resolves.toMatchObject({ allowed: false, remaining: 0 });
+      await expect(
+        second.consume({ clientDigest: "b".repeat(64), now }),
+      ).resolves.toMatchObject({
+        allowed: false,
+        limit: 2,
+        remaining: 1,
+        retryAfterSeconds: 30,
+      });
+    } finally {
+      await Promise.all([first.close(), second.close()]);
     }
   });
 });

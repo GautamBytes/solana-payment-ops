@@ -27,3 +27,15 @@ export {
   PostgresIngestionStore,
   type PostgresIngestionStoreConfig,
 } from "./storage/postgres-store.js";
+export {
+  analyzePublicWallet,
+  PublicWalletAnalysisError,
+  type ExpectationStatus,
+  type PublicAssetSymbol,
+  type PublicWalletAnalysis,
+  type PublicWalletAnalysisErrorCode,
+  type PublicWalletAnalysisInput,
+  type PublicWalletExpectation,
+  type PublicWalletExpectationCheck,
+  type PublicWalletTransfer,
+} from "./public-analysis/wallet-analysis.js";

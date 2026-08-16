@@ -34,8 +34,8 @@ export function DocsShell({
           <a href={marketingDestinations.githubUrl}>
             <GithubLogo size={18} aria-hidden="true" /> Source
           </a>
-          <a className="docs-header-cta" href={marketingDestinations.pilotUrl}>
-            Start a pilot
+          <a className="docs-header-cta" href={marketingDestinations.tryUrl}>
+            Try PayOps
           </a>
         </nav>
       </header>

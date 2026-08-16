@@ -9,7 +9,7 @@ describe("operational-health migration boundary", () => {
       "utf8",
     );
 
-    expect(PLATFORM_MIGRATION_NAMES.at(-1)).toBe("4015_operational_health");
+    expect(PLATFORM_MIGRATION_NAMES).toContain("4015_operational_health");
     for (const table of [
       "operational_measurements",
       "operational_incidents",

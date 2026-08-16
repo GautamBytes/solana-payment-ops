@@ -79,6 +79,12 @@ export {
   type RateLimitResult,
 } from "./rate-limit/rate-limit-store.js";
 export {
+  PublicAnalysisRateLimitError,
+  PublicAnalysisRateLimitStore,
+  type PublicAnalysisRateLimitInput,
+  type PublicAnalysisRateLimitResult,
+} from "./rate-limit/public-analysis-rate-limit-store.js";
+export {
   ASSET_SYMBOLS,
   ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
   assetByMint,

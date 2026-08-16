@@ -221,6 +221,13 @@ function smokeEnvironment({ temporary, apiPort, webPort }) {
     PAYOPS_PRIMARY_SOLANA_RPC_URL: "https://upstreams/rpc-primary",
     PAYOPS_RPC_SECONDARY_PROVIDER_ID: "smoke-secondary",
     PAYOPS_SECONDARY_SOLANA_RPC_URL: "https://upstreams/rpc-secondary",
+    PAYOPS_PUBLIC_ANALYSIS_ENABLED: "false",
+    PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET:
+      randomBytes(32).toString("base64url"),
+    PAYOPS_PUBLIC_ANALYSIS_CLIENT_LIMIT: "5",
+    PAYOPS_PUBLIC_ANALYSIS_GLOBAL_LIMIT: "100",
+    PAYOPS_PUBLIC_ANALYSIS_WINDOW_SECONDS: "60",
+    PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED: "false",
     BETTER_AUTH_SECRETS: `${randomBytes(32).toString("base64url")},${randomBytes(32).toString("base64url")}`,
     PAYOPS_CHECKOUT_TOKEN_KEYS: `smoke-v1:${randomBytes(32).toString("base64url")}`,
     PAYOPS_PYTH_HERMES_ENDPOINT: "https://upstreams/pyth",

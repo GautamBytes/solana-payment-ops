@@ -41,6 +41,12 @@ export interface ApiConfig {
   readonly emailDeliveryMode: "test" | "production";
   readonly rateLimitMax: number;
   readonly rateLimitWindowSeconds: number;
+  readonly publicAnalysis?: Readonly<{
+    readonly clientDigestSecret: string;
+    readonly clientLimit: number;
+    readonly globalLimit: number;
+    readonly windowSeconds: number;
+  }>;
 }
 
 export class ConfigError extends Error {
@@ -188,6 +194,7 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     environment,
     deploymentEnvironment,
   );
+  const publicAnalysis = parsePublicAnalysis(environment);
   return Object.freeze({
     databaseUrl,
     productionControlDatabaseUrl,
@@ -225,6 +232,67 @@ export function parseApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
       own(environment, "PAYOPS_RATE_LIMIT_WINDOW_SECONDS"),
       60,
       1,
+      3_600,
+    ),
+    ...(publicAnalysis === undefined ? {} : { publicAnalysis }),
+  });
+}
+
+function parsePublicAnalysis(
+  environment: NodeJS.ProcessEnv,
+): ApiConfig["publicAnalysis"] {
+  const enabled = own(environment, "PAYOPS_PUBLIC_ANALYSIS_ENABLED") ?? "false";
+  if (enabled === "false") return undefined;
+  if (enabled !== "true") {
+    throw new ConfigError("invalid_public_analysis_configuration");
+  }
+
+  const clientDigestSecret = required(
+    environment,
+    "PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET",
+  );
+  if (
+    !/^[A-Za-z0-9_-]+$/.test(clientDigestSecret) ||
+    Buffer.from(clientDigestSecret, "base64url").byteLength < 32 ||
+    Buffer.from(clientDigestSecret, "base64url").byteLength > 128 ||
+    Buffer.from(clientDigestSecret, "base64url").toString("base64url") !==
+      clientDigestSecret
+  ) {
+    throw new ConfigError("invalid_public_analysis_configuration");
+  }
+
+  const parseLimit = (
+    name: string,
+    defaultValue: number,
+    maximum: number,
+  ): number => {
+    const value = own(environment, name);
+    if (value === undefined) return defaultValue;
+    if (!/^[1-9][0-9]*$/.test(value)) {
+      throw new ConfigError("invalid_public_analysis_configuration");
+    }
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > maximum) {
+      throw new ConfigError("invalid_public_analysis_configuration");
+    }
+    return parsed;
+  };
+  const clientLimit = parseLimit("PAYOPS_PUBLIC_ANALYSIS_CLIENT_LIMIT", 5, 100);
+  const globalLimit = parseLimit(
+    "PAYOPS_PUBLIC_ANALYSIS_GLOBAL_LIMIT",
+    100,
+    10_000,
+  );
+  if (globalLimit < clientLimit) {
+    throw new ConfigError("invalid_public_analysis_configuration");
+  }
+  return Object.freeze({
+    clientDigestSecret,
+    clientLimit,
+    globalLimit,
+    windowSeconds: parseLimit(
+      "PAYOPS_PUBLIC_ANALYSIS_WINDOW_SECONDS",
+      60,
       3_600,
     ),
   });

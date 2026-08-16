@@ -33,6 +33,7 @@ export default defineConfig({
         PAYOPS_API_ORIGIN: apiOrigin,
         PAYOPS_WEB_ORIGIN: webOrigin,
         NEXT_PUBLIC_PAYOPS_API_ORIGIN: apiOrigin,
+        PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED: "true",
       },
     },
   ],

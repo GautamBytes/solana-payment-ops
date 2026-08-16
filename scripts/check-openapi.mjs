@@ -10,6 +10,7 @@ if (document.openapi !== "3.1.0") fail("OpenAPI version must be 3.1.0");
 const expectedStatuses = new Map([
   ["GET /health/live", ["200"]],
   ["GET /health/ready", ["200", "503"]],
+  ["POST /v1/public/wallet-analysis", ["200", "400", "403", "429", "503"]],
   ["POST /v1/auth/bootstrap/accept", ["201", "400", "403"]],
   ["GET /v1/organization", ["200", "401", "429"]],
   ["GET /v1/customers", ["200", "400", "401", "403", "429"]],
@@ -182,6 +183,7 @@ for (const key of [
 for (const key of [
   "GET /health/live",
   "GET /health/ready",
+  "POST /v1/public/wallet-analysis",
   "POST /v1/auth/bootstrap/accept",
   "GET /pay/{checkoutToken}",
   "POST /pay/{checkoutToken}/quotes",

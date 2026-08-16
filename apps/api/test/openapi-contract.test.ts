@@ -1,8 +1,26 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 import type { ApiConfig } from "../src/config.js";
 import { buildApiServer } from "../src/server.js";
 
 describe("OpenAPI runtime inventory", () => {
+  it("publishes the unauthenticated public analysis operation", async () => {
+    const document = JSON.parse(
+      await readFile(
+        new URL("../../../openapi/payops-v1.json", import.meta.url),
+        "utf8",
+      ),
+    ) as {
+      paths: Record<string, { post?: unknown }>;
+    };
+
+    expect(document.paths["/v1/public/wallet-analysis"]?.post).toMatchObject({
+      operationId: "analyzePublicWallet",
+      security: [],
+    });
+  });
+
   it("keeps every documented merchant route registered", async () => {
     const server = buildApiServer(config(), {
       emailDelivery: { send: async () => undefined },
@@ -65,6 +83,46 @@ describe("OpenAPI runtime inventory", () => {
       expect(response.json()).toMatchObject({ code: "untrusted_origin" });
     } finally {
       await server.close();
+    }
+  });
+
+  it("registers public analysis routes only when explicitly enabled", async () => {
+    const disabled = buildApiServer(config(), {
+      emailDelivery: { send: async () => undefined },
+    });
+    const enabled = buildApiServer(
+      {
+        ...config(),
+        publicAnalysis: {
+          clientDigestSecret: Buffer.alloc(32, 4).toString("base64url"),
+          clientLimit: 5,
+          globalLimit: 100,
+          windowSeconds: 60,
+        },
+      },
+      { emailDelivery: { send: async () => undefined } },
+    );
+    try {
+      expect(
+        disabled.hasRoute({
+          method: "POST",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(false);
+      expect(
+        enabled.hasRoute({
+          method: "POST",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(true);
+      expect(
+        enabled.hasRoute({
+          method: "OPTIONS",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(true);
+    } finally {
+      await Promise.all([disabled.close(), enabled.close()]);
     }
   });
 });

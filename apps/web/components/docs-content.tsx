@@ -93,7 +93,7 @@ export const docPages: readonly DocPage[] = [
       {
         title: "Verify canonical payment evidence offline",
         body: [
-          "@payops/core parses canonical Solana transaction fixtures and verifies the selected transfer against the fixture expectation. This is the right boundary for deterministic evidence checks and conformance—not durable invoice allocation.",
+          "@payops/core parses canonical Solana transaction fixtures and verifies the selected transfer against the fixture expectation. This is the right boundary for deterministic evidence checks and conformance, not durable invoice allocation.",
           "Parse the fixture and transfer through the package's public helpers, then call verifyPayment with the fixture, selected transfer, and all parsed transfers. The report contains the complete ordered checks and a single verified result.",
         ],
         code: 'import { verifyPayment } from "@payops/core";\n\nconst report = verifyPayment(fixture, selectedTransfer, allTransfers);\nif (!report.verified) throw new Error("payment evidence did not verify");',
@@ -157,7 +157,7 @@ export const docPages: readonly DocPage[] = [
         title: "One-way evidence flow",
         body: [
           "Finalized Solana transactions become canonical transfer records. Reconciliation compares those records with immutable invoice expectations. The result is persisted with its evidence before any webhook is queued.",
-          "Every downstream view—from checkout status to accounting export—reads the persisted decision. A webhook is a delivery mechanism for that truth, not a second place where payment truth is calculated.",
+          "Every downstream view reads the persisted decision, including checkout status and accounting export. A webhook is a delivery mechanism for that truth, not a second place where payment truth is calculated.",
         ],
         code: "Solana RPC → ingestion → canonical transfer\ninvoice + transfer → decision + evidence\ndecision → signed event → your system",
       },

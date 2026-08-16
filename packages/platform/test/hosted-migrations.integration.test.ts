@@ -45,6 +45,7 @@ const expectedMigrationNames = [
   "4013_production_control_review_hardening",
   "4014_worker_readiness",
   "4015_operational_health",
+  "4016_public_analysis_rate_limits",
 ] as const;
 
 describeDatabase("hosted migrations", () => {
@@ -89,7 +90,7 @@ describeDatabase("hosted migrations", () => {
       FROM payops_schema_migrations
       WHERE name LIKE '4%' AND checksum_sha256 ~ '^[0-9a-f]{64}$'
     `;
-    expect(platformChecksums).toEqual([{ count: 15 }]);
+    expect(platformChecksums).toEqual([{ count: 16 }]);
   });
 });
 

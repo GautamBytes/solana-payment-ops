@@ -386,7 +386,7 @@ function compact(value: string): string {
   return value.length <= 16 ? value : `${value.slice(0, 7)}…${value.slice(-5)}`;
 }
 function formatBaseUnits(value: string, decimals: number): string {
-  if (!/^\d+$/u.test(value)) return "—";
+  if (!/^\d+$/u.test(value)) return "N/A";
   const units = BigInt(value);
   const scale = 10n ** BigInt(decimals);
   return `${units / scale}.${(units % scale).toString().padStart(decimals, "0")}`;

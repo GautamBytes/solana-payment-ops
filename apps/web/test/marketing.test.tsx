@@ -140,7 +140,7 @@ describe("PayOps marketing homepage", () => {
     const { metadata } = await import("../app/page");
 
     expect(metadata.title).toBe(
-      "PayOps — Solana payment reconciliation for real businesses",
+      "PayOps | Solana payment reconciliation for real businesses",
     );
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.openGraph).toMatchObject({
@@ -242,7 +242,7 @@ describe("PayOps marketing homepage", () => {
 
     expect(markup).toContain("Unclear payments go to review.");
     expect(markup).toContain("PayOps never marks them paid.");
-    expect(markup).not.toContain("review—never");
+    expect(markup).not.toContain("review never");
     expect(css).toMatch(
       /\.exception-note\s*\{[^}]*border:\s*1px solid rgba\(22, 229, 162,[^}]*background:\s*rgba\(7, 24, 17,/s,
     );
@@ -287,5 +287,21 @@ describe("PayOps marketing homepage", () => {
     expect(css).toContain("filter: blur(8px)");
     expect(css).toContain("cubic-bezier(0.22, 1, 0.36, 1)");
     expect(css).toContain("padding: clamp(3.75rem, 5vw, 5.25rem) 0");
+  });
+
+  it("offers self-serve product access without a pilot application", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    expect(markup).toContain('href="/try"');
+    expect(markup).toContain("Try PayOps");
+    expect(markup).toContain("Explore sample workspace");
+    expect(markup).toContain("See PayOps in action");
+    const legacyPilotLanguage = [
+      "start a ",
+      "pilot|read-only ",
+      "pilot|PayOps%20read-only%20",
+      "pilot",
+    ].join("");
+    expect(markup).not.toMatch(new RegExp(legacyPilotLanguage, "i"));
   });
 });

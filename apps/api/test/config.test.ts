@@ -51,6 +51,51 @@ describe("API configuration", () => {
         },
       },
     });
+    expect(config.publicAnalysis).toBeUndefined();
+  });
+
+  test("enables bounded public analysis only through explicit configuration", () => {
+    const secret = Buffer.alloc(32, 9).toString("base64url");
+    expect(
+      parseApiConfig({
+        ...validEnvironment,
+        PAYOPS_PUBLIC_ANALYSIS_ENABLED: "true",
+        PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET: secret,
+      }).publicAnalysis,
+    ).toEqual({
+      clientDigestSecret: secret,
+      clientLimit: 5,
+      globalLimit: 100,
+      windowSeconds: 60,
+    });
+  });
+
+  test.each([
+    [{ PAYOPS_PUBLIC_ANALYSIS_ENABLED: "true" }, "missing_configuration"],
+    [
+      {
+        PAYOPS_PUBLIC_ANALYSIS_ENABLED: "true",
+        PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET: "not-base64url!",
+      },
+      "invalid_public_analysis_configuration",
+    ],
+    [
+      {
+        PAYOPS_PUBLIC_ANALYSIS_ENABLED: "true",
+        PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET:
+          Buffer.alloc(32).toString("base64url"),
+        PAYOPS_PUBLIC_ANALYSIS_CLIENT_LIMIT: "101",
+      },
+      "invalid_public_analysis_configuration",
+    ],
+    [
+      { PAYOPS_PUBLIC_ANALYSIS_ENABLED: "yes" },
+      "invalid_public_analysis_configuration",
+    ],
+  ])("rejects invalid public analysis configuration %#", (values, code) => {
+    expect(() => parseApiConfig({ ...validEnvironment, ...values })).toThrow(
+      expect.objectContaining({ code }),
+    );
   });
 
   test("parses distinct production mainnet providers", () => {

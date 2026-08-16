@@ -12,13 +12,29 @@ const links = [
   { href: "/docs/packages", label: "Packages" },
 ] as const;
 
-export function MarketingHeader() {
+type MarketingHeaderProps = {
+  readonly homeHref?: string;
+  readonly sectionHrefPrefix?: string;
+  readonly ctaHref?: string;
+  readonly ctaLabel?: string;
+};
+
+export function MarketingHeader({
+  homeHref = "#top",
+  sectionHrefPrefix = "",
+  ctaHref = marketingDestinations.tryUrl,
+  ctaLabel = "Try PayOps",
+}: MarketingHeaderProps = {}) {
   const [open, setOpen] = useState(false);
+
+  function resolveHref(href: string) {
+    return href.startsWith("#") ? `${sectionHrefPrefix}${href}` : href;
+  }
 
   return (
     <header className="marketing-header">
       <div className="marketing-header-inner">
-        <a className="marketing-brand" href="#top" aria-label="PayOps home">
+        <a className="marketing-brand" href={homeHref} aria-label="PayOps home">
           <span className="payops-brand-seal" aria-hidden="true">
             <SealCheck size={34} weight="fill" />
           </span>
@@ -30,18 +46,15 @@ export function MarketingHeader() {
 
         <nav className="desktop-nav" aria-label="Primary navigation">
           {links.map((link) => (
-            <a key={link.href} href={link.href}>
+            <a key={link.href} href={resolveHref(link.href)}>
               {link.label}
             </a>
           ))}
           <a href={marketingDestinations.githubUrl}>GitHub</a>
         </nav>
 
-        <a
-          className="button button-small header-cta"
-          href={marketingDestinations.pilotUrl}
-        >
-          <span>Start a pilot</span>
+        <a className="button button-small header-cta" href={ctaHref}>
+          <span>{ctaLabel}</span>
           <ArrowUpRight
             className="header-cta-icon"
             size={17}
@@ -72,7 +85,11 @@ export function MarketingHeader() {
         hidden={!open}
       >
         {links.map((link) => (
-          <a key={link.href} href={link.href} onClick={() => setOpen(false)}>
+          <a
+            key={link.href}
+            href={resolveHref(link.href)}
+            onClick={() => setOpen(false)}
+          >
             {link.label}
           </a>
         ))}
@@ -82,12 +99,8 @@ export function MarketingHeader() {
         >
           GitHub
         </a>
-        <a
-          className="button"
-          href={marketingDestinations.pilotUrl}
-          onClick={() => setOpen(false)}
-        >
-          Start a pilot
+        <a className="button" href={ctaHref} onClick={() => setOpen(false)}>
+          {ctaLabel}
           <ArrowUpRight size={18} aria-hidden="true" />
         </a>
       </nav>
