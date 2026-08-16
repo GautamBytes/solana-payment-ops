@@ -73,9 +73,8 @@ export function MarketingPage() {
                   finance team can trust.
                 </p>
                 <div className="hero-actions">
-                  <a className="button" href="#how-it-works">
-                    Explore payment flow{" "}
-                    <ArrowRight size={18} aria-hidden="true" />
+                  <a className="button" href={marketingDestinations.tryUrl}>
+                    Try PayOps <ArrowRight size={18} aria-hidden="true" />
                   </a>
                   <a
                     className="button button-secondary"
@@ -85,6 +84,9 @@ export function MarketingPage() {
                     Developer quickstart
                   </a>
                 </div>
+                <a className="hero-flow-link" href="#how-it-works">
+                  See how payment verification works
+                </a>
                 <p className="reassurance">
                   <CheckCircle size={19} weight="fill" aria-hidden="true" />
                   No custody. No private keys. Read-only by design.
@@ -135,6 +137,32 @@ export function MarketingPage() {
                 Preserve one trusted answer
               </span>
             </div>
+          </div>
+        </section>
+
+        <section
+          className="public-good marketing-section"
+          aria-labelledby="public-good-title"
+          data-scroll-reveal="true"
+        >
+          <div className="section-heading">
+            <p className="eyebrow">Open infrastructure for Solana commerce</p>
+            <h2 id="public-good-title">
+              Payment correctness should not be rebuilt in every product.
+            </h2>
+            <p>
+              PayOps publishes deterministic verification rules, versioned
+              contracts, conformance fixtures, and reference integrations so
+              Solana teams can test payment behavior against the same evidence.
+            </p>
+          </div>
+          <div className="public-good-actions">
+            <a href={marketingDestinations.aboutUrl}>
+              Review the open core <ArrowRight size={17} aria-hidden="true" />
+            </a>
+            <a href={marketingDestinations.roadmapUrl}>
+              See the public roadmap <ArrowRight size={17} aria-hidden="true" />
+            </a>
           </div>
         </section>
 

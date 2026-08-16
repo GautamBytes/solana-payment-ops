@@ -20,8 +20,8 @@ describe("PayOps marketing homepage", () => {
       css.match(/\.marketing \.button-secondary:hover\s*\{([^}]*)\}/s)?.[1] ??
       "";
 
-    expect(heroActions).toContain('href="#how-it-works"');
-    expect(heroActions).toContain("Explore payment flow");
+    expect(heroActions).toContain('href="/try"');
+    expect(heroActions).toContain("Try PayOps");
     expect(heroActions).toContain('href="/docs/quickstart"');
     expect(heroActions).toContain("Developer quickstart");
     expect(heroActions).not.toContain("Open the docs");
@@ -56,6 +56,12 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain('class="proof-point-number"');
     expect(markup).toContain("Built for verification before automation.");
     expect(markup).toContain("npm install @payops/sdk");
+    expect(markup).toContain("Open infrastructure for Solana commerce");
+    expect(markup).toContain(
+      "Payment correctness should not be rebuilt in every product.",
+    );
+    expect(markup).toContain('href="/about"');
+    expect(markup).toContain('href="/roadmap"');
   });
 
   it("keeps product education on the website and reserves GitHub for source", async () => {
@@ -277,7 +283,7 @@ describe("PayOps marketing homepage", () => {
       "utf8",
     );
 
-    expect(markup.match(/data-scroll-reveal="true"/g)).toHaveLength(7);
+    expect(markup.match(/data-scroll-reveal="true"/g)).toHaveLength(8);
     expect(markup).toContain('data-marketing-reveal-controller="true"');
     expect(css).toContain("content-visibility: auto");
     expect(css).toContain("contain-intrinsic-size: auto 36rem");

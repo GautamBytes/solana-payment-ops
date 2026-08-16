@@ -7,6 +7,8 @@ export const marketingDestinations = {
   securityUrl: "/docs/security",
   apiUrl: "/docs/api",
   tryUrl: "/try",
+  aboutUrl: "/about",
+  roadmapUrl: "/roadmap",
   githubUrl,
   talkUrl:
     `${githubUrl}/issues/new?title=Question%20about%20PayOps&body=` +

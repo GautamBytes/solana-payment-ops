@@ -397,6 +397,17 @@
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+.hero-flow-link {
+  width: fit-content;
+  margin-top: 1rem;
+  display: inline-flex;
+  color: var(--m-green) !important;
+  font-size: 0.9rem;
+  font-weight: 620;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(22, 229, 162, 0.35) !important;
+  text-underline-offset: 0.35rem;
+}
 .reassurance {
   margin: 1.05rem 0 0;
   display: flex;
@@ -1173,6 +1184,38 @@
   transform: translateY(-1px);
 }
 
+.public-good {
+  width: min(92rem, calc(100% - 3rem));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 2.5rem;
+  border-top: 1px solid var(--m-line);
+  border-bottom: 1px solid var(--m-line);
+}
+.public-good .section-heading {
+  max-width: 57rem;
+  margin-bottom: 0;
+}
+.public-good-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+.public-good-actions a {
+  min-height: 2.9rem;
+  padding: 0.72rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border-bottom: 1px solid rgba(22, 229, 162, 0.28);
+  color: var(--m-green);
+  font-weight: 650;
+}
+.public-good-actions svg {
+  flex: 0 0 auto;
+}
+
 .try-cta {
   width: min(92rem, calc(100% - 3rem));
   padding-inline: 2.75rem;
@@ -1543,6 +1586,13 @@
   .trust-link {
     width: 100%;
     justify-content: space-between;
+  }
+  .public-good {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .public-good-actions {
+    width: 100%;
   }
   .pilot {
     width: min(100% - 2rem, 42rem);
