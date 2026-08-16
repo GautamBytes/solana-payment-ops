@@ -67,10 +67,7 @@ test("hosted runtime source contract", async () => {
   assert.ok(ingestionPackage.exports["./public-analysis"]);
   assert.ok(corePackage.exports["./public-analysis"]);
   assert.ok(contractsPackage.exports["./unicode-length"]);
-  assert.equal(
-    vercelConfig.buildCommand,
-    "pnpm --filter @payops/web... build",
-  );
+  assert.equal(vercelConfig.buildCommand, "pnpm --filter @payops/web... build");
 });
 
 test("container build contract", async () => {
