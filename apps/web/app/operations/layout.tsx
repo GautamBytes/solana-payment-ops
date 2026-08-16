@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Payment operations | PayOps",
   description:
     "Review Solana payment exceptions and produce accounting evidence.",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function OperationsLayout({

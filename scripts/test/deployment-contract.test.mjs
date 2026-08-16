@@ -338,7 +338,8 @@ test("CI container gate and operator documentation contract", async () => {
     rootReadme,
     /payops-api[\s\S]*payops-worker[\s\S]*payops-web[\s\S]*payops-migrate/u,
   );
-  assert.match(rootReadme, /invitation-only alpha/u);
+  assert.match(rootReadme, /self-serve[\s\S]*requires no[\s\S]*account/iu);
+  assert.doesNotMatch(rootReadme, /invitation-only alpha/iu);
   assert.match(rootReadme, /public-wallet analysis[\s\S]*read-only/iu);
   assert.doesNotMatch(runbook, /pilot traffic/iu);
   assert.match(runbook, /live merchant traffic/iu);

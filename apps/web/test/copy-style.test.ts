@@ -25,4 +25,15 @@ describe("website copy style", () => {
 
     expect(filesWithEmDashes).toEqual([]);
   });
+
+  it("does not use gated-launch language on public website routes", () => {
+    const prohibited =
+      /\b(pilot|waitlist|invitation-only|pending publication)\b|(?<!mainnet-)\bbeta\b/i;
+    const matches = productionDirectories
+      .flatMap((directory) => sourceFiles(join(websiteRoot, directory)))
+      .filter((path) => prohibited.test(readFileSync(path, "utf8")))
+      .map((path) => path.slice(websiteRoot.length + 1));
+
+    expect(matches).toEqual([]);
+  });
 });
