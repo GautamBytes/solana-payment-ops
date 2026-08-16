@@ -119,6 +119,23 @@ describe("analyzePublicWallet", () => {
     expect(result.coverage).toBe("partial");
   });
 
+  it("excludes a resolved transaction outside the requested range", async () => {
+    const oldTransaction = RpcTransactionEnvelopeSchema.parse({
+      ...transaction,
+      blockTime: Number(blockTime) - 120,
+    });
+    const result = await analyzePublicWallet(input(), {
+      rpc: createRpc(
+        [signatureEntry(signature, { blockTime: null })],
+        oldTransaction,
+      ),
+      ...limits,
+    });
+
+    expect(result.coverage).toBe("partial");
+    expect(result.transfers).toEqual([]);
+  });
+
   it("bounds references and transfers in the public response", async () => {
     const originalInstruction =
       transaction.transaction.message.instructions[0]!;

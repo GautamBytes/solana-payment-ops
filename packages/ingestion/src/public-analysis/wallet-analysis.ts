@@ -344,6 +344,10 @@ export async function analyzePublicWallet(
   dependencies: AnalysisDependencies,
 ): Promise<PublicWalletAnalysis> {
   validateInput(input, dependencies);
+  const fromSeconds = BigInt(Math.floor(input.fromTime.getTime() / 1_000));
+  const throughSeconds = BigInt(
+    Math.floor(input.throughTime.getTime() / 1_000),
+  );
 
   try {
     const discovered = await discoverCandidates(input, dependencies);
@@ -372,6 +376,10 @@ export async function analyzePublicWallet(
             ? candidate.signature.blockTime
             : BigInt(transactionBlockTime);
         if (blockTime === null) {
+          partial = true;
+          return [];
+        }
+        if (blockTime < fromSeconds || blockTime > throughSeconds) {
           partial = true;
           return [];
         }
