@@ -33,9 +33,7 @@ export function installErrorHandler(server: FastifyInstance): void {
     const mapped = mapError(error, request);
     const fields = {
       event:
-        mapped.status >= 500
-          ? "api_request_failed"
-          : "api_request_rejected",
+        mapped.status >= 500 ? "api_request_failed" : "api_request_rejected",
       requestId: requestIdFor(request),
       route: request.routeOptions.url,
       statusClass: safeStatusClass(mapped.status),

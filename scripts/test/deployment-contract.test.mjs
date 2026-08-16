@@ -281,13 +281,14 @@ test("provider-neutral Compose and environment capability contract", async () =>
 });
 
 test("CI container gate and operator documentation contract", async () => {
-  const [workflow, runbook, first, upgrade, incident, rootReadme] =
+  const [workflow, runbook, first, upgrade, incident, backup, rootReadme] =
     await Promise.all([
       source(".github/workflows/ci.yml"),
       source("deploy/README.md"),
       source("deploy/checklists/first-deployment.md"),
       source("deploy/checklists/upgrade.md"),
       source("deploy/checklists/incident.md"),
+      source("deploy/checklists/backup-restore.md"),
       source("README.md"),
     ]);
   const containersJob = workflow.slice(workflow.indexOf("\n  containers:"));
@@ -318,6 +319,17 @@ test("CI container gate and operator documentation contract", async () => {
   assert.match(first, /Six unique principals/u);
   assert.match(upgrade, /never roll back schema/u);
   assert.match(incident, /manual SQL/u);
+  assert.match(incident, /5 percent for five minutes/u);
+  assert.match(incident, /PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED/u);
+  assert.match(backup, /Source backup identifier/u);
+  assert.match(backup, /Disposable target identifier/u);
+  assert.match(backup, /destroy only the exact disposable target/u);
+  for (const requiredCheck of ["verify", "containers", "dependency-review"]) {
+    assert.match(first, new RegExp(requiredCheck, "u"));
+  }
+  assert.match(first, /CodeQL/u);
+  assert.match(first, /Private vulnerability reporting/u);
+  assert.match(first, /Force pushes/u);
   assert.match(
     rootReadme,
     /payops-api[\s\S]*payops-worker[\s\S]*payops-web[\s\S]*payops-migrate/u,
@@ -327,6 +339,31 @@ test("CI container gate and operator documentation contract", async () => {
   assert.doesNotMatch(runbook, /pilot traffic/iu);
   assert.match(runbook, /live merchant traffic/iu);
   assert.doesNotMatch(rootReadme, /https:\/\/payops\.[a-z]+/iu);
+});
+
+test("repository security automation contract", async () => {
+  const [ci, codeql, dependabot] = await Promise.all([
+    source(".github/workflows/ci.yml"),
+    source(".github/workflows/codeql.yml"),
+    source(".github/dependabot.yml"),
+  ]);
+
+  assert.match(ci, /^  dependency-review:$/mu);
+  assert.match(ci, /actions\/dependency-review-action@[0-9a-f]{40}/u);
+  assert.match(ci, /fail-on-severity:\s*moderate/u);
+  assert.match(codeql, /github\/codeql-action\/init@[0-9a-f]{40}/u);
+  assert.match(codeql, /github\/codeql-action\/analyze@[0-9a-f]{40}/u);
+  assert.match(codeql, /languages:\s*javascript-typescript/u);
+  assert.match(codeql, /queries:\s*security-extended/u);
+  assert.match(codeql, /security-events:\s*write/u);
+  assert.match(dependabot, /package-ecosystem:\s*"npm"/u);
+  assert.match(dependabot, /package-ecosystem:\s*"github-actions"/u);
+  assert.match(dependabot, /interval:\s*"weekly"/u);
+  for (const workflow of [ci, codeql]) {
+    for (const match of workflow.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gmu)) {
+      assert.match(match[1], /@[0-9a-f]{40}$/u);
+    }
+  }
 });
 
 test("smoke lifecycle is interruption-safe and output-bounded", async () => {

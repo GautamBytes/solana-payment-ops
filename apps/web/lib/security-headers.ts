@@ -52,9 +52,7 @@ function securityHeaders(
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
-    ...(noIndex
-      ? { "X-Robots-Tag": "noindex, nofollow, noarchive" }
-      : {}),
+    ...(noIndex ? { "X-Robots-Tag": "noindex, nofollow, noarchive" } : {}),
   };
 }
 

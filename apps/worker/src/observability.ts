@@ -1,6 +1,4 @@
-export type LogFields = Readonly<
-  Record<string, string | number | boolean>
->;
+export type LogFields = Readonly<Record<string, string | number | boolean>>;
 
 export type OperationalEvent =
   | "worker_instance_started"
