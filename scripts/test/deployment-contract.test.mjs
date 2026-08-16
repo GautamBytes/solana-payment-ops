@@ -28,7 +28,11 @@ test("hosted runtime source contract", async () => {
   assert.match(workerBin, /Promise\.allSettled/u);
   assert.doesNotMatch(workerBin, /process\.exit\(/u);
   assert.doesNotMatch(webLive, /process\.env|fetch\s*\(/u);
-  assert.doesNotMatch(webReady, /fetch\s*\(/u);
+  assert.equal(webReady.match(/fetch\s*\(/gu)?.length, 1);
+  assert.match(webReady, /fetch\(`\$\{apiOrigin\}\/health\/ready`/u);
+  assert.match(webReady, /cache:\s*["']no-store["']/u);
+  assert.match(webReady, /AbortSignal\.timeout\(3_000\)/u);
+  assert.match(webReady, /api_unavailable/u);
   assert.match(tryPage, /export const dynamic\s*=\s*"force-dynamic"/u);
   assert.match(tryPage, /process\.env\.PAYOPS_API_ORIGIN/u);
 });
