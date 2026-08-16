@@ -15,6 +15,7 @@ test("hosted runtime source contract", async () => {
   ]);
 
   assert.match(nextConfig, /output:\s*["']standalone["']/u);
+  assert.match(nextConfig, /process\.env\.VERCEL\s*===\s*["']1["']/u);
   assert.match(apiBin, /PAYOPS_API_HOST/u);
   assert.match(apiBin, /\?\?\s*["']127\.0\.0\.1["']/u);
   assert.match(apiBin, /server\.listen\(\{\s*host,\s*port\s*\}\)/u);
