@@ -33,4 +33,30 @@ describe("public wallet analysis transport", () => {
       expect.objectContaining({ method: "POST", credentials: "omit" }),
     );
   });
+
+  it("keeps the existing API route when an external origin is configured", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          schemaVersion: "0.1",
+          walletAddress,
+          fromTime: "2026-08-09T00:00:00.000Z",
+          throughTime: "2026-08-16T00:00:00.000Z",
+          coverage: "complete",
+          transfers: [],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await analyzeWallet(
+      { walletAddress, rangeDays: 7 },
+      "https://api.payops.example",
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.payops.example/v1/public/wallet-analysis",
+      expect.objectContaining({ method: "POST", credentials: "omit" }),
+    );
+  });
 });

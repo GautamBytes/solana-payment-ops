@@ -117,7 +117,7 @@ export async function analyzeWallet(
     const endpoint =
       apiOrigin === undefined
         ? "/v1/public-wallet-analysis"
-        : `${exactApiOrigin(apiOrigin)}/v1/public-wallet-analysis`;
+        : `${exactApiOrigin(apiOrigin)}/v1/public/wallet-analysis`;
     response = await fetch(endpoint, {
       method: "POST",
       cache: "no-store",
