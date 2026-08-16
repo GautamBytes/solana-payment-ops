@@ -367,6 +367,7 @@ async function assertProtectedObjectState(
     "operational_incidents",
     "operational_incident_events",
     "operational_health_signals",
+    "public_analysis_rate_limit_buckets",
   ];
   const tables = await sql<{ object_name: string; owner_name: string }[]>`
     SELECT class.relname AS object_name,
@@ -386,12 +387,14 @@ async function assertProtectedObjectState(
           authority_applied: boolean;
           review_hardening_applied: boolean;
           operational_health_applied: boolean;
+          public_analysis_rate_limits_applied: boolean;
         }[]
       >(`
         SELECT
           bool_or(name = '4012_production_control_authority') AS authority_applied,
           bool_or(name = '4013_production_control_review_hardening') AS review_hardening_applied,
-          bool_or(name = '4015_operational_health') AS operational_health_applied
+          bool_or(name = '4015_operational_health') AS operational_health_applied,
+          bool_or(name = '4016_public_analysis_rate_limits') AS public_analysis_rate_limits_applied
         FROM ${quoteIdentifier(schemaName)}.${migrationTable}
       `)
     : [
@@ -399,6 +402,7 @@ async function assertProtectedObjectState(
           authority_applied: false,
           review_hardening_applied: false,
           operational_health_applied: false,
+          public_analysis_rate_limits_applied: false,
         },
       ];
   if (!migrations?.authority_applied) {
@@ -451,9 +455,15 @@ async function assertProtectedObjectState(
   const controlTables = migrations.review_hardening_applied
     ? protectedTables.slice(0, 4)
     : protectedTables.slice(0, 3);
-  const expectedTables = migrations.operational_health_applied
-    ? [...controlTables, ...protectedTables.slice(4)]
-    : controlTables;
+  const expectedTables = [
+    ...controlTables,
+    ...(migrations.operational_health_applied
+      ? protectedTables.slice(4, 8)
+      : []),
+    ...(migrations.public_analysis_rate_limits_applied
+      ? ["public_analysis_rate_limit_buckets"]
+      : []),
+  ];
   const functions = await sql<{ object_name: string; owner_name: string }[]>`
     SELECT procedure.proname AS object_name,
       pg_get_userbyid(procedure.proowner) AS owner_name
@@ -813,6 +823,14 @@ async function installFinalizer(
           ${schema}.webhook_events, ${schema}.ledger_reconciliations,
           ${schema}.worker_instances, ${schema}.worker_job_states
           TO ${authority};
+      END IF;
+
+      IF to_regclass('${schemaName}.public_analysis_rate_limit_buckets') IS NOT NULL THEN
+        ALTER TABLE ${schema}.public_analysis_rate_limit_buckets OWNER TO ${authority};
+        REVOKE ALL ON ${schema}.public_analysis_rate_limit_buckets
+          FROM PUBLIC, ${runtime}, ${migrator}, ${control}, ${verifier}, ${projector};
+        GRANT SELECT, INSERT, UPDATE
+          ON ${schema}.public_analysis_rate_limit_buckets TO ${runtime};
       END IF;
 
       GRANT INSERT ON ${schema}.audit_events TO ${authority};

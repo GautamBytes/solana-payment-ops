@@ -465,6 +465,7 @@ describeDatabase("coordinated migrations", () => {
       "4013_production_control_review_hardening",
       "4014_worker_readiness",
       "4015_operational_health",
+      "4016_public_analysis_rate_limits",
     ]);
     const attemptColumns = await scoped!<{ name: string; nullable: string }[]>`
       SELECT column_name AS name, is_nullable AS nullable

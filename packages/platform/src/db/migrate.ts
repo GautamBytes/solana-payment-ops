@@ -94,6 +94,7 @@ export const PLATFORM_MIGRATION_NAMES = [
   "4013_production_control_review_hardening",
   "4014_worker_readiness",
   "4015_operational_health",
+  "4016_public_analysis_rate_limits",
 ] as const;
 
 async function platformMigrationDefinitions(): Promise<MigrationDefinition[]> {
