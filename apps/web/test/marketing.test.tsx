@@ -4,6 +4,33 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 describe("PayOps marketing homepage", () => {
+  it("gives the hero actions distinct jobs and on-brand hover states", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    const css = readFileSync(
+      new URL("../styles/marketing.css", import.meta.url),
+      "utf8",
+    );
+
+    const heroActions =
+      markup.match(/<div class="hero-actions">([\s\S]*?)<\/div>/)?.[1] ?? "";
+    const primaryHover =
+      css.match(/\.marketing \.button:hover\s*\{([^}]*)\}/s)?.[1] ?? "";
+    const secondaryHover =
+      css.match(/\.marketing \.button-secondary:hover\s*\{([^}]*)\}/s)?.[1] ??
+      "";
+
+    expect(heroActions).toContain('href="#how-it-works"');
+    expect(heroActions).toContain("Explore payment flow");
+    expect(heroActions).toContain('href="/docs/quickstart"');
+    expect(heroActions).toContain("Developer quickstart");
+    expect(heroActions).not.toContain("Open the docs");
+    expect(primaryHover).toContain("background: var(--m-green-hover)");
+    expect(primaryHover).not.toContain("var(--m-lime)");
+    expect(secondaryHover).toContain("color: var(--m-green)");
+    expect(secondaryHover).toContain("border-color:");
+  });
+
   it("explains the product, its safeguards, and both adoption paths", async () => {
     expect(existsSync(new URL("../app/page.tsx", import.meta.url))).toBe(true);
 

@@ -7,6 +7,7 @@
   --m-text: #f4f7f5;
   --m-muted: #91a099;
   --m-green: #16e5a2;
+  --m-green-hover: #20d9aa;
   --m-lime: #b2ff52;
   min-height: 100vh;
   overflow-x: clip;
@@ -222,12 +223,17 @@
   font-weight: 680;
   transition:
     transform 140ms ease,
-    background 140ms ease;
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .marketing .button:hover {
   transform: translateY(-2px);
-  background: var(--m-lime);
+  border-color: #46edbb;
+  background: var(--m-green-hover);
+  box-shadow: 0 10px 28px rgb(22 229 162 / 14%);
 }
 .marketing .button-secondary {
   color: var(--m-text);
@@ -235,7 +241,10 @@
   background: #0a0d0b;
 }
 .marketing .button-secondary:hover {
-  background: #111813;
+  color: var(--m-green);
+  border-color: rgb(22 229 162 / 52%);
+  background: #0d1712;
+  box-shadow: inset 0 0 0 1px rgb(22 229 162 / 7%);
 }
 .marketing .button-small {
   min-height: 2.7rem;
