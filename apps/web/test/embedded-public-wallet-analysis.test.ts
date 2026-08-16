@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createEmbeddedPublicWalletAnalysisHandler } from "../lib/server/embedded-public-wallet-analysis.js";
+import type { PublicAnalysisCompletion } from "../lib/server/public-analysis-observability.js";
 
 const origin = "https://pay.example";
 const walletAddress = "LcNR2RPX9mMG1a23dfG6yQNvLUctx4sniKXKH9TV3ym";
@@ -22,6 +23,7 @@ function request(
 }
 
 function fixture(enabled = true) {
+  const events: PublicAnalysisCompletion[] = [];
   const analyze = vi.fn(async () => ({
     schemaVersion: "0.1" as const,
     walletAddress,
@@ -43,8 +45,9 @@ function fixture(enabled = true) {
     rpcForRequest,
     now: () => new Date("2026-08-16T00:00:00.000Z"),
     requestId: () => "00000000-0000-4000-8000-000000000123",
+    logCompleted: (event) => events.push(event),
   });
-  return { handler, analyze, rpcForRequest };
+  return { handler, analyze, events, rpcForRequest };
 }
 
 describe("embedded public wallet analysis", () => {
@@ -114,7 +117,7 @@ describe("embedded public wallet analysis", () => {
   });
 
   it("maps upstream failures to a stable response without leaking details", async () => {
-    const { handler, analyze } = fixture();
+    const { handler, analyze, events } = fixture();
     analyze.mockRejectedValueOnce(
       new Error("secret Solana provider credential and response"),
     );
@@ -126,5 +129,16 @@ describe("embedded public wallet analysis", () => {
       message: "Public analysis is temporarily unavailable",
       requestId: "00000000-0000-4000-8000-000000000123",
     });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        event: "public_analysis_request_completed",
+        requestId: "00000000-0000-4000-8000-000000000123",
+        route: "/v1/public-wallet-analysis",
+        statusClass: "5xx",
+        code: "public_analysis_unavailable",
+      }),
+    );
+    expect(JSON.stringify(events)).not.toContain("secret");
+    expect(JSON.stringify(events)).not.toContain(walletAddress);
   });
 });

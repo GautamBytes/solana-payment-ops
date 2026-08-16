@@ -1,13 +1,32 @@
-export function checkoutSecurityHeaders(input: {
+interface SharedSecurityHeaderInput {
   readonly nonce: string;
-  readonly apiOrigin: string;
+  readonly apiOrigin?: string;
   readonly development: boolean;
   readonly allowSameOriginForms?: boolean;
-}): Readonly<Record<string, string>> {
+  readonly noStore?: boolean;
+}
+
+export function checkoutSecurityHeaders(
+  input: SharedSecurityHeaderInput & { readonly apiOrigin: string },
+): Readonly<Record<string, string>> {
+  return securityHeaders(input, true);
+}
+
+export function publicPageSecurityHeaders(
+  input: SharedSecurityHeaderInput,
+): Readonly<Record<string, string>> {
+  return securityHeaders(input, false);
+}
+
+function securityHeaders(
+  input: SharedSecurityHeaderInput,
+  noIndex: boolean,
+): Readonly<Record<string, string>> {
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.nonce)) {
-    throw new TypeError("Checkout CSP nonce is invalid");
+    throw new TypeError("CSP nonce is invalid");
   }
-  const apiOrigin = exactOrigin(input.apiOrigin);
+  const apiOrigin =
+    input.apiOrigin === undefined ? "" : ` ${exactOrigin(input.apiOrigin)}`;
   const developmentEval = input.development ? " 'unsafe-eval'" : "";
   const csp = [
     "default-src 'self'",
@@ -15,7 +34,7 @@ export function checkoutSecurityHeaders(input: {
     `style-src 'self' 'nonce-${input.nonce}'`,
     "img-src 'self' data:",
     "font-src 'self'",
-    `connect-src 'self' ${apiOrigin}`,
+    `connect-src 'self'${apiOrigin}`,
     "object-src 'none'",
     "base-uri 'none'",
     input.allowSameOriginForms === true
@@ -24,14 +43,16 @@ export function checkoutSecurityHeaders(input: {
     "frame-ancestors 'none'",
   ].join("; ");
   return {
-    "Cache-Control": "private, no-store",
+    ...(input.noStore === true || noIndex
+      ? { "Cache-Control": "private, no-store" }
+      : {}),
     "Content-Security-Policy": csp,
     "Permissions-Policy":
       "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
-    "X-Robots-Tag": "noindex, nofollow, noarchive",
+    ...(noIndex ? { "X-Robots-Tag": "noindex, nofollow, noarchive" } : {}),
   };
 }
 
@@ -49,7 +70,7 @@ function exactOrigin(value: string): string {
         ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
       ))
   ) {
-    throw new TypeError("Checkout API origin is invalid");
+    throw new TypeError("API origin is invalid");
   }
   return url.origin;
 }

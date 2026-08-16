@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   WorkerJobLease,
   WorkerJobCursor,
@@ -7,9 +8,11 @@ import type {
   RpcProviderConfigurationIdentity,
 } from "@payops/platform";
 import type { WorkerJobConfig } from "./config.js";
+import type { OperationalLogger } from "./observability.js";
 
 export interface WorkerJobContext {
   readonly instanceId: string;
+  readonly operationId: string;
   readonly signal: AbortSignal;
   readonly now: Date;
   readonly batchSize: number;
@@ -50,7 +53,14 @@ export interface WorkerRunDependencies {
     signal: AbortSignal,
   ) => Promise<void>;
   readonly shutdownGraceMs?: number;
+  readonly logger?: OperationalLogger;
 }
+
+const noOpLogger: OperationalLogger = {
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
 
 export async function runWorker(input: WorkerRunDependencies): Promise<void> {
   validateJobs(input.jobs);
@@ -58,6 +68,7 @@ export async function runWorker(input: WorkerRunDependencies): Promise<void> {
   const random = input.random ?? Math.random;
   const sleep = input.sleep ?? abortableSleep;
   const shutdownGraceMs = input.shutdownGraceMs ?? 30_000;
+  const logger = input.logger ?? noOpLogger;
   if (
     !Number.isInteger(shutdownGraceMs) ||
     shutdownGraceMs < 1 ||
@@ -68,6 +79,10 @@ export async function runWorker(input: WorkerRunDependencies): Promise<void> {
   const instance = await input.store.startInstance({
     buildRevision: input.buildRevision,
     rpc: input.rpc,
+  });
+  logger.info("worker_instance_started", {
+    instanceId: instance.id,
+    buildRevision: input.buildRevision,
   });
   const runtimeController = new AbortController();
   const stopRuntime = () => runtimeController.abort(input.signal.reason);
@@ -81,6 +96,7 @@ export async function runWorker(input: WorkerRunDependencies): Promise<void> {
     input.heartbeatSleep ?? abortableSleep,
     (error) => {
       heartbeatFailure = error;
+      logger.error("worker_heartbeat_failed", { instanceId: instance.id });
       runtimeController.abort(error);
     },
   );
@@ -146,7 +162,10 @@ export async function runWorker(input: WorkerRunDependencies): Promise<void> {
     runtimeController.abort();
     await heartbeat;
     input.signal.removeEventListener("abort", stopRuntime);
-    if (settled) await input.store.stopInstance(instance.id);
+    if (settled) {
+      await input.store.stopInstance(instance.id);
+      logger.info("worker_instance_stopped", { instanceId: instance.id });
+    }
   }
 }
 
@@ -178,6 +197,7 @@ async function runOne(
   signal: AbortSignal,
 ): Promise<boolean> {
   let lease: WorkerJobLease | null = null;
+  let operationId: string | undefined;
   try {
     lease = await input.store.claim({
       instanceId,
@@ -191,6 +211,12 @@ async function runOne(
       await input.store.release(lease, now);
       return true;
     }
+    operationId = randomUUID();
+    input.logger?.info("worker_job_started", {
+      instanceId,
+      operationId,
+      job: job.name,
+    });
     const handler = input.handlers[job.name];
     if (handler === undefined) throw new TypeError("Worker handler is missing");
     const leaseController = new AbortController();
@@ -207,6 +233,7 @@ async function runOne(
     try {
       const cursor = await handler({
         instanceId,
+        operationId,
         signal: AbortSignal.any([signal, leaseController.signal]),
         now,
         batchSize: job.batchSize,
@@ -217,13 +244,41 @@ async function runOne(
         await input.store.release(lease, new Date());
         return false;
       }
-      return await input.store.complete({ lease, now: new Date(), cursor });
+      const completed = await input.store.complete({
+        lease,
+        now: new Date(),
+        cursor,
+      });
+      if (completed) {
+        input.logger?.info("worker_job_completed", {
+          instanceId,
+          operationId,
+          job: job.name,
+        });
+      } else {
+        input.logger?.warn("worker_job_failed", {
+          instanceId,
+          operationId,
+          job: job.name,
+          failureClass: "contention",
+        });
+      }
+      return completed;
     } finally {
       signal.removeEventListener("abort", stopHeartbeat);
       leaseController.abort();
       await heartbeat;
     }
   } catch (error) {
+    const failureClass = classifyFailure(error);
+    if (lease !== null && operationId !== undefined) {
+      input.logger?.warn("worker_job_failed", {
+        instanceId,
+        operationId,
+        job: job.name,
+        failureClass,
+      });
+    }
     if (lease !== null) {
       if (signal.aborted || safeErrorCode(error) === "worker_lease_lost") {
         await input.store.release(lease, new Date()).catch(() => false);
@@ -232,7 +287,7 @@ async function runOne(
           .complete({
             lease,
             now: new Date(),
-            failureClass: classifyFailure(error),
+            failureClass,
           })
           .catch(() => false);
       }

@@ -5,6 +5,7 @@ import {
 } from "@payops/platform";
 import { parseWorkerConfig } from "./config.js";
 import { HostedWorkerJobs } from "./jobs.js";
+import { jsonConsoleLogger } from "./observability.js";
 import { runWorker } from "./runner.js";
 
 void main().then(
@@ -28,6 +29,7 @@ async function main(): Promise<number> {
     rpc: config.rpc,
   });
   const controller = new AbortController();
+  const logger = jsonConsoleLogger();
   const stop = () => controller.abort(new Error("Worker shutdown requested"));
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
@@ -41,6 +43,7 @@ async function main(): Promise<number> {
       jobs: config.jobs,
       handlers: jobs.handlers(),
       signal: controller.signal,
+      logger,
     });
     return 0;
   } finally {

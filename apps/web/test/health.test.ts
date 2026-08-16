@@ -54,6 +54,36 @@ describe("web container health", () => {
     );
   });
 
+  test("uses the server-only Compose API origin for dependency readiness", async () => {
+    for (const [name, value] of Object.entries({
+      ...validEnvironment,
+      PAYOPS_API_READINESS_ORIGIN: "http://api:3000",
+    })) {
+      vi.stubEnv(name, value);
+    }
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response('{"status":"ok"}', { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+
+    expect(
+      parseWebRuntimeConfig({
+        ...validEnvironment,
+        PAYOPS_API_READINESS_ORIGIN: "http://api:3000",
+      }),
+    ).toEqual({
+      mode: "external-api",
+      webOrigin: "https://pay.example.com",
+      apiOrigin: "https://api.example.com",
+      readinessOrigin: "http://api:3000",
+    });
+    expect((await ready()).status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://api:3000/health/ready",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
   test("fails closed when the hosted API is unavailable", async () => {
     for (const [name, value] of Object.entries(validEnvironment)) {
       vi.stubEnv(name, value);
@@ -158,6 +188,13 @@ describe("web container health", () => {
       {
         ...validEnvironment,
         PAYOPS_WEB_ORIGIN: "https://user@pay.example.com",
+      },
+    ],
+    [
+      "arbitrary insecure readiness origin",
+      {
+        ...validEnvironment,
+        PAYOPS_API_READINESS_ORIGIN: "http://other-service:3000",
       },
     ],
   ])("fails closed for %s", async (_name, environment) => {

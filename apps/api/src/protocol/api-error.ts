@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { safeStatusClass } from "../observability/logger.js";
 import { requestIdFor } from "./request-context.js";
 
 const apiErrorBrand = Symbol("payops.api-error");
@@ -30,6 +31,16 @@ export class ApiError extends Error {
 export function installErrorHandler(server: FastifyInstance): void {
   server.setErrorHandler(async (error, request, reply) => {
     const mapped = mapError(error, request);
+    const fields = {
+      event:
+        mapped.status >= 500 ? "api_request_failed" : "api_request_rejected",
+      requestId: requestIdFor(request),
+      route: request.routeOptions.url,
+      statusClass: safeStatusClass(mapped.status),
+      code: mapped.code,
+    };
+    if (mapped.status >= 500) request.log.error(fields);
+    else request.log.warn(fields);
     return reply.code(mapped.status).send(mapped.body);
   });
 
@@ -43,11 +54,12 @@ export function installErrorHandler(server: FastifyInstance): void {
 function mapError(
   error: unknown,
   request: FastifyRequest,
-): { readonly status: number; readonly body: object } {
+): { readonly status: number; readonly code: string; readonly body: object } {
   const apiError = safeApiError(error);
   if (apiError !== null) {
     return {
       status: apiError.status,
+      code: apiError.code,
       body: errorBody(
         request,
         apiError.code,
@@ -60,6 +72,7 @@ function mapError(
   if (code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") {
     return {
       status: 415,
+      code: "unsupported_media_type",
       body: errorBody(
         request,
         "unsupported_media_type",
@@ -70,11 +83,13 @@ function mapError(
   if (code === "FST_ERR_CTP_BODY_TOO_LARGE") {
     return {
       status: 413,
+      code: "body_too_large",
       body: errorBody(request, "body_too_large", "Request body is too large"),
     };
   }
   return {
     status: 500,
+    code: "internal_error",
     body: errorBody(request, "internal_error", "An internal error occurred"),
   };
 }

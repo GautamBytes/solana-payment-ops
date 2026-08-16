@@ -233,6 +233,7 @@ describeDatabase("hosted worker target batching", () => {
     const jobs = createHostedJobs();
     const context = {
       instanceId: "00000000-0000-4000-8000-000000000001",
+      operationId: "00000000-0000-4000-8000-000000000002",
       signal: new AbortController().signal,
       now: new Date(),
       batchSize: 10,
@@ -328,6 +329,7 @@ describeDatabase("hosted worker target batching", () => {
     try {
       const result = await jobs.handlers().verify_rpc_consensus!({
         instanceId: "00000000-0000-4000-8000-000000000001",
+        operationId: "00000000-0000-4000-8000-000000000002",
         signal: new AbortController().signal,
         now: new Date(),
         batchSize: 10,
@@ -387,6 +389,7 @@ describeDatabase("hosted worker target batching", () => {
       await expect(
         jobs.handlers().verify_rpc_consensus!({
           instanceId: "00000000-0000-4000-8000-000000000001",
+          operationId: "00000000-0000-4000-8000-000000000002",
           signal: new AbortController().signal,
           now: new Date(),
           batchSize: 10,
@@ -427,6 +430,7 @@ describeDatabase("hosted worker target batching", () => {
       await expect(
         jobs.handlers().verify_rpc_consensus!({
           instanceId: "00000000-0000-4000-8000-000000000001",
+          operationId: "00000000-0000-4000-8000-000000000002",
           signal: new AbortController().signal,
           now: new Date(),
           batchSize: 10,

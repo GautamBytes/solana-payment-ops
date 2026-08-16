@@ -2,22 +2,23 @@
 
 PayOps treats configuration as capability assignment. A secret store must inject values at runtime; do not bake them into images, build arguments, labels, Compose files, or browser variables.
 
-| Service        | Database variables                                   | Other required capability                                                           |
-| -------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| role bootstrap | `PAYOPS_DATABASE_ADMIN_URL`                          | Five restricted login principal names                                               |
-| migrator       | `PAYOPS_MIGRATOR_DATABASE_URL`                       | None                                                                                |
-| API            | runtime, production-control, readiness-verifier URLs | HTTPS origins, dual RPC identity, auth/checkout keys, Pyth, email, evidence signing |
-| worker         | runtime and shadow-projector URLs                    | dual RPC identity and bounded worker settings                                       |
-| web            | none                                                 | exact web/API origins; only `NEXT_PUBLIC_PAYOPS_API_ORIGIN` is client-visible       |
+| Service        | Database variables                                   | Other required capability                                                                                   |
+| -------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| role bootstrap | `PAYOPS_DATABASE_ADMIN_URL`                          | Five restricted login principal names                                                                       |
+| migrator       | `PAYOPS_MIGRATOR_DATABASE_URL`                       | None                                                                                                        |
+| API            | runtime, production-control, readiness-verifier URLs | HTTPS origins, dual RPC identity, auth/checkout keys, Pyth, email, evidence signing                         |
+| worker         | runtime and shadow-projector URLs                    | dual RPC identity and bounded worker settings                                                               |
+| web            | none                                                 | exact web/API origins; server-only readiness origin; only `NEXT_PUBLIC_PAYOPS_API_ORIGIN` is client-visible |
 
 The web deployment uses the same hosted API origin in server and browser
 contexts:
 
-| Web variable                    | Source                    | Rule                                         |
-| ------------------------------- | ------------------------- | -------------------------------------------- |
-| `PAYOPS_WEB_ORIGIN`             | Public web deployment URL | Exact HTTPS origin                           |
-| `PAYOPS_API_ORIGIN`             | Hosted API deployment URL | Exact HTTPS origin                           |
-| `NEXT_PUBLIC_PAYOPS_API_ORIGIN` | Hosted API deployment URL | Must equal `PAYOPS_API_ORIGIN` byte for byte |
+| Web variable                    | Source                    | Rule                                                                   |
+| ------------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `PAYOPS_WEB_ORIGIN`             | Public web deployment URL | Exact HTTPS origin                                                     |
+| `PAYOPS_API_ORIGIN`             | Hosted API deployment URL | Exact HTTPS origin                                                     |
+| `NEXT_PUBLIC_PAYOPS_API_ORIGIN` | Hosted API deployment URL | Must equal `PAYOPS_API_ORIGIN` byte for byte                           |
+| `PAYOPS_API_READINESS_ORIGIN`   | Web server only           | Optional exact HTTPS origin; local Compose uses only `http://api:3000` |
 
 The administrator is used only to create restricted principals and capability roles. Remove it from the deployment job before migrations. The migrator is a one-shot capability and must never be present in API, worker, or web.
 

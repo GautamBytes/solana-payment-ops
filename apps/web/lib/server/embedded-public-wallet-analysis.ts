@@ -7,6 +7,10 @@ import {
   preparePublicWalletAnalysisRequest,
   PublicWalletRequestError,
 } from "@payops/ingestion/public-analysis";
+import {
+  publicAnalysisStatusClass,
+  type PublicAnalysisCompletion,
+} from "./public-analysis-observability";
 
 interface EmbeddedPublicWalletAnalysisDependencies {
   readonly isEnabled: () => boolean;
@@ -22,6 +26,7 @@ interface EmbeddedPublicWalletAnalysisDependencies {
   ) => Promise<PublicWalletAnalysis>;
   readonly now?: () => Date;
   readonly requestId?: () => string;
+  readonly logCompleted?: (event: PublicAnalysisCompletion) => void;
 }
 
 const maximumBodyBytes = 2_048;
@@ -35,29 +40,54 @@ export function createEmbeddedPublicWalletAnalysisHandler(
   dependencies: EmbeddedPublicWalletAnalysisDependencies,
 ): (request: Request) => Promise<Response> {
   return async (request) => {
+    const startedAt = performance.now();
     const requestId = dependencies.requestId?.() ?? crypto.randomUUID();
+    const complete = (response: Response, code: string): Response => {
+      try {
+        dependencies.logCompleted?.({
+          event: "public_analysis_request_completed",
+          requestId,
+          route: "/v1/public-wallet-analysis",
+          statusClass: publicAnalysisStatusClass(response.status),
+          durationMs: performance.now() - startedAt,
+          code,
+        });
+      } catch {
+        // Observability must never change the public response contract.
+      }
+      return response;
+    };
     if (!dependencies.isEnabled()) {
-      return errorResponse(
-        404,
+      return complete(
+        errorResponse(
+          404,
+          "public_analysis_disabled",
+          "Public analysis is not available",
+          requestId,
+        ),
         "public_analysis_disabled",
-        "Public analysis is not available",
-        requestId,
       );
     }
     if (!isSameOrigin(request)) {
-      return errorResponse(
-        403,
+      return complete(
+        errorResponse(
+          403,
+          "untrusted_origin",
+          "Origin is not trusted",
+          requestId,
+        ),
         "untrusted_origin",
-        "Origin is not trusted",
-        requestId,
       );
     }
     if (!isJson(request.headers.get("content-type"))) {
-      return errorResponse(
-        415,
+      return complete(
+        errorResponse(
+          415,
+          "unsupported_media_type",
+          "Content type must be application/json",
+          requestId,
+        ),
         "unsupported_media_type",
-        "Content type must be application/json",
-        requestId,
       );
     }
 
@@ -68,11 +98,15 @@ export function createEmbeddedPublicWalletAnalysisHandler(
       const tooLarge =
         error instanceof EmbeddedRequestError &&
         error.code === "body_too_large";
-      return errorResponse(
-        tooLarge ? 413 : 400,
-        tooLarge ? "request_body_too_large" : "invalid_json",
-        tooLarge ? "Request body is too large" : "Request body is invalid",
-        requestId,
+      const code = tooLarge ? "request_body_too_large" : "invalid_json";
+      return complete(
+        errorResponse(
+          tooLarge ? 413 : 400,
+          code,
+          tooLarge ? "Request body is too large" : "Request body is invalid",
+          requestId,
+        ),
+        code,
       );
     }
 
@@ -85,14 +119,17 @@ export function createEmbeddedPublicWalletAnalysisHandler(
         error instanceof PublicWalletRequestError
           ? error.field
           : "walletAddress";
-      return jsonResponse(
-        {
-          code: "invalid_public_analysis_request",
-          message: "Public analysis request is invalid",
-          requestId,
-          details: { field },
-        },
-        400,
+      return complete(
+        jsonResponse(
+          {
+            code: "invalid_public_analysis_request",
+            message: "Public analysis request is invalid",
+            requestId,
+            details: { field },
+          },
+          400,
+        ),
+        "invalid_public_analysis_request",
       );
     }
 
@@ -107,13 +144,16 @@ export function createEmbeddedPublicWalletAnalysisHandler(
         maxTransactions: 20,
         concurrency: 2,
       });
-      return jsonResponse(analysis, 200);
+      return complete(jsonResponse(analysis, 200), "ok");
     } catch {
-      return errorResponse(
-        503,
+      return complete(
+        errorResponse(
+          503,
+          "public_analysis_unavailable",
+          "Public analysis is temporarily unavailable",
+          requestId,
+        ),
         "public_analysis_unavailable",
-        "Public analysis is temporarily unavailable",
-        requestId,
       );
     }
   };
