@@ -143,7 +143,9 @@ describe("public wallet analysis mode", () => {
       }),
     );
     expect(markup).toContain("Use a public wallet");
-    expect(markup).toContain("Never enter a seed phrase or private key");
+    expect(markup).toContain("Public blockchain data only");
+    expect(markup).toContain("never a seed phrase or private key");
+    expect(markup).toContain("Compare against an expected payment");
     expect(markup).toContain('name="walletAddress"');
     expect(markup).toContain('name="rangeDays"');
     expect(markup).toContain(
@@ -172,10 +174,18 @@ describe("public wallet analysis mode", () => {
     expect(wallet).toHaveProperty("value", "not-an-address");
 
     fireEvent.change(wallet, { target: { value: walletAddress } });
+    const expectationsSummary = screen.getByText(
+      "Compare against an expected payment",
+      { exact: true },
+    );
+    const expectations = expectationsSummary.closest("details");
+    fireEvent.click(expectationsSummary);
     const amount = screen.getByLabelText("Expected amount");
     fireEvent.change(amount, { target: { value: "12.1234567" } });
+    fireEvent.click(expectationsSummary);
     fireEvent.click(screen.getByRole("button", { name: "Analyze wallet" }));
     expect(screen.getByText("Use up to six decimal places.")).toBeTruthy();
+    expect(expectations).toHaveProperty("open", true);
     expect(document.activeElement).toBe(amount);
     expect(wallet).toHaveProperty("value", walletAddress);
     expect(amount).toHaveProperty("value", "12.1234567");

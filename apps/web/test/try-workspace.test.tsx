@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { default as TryPage, metadata } from "../app/try/page";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("Try PayOps route", () => {
   it("renders a labeled, populated, read-only sample workspace", () => {
@@ -28,6 +32,18 @@ describe("Try PayOps route", () => {
     expect(markup).toContain("Verified Solana payments");
     expect(markup).toContain('href="#workspace"');
     expect(markup).toContain("Open workspace");
+  });
+
+  it("renders both self-serve modes when public analysis is enabled", () => {
+    vi.stubEnv("PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_PAYOPS_API_ORIGIN", "https://api.payops.example");
+    const markup = renderToStaticMarkup(createElement(TryPage));
+
+    expect(markup).toContain("Explore sample workspace");
+    expect(markup).toContain("Use a public wallet");
+    expect(markup).toContain("Public blockchain data only");
+    expect(markup).toContain("Compare against an expected payment");
+    expect(markup).not.toMatch(/pilot|waitlist|connect wallet/i);
   });
 
   it("publishes indexable product metadata", () => {
