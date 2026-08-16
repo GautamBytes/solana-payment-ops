@@ -39,3 +39,10 @@ export {
   type PublicWalletExpectationCheck,
   type PublicWalletTransfer,
 } from "./public-analysis/wallet-analysis.js";
+export {
+  preparePublicWalletAnalysisRequest,
+  PublicWalletRequestError,
+  type PreparedPublicWalletAnalysisRequest,
+  type PublicWalletAnalysisRequest,
+  type PublicWalletRequestField,
+} from "./public-analysis/request.js";
