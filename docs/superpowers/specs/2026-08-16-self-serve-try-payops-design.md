@@ -38,13 +38,13 @@ from public Solana data.
 
 All merchant-facing pilot actions become self-serve product actions:
 
-| Surface | Copy | Destination |
-| --- | --- | --- |
-| Header | `Try PayOps` | `/try` |
-| Merchant path | `Explore sample workspace` | `/try` |
-| Final homepage section | `See PayOps in action` | `/try` |
-| Developer path | `Developer quickstart` | `/docs/quickstart` |
-| Optional support | `Ask a question` | Existing question issue URL |
+| Surface                | Copy                       | Destination                 |
+| ---------------------- | -------------------------- | --------------------------- |
+| Header                 | `Try PayOps`               | `/try`                      |
+| Merchant path          | `Explore sample workspace` | `/try`                      |
+| Final homepage section | `See PayOps in action`     | `/try`                      |
+| Developer path         | `Developer quickstart`     | `/docs/quickstart`          |
+| Optional support       | `Ask a question`           | Existing question issue URL |
 
 Public surfaces must not describe the entry as a pilot, beta, application,
 invitation, or request for access. GitHub remains available for source,
