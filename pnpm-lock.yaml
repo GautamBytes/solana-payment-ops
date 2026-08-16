@@ -87,6 +87,9 @@ importers:
       '@fontsource/ibm-plex-mono':
         specifier: 5.3.0
         version: 5.3.0
+      '@payops/ingestion':
+        specifier: workspace:^0.1.0
+        version: link:../../packages/ingestion
       '@phosphor-icons/react':
         specifier: 2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
