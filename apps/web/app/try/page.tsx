@@ -10,5 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default function TryPage() {
-  return <TryWorkspaceView workspace={sampleWorkspace} />;
+  return (
+    <TryWorkspaceView
+      workspace={sampleWorkspace}
+      publicWalletEnabled={
+        process.env.PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED === "true"
+      }
+    />
+  );
 }
