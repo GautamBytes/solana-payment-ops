@@ -6,6 +6,7 @@ import {
 } from "@payops/ingestion/public-analysis";
 
 import { createEmbeddedPublicWalletAnalysisHandler } from "../../../lib/server/embedded-public-wallet-analysis";
+import { writePublicAnalysisCompletion } from "../../../lib/server/public-analysis-observability";
 import { parseWebRuntimeConfig } from "../../../lib/runtime-config";
 
 export const runtime = "nodejs";
@@ -29,6 +30,7 @@ const handler = createEmbeddedPublicWalletAnalysisHandler({
       signal,
     }),
   requestId: randomUUID,
+  logCompleted: writePublicAnalysisCompletion,
 });
 
 export async function POST(request: Request): Promise<Response> {
