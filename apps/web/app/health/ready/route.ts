@@ -18,7 +18,7 @@ export async function GET(): Promise<Response> {
   }
 
   try {
-    const response = await fetch(`${config.apiOrigin}/health/ready`, {
+    const response = await fetch(`${config.readinessOrigin}/health/ready`, {
       cache: "no-store",
       signal: AbortSignal.timeout(3_000),
     });

@@ -2,6 +2,7 @@ export interface ExternalApiWebRuntimeConfig {
   readonly mode: "external-api";
   readonly webOrigin: string;
   readonly apiOrigin: string;
+  readonly readinessOrigin: string;
 }
 
 export interface EmbeddedWebRuntimeConfig {
@@ -41,7 +42,15 @@ export function parseWebRuntimeConfig(
     required(environment, "NEXT_PUBLIC_PAYOPS_API_ORIGIN"),
   );
   if (apiOrigin !== publicApiOrigin) invalidConfiguration();
-  return Object.freeze({ mode: "external-api" as const, webOrigin, apiOrigin });
+  const readinessOrigin = secureReadinessOrigin(
+    own(environment, "PAYOPS_API_READINESS_ORIGIN") ?? apiOrigin,
+  );
+  return Object.freeze({
+    mode: "external-api" as const,
+    webOrigin,
+    apiOrigin,
+    readinessOrigin,
+  });
 }
 
 function required(
@@ -67,6 +76,24 @@ function secureExactOrigin(value: string): string {
     const parsed = new URL(value);
     if (
       parsed.protocol !== "https:" ||
+      parsed.username !== "" ||
+      parsed.password !== "" ||
+      parsed.origin !== value
+    ) {
+      invalidConfiguration();
+    }
+    return parsed.origin;
+  } catch {
+    invalidConfiguration();
+  }
+}
+
+function secureReadinessOrigin(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const privateComposeApi = value === "http://api:3000";
+    if (
+      (!privateComposeApi && parsed.protocol !== "https:") ||
       parsed.username !== "" ||
       parsed.password !== "" ||
       parsed.origin !== value

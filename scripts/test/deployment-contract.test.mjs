@@ -49,7 +49,10 @@ test("hosted runtime source contract", async () => {
   assert.doesNotMatch(workerBin, /process\.exit\(/u);
   assert.doesNotMatch(webLive, /process\.env|fetch\s*\(/u);
   assert.equal(webReady.match(/fetch\s*\(/gu)?.length, 1);
-  assert.match(webReady, /fetch\(`\$\{config\.apiOrigin\}\/health\/ready`/u);
+  assert.match(
+    webReady,
+    /fetch\(`\$\{config\.readinessOrigin\}\/health\/ready`/u,
+  );
   assert.match(webReady, /cache:\s*["']no-store["']/u);
   assert.match(webReady, /AbortSignal\.timeout\(3_000\)/u);
   assert.match(webReady, /api_unavailable/u);
@@ -58,6 +61,7 @@ test("hosted runtime source contract", async () => {
   assert.match(runtimeConfig, /PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED/u);
   assert.match(runtimeConfig, /PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED/u);
   assert.match(runtimeConfig, /PAYOPS_PUBLIC_SOLANA_RPC_URL/u);
+  assert.match(runtimeConfig, /PAYOPS_API_READINESS_ORIGIN/u);
   assert.match(embeddedRoute, /export const maxDuration\s*=\s*30/u);
   assert.match(embeddedRoute, /analyzePublicWallet/u);
   assert.match(embeddedRoute, /@payops\/ingestion\/public-analysis/u);
