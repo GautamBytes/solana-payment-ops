@@ -135,7 +135,7 @@ const decisions: readonly TryPaymentDecision[] = [
 export const sampleWorkspace: TryWorkspace = Object.freeze({
   kind: "sample",
   disclosure:
-    "Realistic synthetic data — no account, wallet, or funds are involved.",
+    "Realistic synthetic data. No account, wallet, or funds are involved.",
   summary: {
     invoices: 3,
     matchedPayments: 1,

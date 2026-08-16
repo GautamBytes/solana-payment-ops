@@ -15,7 +15,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const page = getDocPage(slug);
   return page
-    ? { title: `${page.title} — PayOps docs`, description: page.summary }
+    ? { title: `${page.title} | PayOps docs`, description: page.summary }
     : {};
 }
 

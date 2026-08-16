@@ -5,7 +5,7 @@ import { sampleWorkspace } from "../../lib/try/sample-workspace";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Try PayOps — Explore verified Solana payments",
+  title: "Try PayOps | Explore verified Solana payments",
   description:
     "Explore realistic sample invoices, verified payments, exceptions, and evidence without creating an account.",
   robots: { index: true, follow: true },

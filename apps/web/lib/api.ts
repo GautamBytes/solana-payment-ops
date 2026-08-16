@@ -125,7 +125,7 @@ export function formatMinorUnits(
   currency: PublicCheckout["invoice"]["currency"],
   minorUnits: string,
 ): string {
-  if (!/^(0|[1-9][0-9]{0,37})$/.test(minorUnits)) return `${currency} —`;
+  if (!/^(0|[1-9][0-9]{0,37})$/.test(minorUnits)) return `${currency} N/A`;
   const value = BigInt(minorUnits);
   const major = value / 100n;
   const minor = (value % 100n).toString().padStart(2, "0");

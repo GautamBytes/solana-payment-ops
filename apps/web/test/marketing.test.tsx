@@ -140,7 +140,7 @@ describe("PayOps marketing homepage", () => {
     const { metadata } = await import("../app/page");
 
     expect(metadata.title).toBe(
-      "PayOps — Solana payment reconciliation for real businesses",
+      "PayOps | Solana payment reconciliation for real businesses",
     );
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
     expect(metadata.openGraph).toMatchObject({
@@ -242,7 +242,7 @@ describe("PayOps marketing homepage", () => {
 
     expect(markup).toContain("Unclear payments go to review.");
     expect(markup).toContain("PayOps never marks them paid.");
-    expect(markup).not.toContain("review—never");
+    expect(markup).not.toContain("review never");
     expect(css).toMatch(
       /\.exception-note\s*\{[^}]*border:\s*1px solid rgba\(22, 229, 162,[^}]*background:\s*rgba\(7, 24, 17,/s,
     );

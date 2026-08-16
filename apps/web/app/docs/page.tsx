@@ -14,7 +14,7 @@ import { docPages } from "../../components/docs-content";
 import { DocsShell } from "../../components/docs-shell";
 
 export const metadata: Metadata = {
-  title: "PayOps documentation — Build reliable Solana payment operations",
+  title: "PayOps documentation | Build reliable Solana payment operations",
   description:
     "Integrate deterministic Solana payment reconciliation, signed lifecycle events, evidence, and merchant APIs with PayOps.",
   robots: { index: true, follow: true },
@@ -117,9 +117,9 @@ export default function DocsPage() {
         </div>
         <div className="docs-problem-copy">
           <p>
-            Receiving a stablecoin transfer is easy. Proving what that transfer
-            paid for—reliably enough to update an invoice, release an order, and
-            satisfy finance—is the difficult part.
+            Receiving a stablecoin transfer is easy. The difficult part is
+            proving what that payment was for with enough confidence to update
+            an invoice, release an order, and satisfy finance.
           </p>
           <p>
             Wallet activity does not carry your complete business context. Teams

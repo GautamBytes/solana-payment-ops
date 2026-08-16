@@ -32,7 +32,7 @@ describe("Try PayOps route", () => {
 
   it("publishes indexable product metadata", () => {
     expect(metadata).toMatchObject({
-      title: "Try PayOps — Explore verified Solana payments",
+      title: "Try PayOps | Explore verified Solana payments",
       robots: { index: true, follow: true },
     });
   });
