@@ -1,4 +1,4 @@
-import { SUPPORTED_MAINNET_ASSETS } from "@payops/core";
+import { SUPPORTED_MAINNET_ASSETS } from "@payops/core/public-analysis";
 import {
   address,
   getAddressEncoder,

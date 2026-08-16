@@ -1,4 +1,4 @@
-import { RpcTransactionEnvelopeSchema } from "@payops/core";
+import { RpcTransactionEnvelopeSchema } from "@payops/core/public-analysis";
 import { z } from "zod";
 import type {
   AddressSignature,

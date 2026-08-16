@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { analyzePublicWallet, HttpSolanaRpc } from "@payops/ingestion";
+import {
+  analyzePublicWallet,
+  HttpSolanaRpc,
+} from "@payops/ingestion/public-analysis";
 
 import { createEmbeddedPublicWalletAnalysisHandler } from "../../../lib/server/embedded-public-wallet-analysis";
 import { parseWebRuntimeConfig } from "../../../lib/runtime-config";

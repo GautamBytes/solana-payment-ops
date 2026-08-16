@@ -2,11 +2,11 @@ import type {
   PublicWalletAnalysis,
   PublicWalletAnalysisInput,
   SolanaRpcPort,
-} from "@payops/ingestion";
+} from "@payops/ingestion/public-analysis";
 import {
   preparePublicWalletAnalysisRequest,
   PublicWalletRequestError,
-} from "@payops/ingestion";
+} from "@payops/ingestion/public-analysis";
 
 interface EmbeddedPublicWalletAnalysisDependencies {
   readonly isEnabled: () => boolean;

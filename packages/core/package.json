@@ -34,6 +34,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./public-analysis": {
+      "types": "./dist/public-analysis.d.ts",
+      "import": "./dist/public-analysis.js"
+    },
     "./fixtures/v0.1/manifest.json": "./dist/fixtures/v0.1/manifest.json",
     "./fixtures/v0.1/cases/*": "./dist/fixtures/v0.1/cases/*"
   },

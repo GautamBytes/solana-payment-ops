@@ -15,6 +15,10 @@ test("hosted runtime source contract", async () => {
     tryPage,
     runtimeConfig,
     embeddedRoute,
+    embeddedHandler,
+    ingestionPackage,
+    corePackage,
+    contractsPackage,
   ] = await Promise.all([
     source("apps/web/next.config.ts"),
     source("apps/api/src/bin.ts"),
@@ -24,6 +28,10 @@ test("hosted runtime source contract", async () => {
     source("apps/web/app/try/page.tsx"),
     source("apps/web/lib/runtime-config.ts"),
     source("apps/web/app/v1/public-wallet-analysis/route.ts"),
+    source("apps/web/lib/server/embedded-public-wallet-analysis.ts"),
+    source("packages/ingestion/package.json").then(JSON.parse),
+    source("packages/core/package.json").then(JSON.parse),
+    source("packages/contracts/package.json").then(JSON.parse),
   ]);
 
   assert.match(nextConfig, /output:\s*["']standalone["']/u);
@@ -50,6 +58,13 @@ test("hosted runtime source contract", async () => {
   assert.match(runtimeConfig, /PAYOPS_PUBLIC_SOLANA_RPC_URL/u);
   assert.match(embeddedRoute, /export const maxDuration\s*=\s*30/u);
   assert.match(embeddedRoute, /analyzePublicWallet/u);
+  assert.match(embeddedRoute, /@payops\/ingestion\/public-analysis/u);
+  assert.match(embeddedHandler, /@payops\/ingestion\/public-analysis/u);
+  assert.doesNotMatch(embeddedRoute, /from ["']@payops\/ingestion["']/u);
+  assert.doesNotMatch(embeddedHandler, /from ["']@payops\/ingestion["']/u);
+  assert.ok(ingestionPackage.exports["./public-analysis"]);
+  assert.ok(corePackage.exports["./public-analysis"]);
+  assert.ok(contractsPackage.exports["./unicode-length"]);
 });
 
 test("container build contract", async () => {

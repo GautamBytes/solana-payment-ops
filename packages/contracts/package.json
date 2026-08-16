@@ -31,6 +31,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./unicode-length": {
+      "types": "./dist/unicode-length.d.ts",
+      "import": "./dist/unicode-length.js"
+    },
     "./schemas/audit-report.v0.1.schema.json": "./schemas/audit-report.v0.1.schema.json",
     "./schemas/lifecycle-event.v0.1.schema.json": "./schemas/lifecycle-event.v0.1.schema.json",
     "./schemas/payment-fixture.v0.1.schema.json": "./schemas/payment-fixture.v0.1.schema.json",

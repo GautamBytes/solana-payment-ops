@@ -3,7 +3,7 @@ import {
   MAINNET_USDT,
   parseTransactionTransfers,
   type ParsedTransfer,
-} from "@payops/core";
+} from "@payops/core/public-analysis";
 import { address } from "@solana/kit";
 
 import type { AddressSignature, SolanaRpcPort } from "../domain/types.js";
