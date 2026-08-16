@@ -67,6 +67,46 @@ describe("OpenAPI runtime inventory", () => {
       await server.close();
     }
   });
+
+  it("registers public analysis routes only when explicitly enabled", async () => {
+    const disabled = buildApiServer(config(), {
+      emailDelivery: { send: async () => undefined },
+    });
+    const enabled = buildApiServer(
+      {
+        ...config(),
+        publicAnalysis: {
+          clientDigestSecret: Buffer.alloc(32, 4).toString("base64url"),
+          clientLimit: 5,
+          globalLimit: 100,
+          windowSeconds: 60,
+        },
+      },
+      { emailDelivery: { send: async () => undefined } },
+    );
+    try {
+      expect(
+        disabled.hasRoute({
+          method: "POST",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(false);
+      expect(
+        enabled.hasRoute({
+          method: "POST",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(true);
+      expect(
+        enabled.hasRoute({
+          method: "OPTIONS",
+          url: "/v1/public/wallet-analysis",
+        }),
+      ).toBe(true);
+    } finally {
+      await Promise.all([disabled.close(), enabled.close()]);
+    }
+  });
 });
 
 function config(): ApiConfig {

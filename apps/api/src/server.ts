@@ -15,6 +15,7 @@ import {
   PaymentAttemptService,
   platformMigrationMetadata,
   PythHermesPriceAdapter,
+  PublicAnalysisRateLimitStore,
   persistedProductionPromotionEvaluator,
   ProductionControlStore,
   RateLimitStore,
@@ -24,6 +25,7 @@ import {
   WalletStore,
   WorkerJobStore,
 } from "@payops/platform";
+import { analyzePublicWallet, HttpSolanaRpc } from "@payops/ingestion";
 import Fastify, {
   type FastifyInstance,
   type FastifyReply,
@@ -41,6 +43,7 @@ import { registerCustomerRoutes } from "./routes/customers.js";
 import { registerInvoiceRoutes } from "./routes/invoices.js";
 import { registerCheckoutRoutes } from "./routes/public-checkout.js";
 import { registerOperationRoutes } from "./routes/operations.js";
+import { registerPublicWalletAnalysisRoutes } from "./routes/public-wallet-analysis.js";
 import { CheckoutTokenKeyring } from "./security/public-token.js";
 
 export interface ApiServerDependencies {
@@ -128,6 +131,14 @@ export function buildApiServer(
       : new EvidencePackService(platformDatabase, {
           signingKeyId: config.evidenceSigning.keyId,
           privateKeyPem: config.evidenceSigning.privateKeyPem,
+        });
+  const publicAnalysisRateLimits =
+    config.publicAnalysis === undefined
+      ? undefined
+      : new PublicAnalysisRateLimitStore(config.databaseUrl, {
+          clientLimit: config.publicAnalysis.clientLimit,
+          globalLimit: config.publicAnalysis.globalLimit,
+          windowSeconds: config.publicAnalysis.windowSeconds,
         });
 
   server.route({
@@ -298,6 +309,24 @@ export function buildApiServer(
     ),
     operationalHealth: new OperationalHealthStore(platformDatabase),
   });
+  if (
+    config.publicAnalysis !== undefined &&
+    publicAnalysisRateLimits !== undefined
+  ) {
+    registerPublicWalletAnalysisRoutes(server, {
+      trustedOrigins: config.trustedOrigins,
+      clientDigestSecret: config.publicAnalysis.clientDigestSecret,
+      rateLimits: publicAnalysisRateLimits,
+      analyze: analyzePublicWallet,
+      rpcForRequest: (signal) =>
+        new HttpSolanaRpc({
+          cluster: "mainnet-beta",
+          endpoint: config.solanaRpcUrl,
+          timeoutMs: 20_000,
+          signal,
+        }),
+    });
+  }
 
   server.addHook("onClose", async () => {
     const databases = new Set([
@@ -310,6 +339,7 @@ export function buildApiServer(
       authContext.close(),
       checkoutStore.close(),
       workerJobs.close(),
+      publicAnalysisRateLimits?.close(),
       ...[...databases].map((database) => database.close()),
     ]);
   });
