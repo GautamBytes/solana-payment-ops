@@ -53,3 +53,25 @@ test("has no serious accessibility violations or horizontal overflow", async ({
   });
   expect(overflowing).toEqual([]);
 });
+
+test("uses the PayOps marketing visual system", async ({ page }) => {
+  await page.goto("/try");
+
+  await expect(page.locator(".marketing-header")).toBeVisible();
+  await expect(page.locator(".try-experience")).toHaveCSS(
+    "background-color",
+    "rgb(5, 7, 6)",
+  );
+  await expect(page.getByRole("heading", { name: "Try PayOps" })).toHaveCSS(
+    "font-family",
+    /Georgia/,
+  );
+  await expect(page.locator(".try-summary")).toHaveCSS(
+    "background-color",
+    "rgb(10, 14, 12)",
+  );
+  await expect(page.locator(".header-cta")).toHaveCSS(
+    "background-color",
+    "rgb(22, 229, 162)",
+  );
+});

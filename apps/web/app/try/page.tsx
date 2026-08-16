@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { TryWorkspaceView } from "../../components/try-workspace";
 import { sampleWorkspace } from "../../lib/try/sample-workspace";
 
@@ -9,6 +9,13 @@ export const metadata: Metadata = {
   description:
     "Explore realistic sample invoices, verified payments, exceptions, and evidence without creating an account.",
   robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "dark",
+  themeColor: "#050706",
 };
 
 export default function TryPage() {

@@ -20,6 +20,16 @@ describe("Try PayOps route", () => {
     expect(markup).not.toMatch(/assign case|resolve|promote to live/i);
   });
 
+  it("continues the PayOps marketing shell into the product workspace", () => {
+    const markup = renderToStaticMarkup(createElement(TryPage));
+
+    expect(markup).toContain('class="marketing try-experience"');
+    expect(markup).toContain('class="marketing-header"');
+    expect(markup).toContain("Verified Solana payments");
+    expect(markup).toContain('href="#workspace"');
+    expect(markup).toContain("Open workspace");
+  });
+
   it("publishes indexable product metadata", () => {
     expect(metadata).toMatchObject({
       title: "Try PayOps — Explore verified Solana payments",
