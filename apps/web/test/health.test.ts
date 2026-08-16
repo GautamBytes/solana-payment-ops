@@ -24,11 +24,16 @@ describe("web container health", () => {
     expect(await response.text()).toBe('{"status":"ok"}');
   });
 
-  test("readiness accepts exact secure matching origins without network access", async () => {
+  test("readiness requires an exact secure config and a ready API", async () => {
     for (const [name, value] of Object.entries(validEnvironment)) {
       vi.stubEnv(name, value);
     }
-    const fetch = vi.fn();
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('{"status":"ok"}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
     vi.stubGlobal("fetch", fetch);
 
     const response = await ready();
@@ -37,7 +42,27 @@ describe("web container health", () => {
     expect(response.headers.get("content-type")).toBe("application/json");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.text()).toBe('{"status":"ok"}');
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.com/health/ready",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
+  test("fails closed when the hosted API is unavailable", async () => {
+    for (const [name, value] of Object.entries(validEnvironment)) {
+      vi.stubEnv(name, value);
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
+    );
+
+    const response = await ready();
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe(
+      '{"status":"not_ready","code":"api_unavailable"}',
+    );
   });
 
   test("requires the server and browser API origins to match exactly", () => {
