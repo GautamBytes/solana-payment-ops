@@ -9,7 +9,7 @@ commerce products, and accounting tools can build on.
 
 The product website includes a self-serve `/try` workspace with realistic,
 synthetic invoices, payment decisions, exceptions, and evidence. It requires no
-account, wallet connection, or pilot application. When operators enable the
+account, wallet connection, application, or approval. When operators enable the
 optional public-wallet analysis, anyone can inspect bounded, read-only finalized
 USDC or USDT activity for a public address. PayOps never asks users to connect,
 sign, or provide a seed phrase or private key. The published open-core packages
@@ -26,19 +26,19 @@ independently.
 
 ## Open Core v0.1
 
-The `v0.1.0` release candidate contains seven Apache-2.0 packages. Merging its
-preparation code does not make them available on npm: registry availability
-begins only after the protected `v0.1.0` tag workflow succeeds.
+PayOps v0.1.0 publishes seven Apache-2.0 packages to npm. Every package is built
+from the tagged source, verified as a clean consumer artifact, and published
+through npm trusted publishing with provenance.
 
-| Package                  | Use it for                                              | Install after publication                  |
-| ------------------------ | ------------------------------------------------------- | ------------------------------------------ |
-| `@payops/contracts`      | Lifecycle types, runtime parsing, and JSON Schemas      | `npm install @payops/contracts@0.1.0`      |
-| `@payops/core`           | Solana transaction parsing and payment verification     | `npm install @payops/core@0.1.0`           |
-| `@payops/ingestion`      | Durable RPC ingestion and finality tracking             | `npm install @payops/ingestion@0.1.0`      |
-| `@payops/webhooks`       | Transactional signed delivery and consumer verification | `npm install @payops/webhooks@0.1.0`       |
-| `@payops/reconciliation` | Deterministic invoice matching and exceptions           | `npm install @payops/reconciliation@0.1.0` |
-| `@payops/pilot`          | Resumable, read-only merchant shadow audits             | `npm install @payops/pilot@0.1.0`          |
-| `@payops/sdk`            | Typed, zero-retry merchant API access                   | `npm install @payops/sdk@0.1.0`            |
+| Package                                                                              | Use it for                                              | Install                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------ |
+| [`@payops/contracts`](https://www.npmjs.com/package/%40payops%2Fcontracts)           | Lifecycle types, runtime parsing, and JSON Schemas      | `npm install @payops/contracts@0.1.0`      |
+| [`@payops/core`](https://www.npmjs.com/package/%40payops%2Fcore)                     | Solana transaction parsing and payment verification     | `npm install @payops/core@0.1.0`           |
+| [`@payops/ingestion`](https://www.npmjs.com/package/%40payops%2Fingestion)           | Durable RPC ingestion and finality tracking             | `npm install @payops/ingestion@0.1.0`      |
+| [`@payops/webhooks`](https://www.npmjs.com/package/%40payops%2Fwebhooks)             | Transactional signed delivery and consumer verification | `npm install @payops/webhooks@0.1.0`       |
+| [`@payops/reconciliation`](https://www.npmjs.com/package/%40payops%2Freconciliation) | Deterministic invoice matching and exceptions           | `npm install @payops/reconciliation@0.1.0` |
+| [`@payops/pilot`](https://www.npmjs.com/package/%40payops%2Fpilot)                   | Resumable, read-only merchant shadow audits             | `npm install @payops/pilot@0.1.0`          |
+| [`@payops/sdk`](https://www.npmjs.com/package/%40payops%2Fsdk)                       | Typed, zero-retry merchant API access                   | `npm install @payops/sdk@0.1.0`            |
 
 PayOps Core:
 
@@ -79,14 +79,15 @@ it is not presented as a historical mainnet payment.
 Package consumers may use npm, pnpm, or another Node package manager. pnpm is
 required only for repository development.
 
-## Hosted alpha images
+## Hosted deployment
 
-The private hosted alpha builds four immutable targets from one revision:
+The hosted stack builds four immutable targets from one revision:
 `payops-api`, `payops-worker`, `payops-web`, and the one-shot
 `payops-migrate`. They run as numeric non-root users against separate database
-capabilities. This repository does not yet claim a public hosted URL or a
-production SLA; the deployment remains an invitation-only alpha until a
-post-merge rollout and backup restore succeed.
+capabilities. The hosted public experience provides a realistic sample
+workspace and bounded read-only inspection of finalized public Solana wallet
+activity. It does not provide custody, transaction signing, a compliance
+service, or a contractual production SLA.
 
 ```bash
 pnpm containers:build
@@ -96,7 +97,7 @@ pnpm containers:test
 The smoke uses generated local credentials and TLS material, applies every
 migration twice, verifies role separation and readiness, tests graceful worker
 shutdown, and removes its exact Compose project. See the
-[hosted-alpha operator runbook](deploy/README.md) before deploying anywhere.
+[hosted deployment operator runbook](deploy/README.md) before deploying anywhere.
 
 ## Run
 
@@ -125,7 +126,7 @@ The [merchant shadow-audit runbook](packages/pilot/README.md) validates a
 consented pilot manifest, resumes historical ingestion and reconciliation, and
 produces private plus redacted reports without signing or moving funds.
 
-The [merchant API SDK guide](packages/sdk/README.md) covers invitation-only
+The [merchant API SDK guide](packages/sdk/README.md) covers merchant
 organization setup, verified Solana settlement wallets, USDC/USDT customer
 invoices, hosted checkout links, exact payment requests, and typed backend
 integration. The hosted worker marks invoices paid only from finalized,
