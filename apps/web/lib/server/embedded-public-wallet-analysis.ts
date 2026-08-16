@@ -10,7 +10,7 @@ import {
 import {
   publicAnalysisStatusClass,
   type PublicAnalysisCompletion,
-} from "./public-analysis-observability.js";
+} from "./public-analysis-observability";
 
 interface EmbeddedPublicWalletAnalysisDependencies {
   readonly isEnabled: () => boolean;
