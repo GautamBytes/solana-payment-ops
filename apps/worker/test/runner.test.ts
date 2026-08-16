@@ -5,6 +5,7 @@ import type {
 } from "@payops/platform";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkerJobConfig } from "../src/config.js";
+import type { OperationalLogger } from "../src/observability.js";
 import { runWorker, type WorkerJobHandler } from "../src/runner.js";
 
 const names: readonly WorkerJobName[] = [
@@ -31,6 +32,19 @@ describe("worker runner", () => {
     const controller = new AbortController();
     const store = new FakeStore();
     const calls: WorkerJobName[] = [];
+    const events: Array<{
+      level: "info" | "warn" | "error";
+      event: string;
+      fields: Readonly<Record<string, string | number | boolean>>;
+    }> = [];
+    const logger: OperationalLogger = {
+      info: (event, fields = {}) =>
+        events.push({ level: "info", event, fields }),
+      warn: (event, fields = {}) =>
+        events.push({ level: "warn", event, fields }),
+      error: (event, fields = {}) =>
+        events.push({ level: "error", event, fields }),
+    };
     const handlers = Object.fromEntries(
       names.map((name) => [
         name,
@@ -51,6 +65,7 @@ describe("worker runner", () => {
       rpc: testRpc,
       jobs: names.map(job),
       handlers,
+      logger,
       signal: controller.signal,
       sleep: async () => {
         await new Promise<void>((resolve) => setImmediate(resolve));
@@ -63,6 +78,28 @@ describe("worker runner", () => {
       expect.objectContaining({ failureClass: "dependency" }),
     );
     expect(store.lifecycle).toEqual(["started", "draining", "stopped"]);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        level: "info",
+        event: "worker_instance_started",
+      }),
+    );
+    expect(events).toContainEqual({
+      level: "warn",
+      event: "worker_job_failed",
+      fields: expect.objectContaining({
+        job: "refresh_finality",
+        failureClass: "dependency",
+        operationId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      }) as Readonly<Record<string, string | number | boolean>>,
+    });
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        level: "info",
+        event: "worker_instance_stopped",
+      }),
+    );
+    expect(JSON.stringify(events)).not.toContain("provider down");
   });
 
   it("does not overlap a slow instance and settles it before returning", async () => {
