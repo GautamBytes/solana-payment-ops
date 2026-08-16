@@ -53,7 +53,7 @@ export function MarketingPage() {
       </a>
       <MarketingScrollReveal />
       <MarketingHeader />
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <div className="hero-stage">
           <HeroFlowField />
           <section className="hero" aria-labelledby="hero-title">

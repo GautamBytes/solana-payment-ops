@@ -18,6 +18,9 @@ describe("public discovery metadata", () => {
     expect(resolvePublicWebOrigin("https://payops.example")).toBe(
       "https://payops.example",
     );
+    expect(resolvePublicWebOrigin("http://127.0.0.1:3400")).toBe(
+      "http://127.0.0.1:3400",
+    );
     expect(() => resolvePublicWebOrigin("http://payops.example")).toThrow(
       "invalid_public_web_origin",
     );

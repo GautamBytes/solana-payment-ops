@@ -5,8 +5,11 @@ export function resolvePublicWebOrigin(value: string | undefined): string {
 
   try {
     const parsed = new URL(value);
+    const local =
+      parsed.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
     if (
-      parsed.protocol !== "https:" ||
+      (!local && parsed.protocol !== "https:") ||
       parsed.username !== "" ||
       parsed.password !== "" ||
       parsed.origin !== value

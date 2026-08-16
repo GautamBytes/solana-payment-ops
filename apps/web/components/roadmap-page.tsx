@@ -23,6 +23,7 @@ const columns = [
       "Seven published npm packages",
       "Signed lifecycle webhooks and replayable evidence",
       "Self-serve sample and public-wallet inspection",
+      "Hosted readiness checks, recovery runbooks, and structured logs",
     ],
   },
   {
@@ -31,8 +32,7 @@ const columns = [
     title: "In progress",
     icon: Clock,
     items: [
-      "Hosted readiness and recovery evidence",
-      "Structured operational logging and alerts",
+      "Backup restore and incident drill evidence",
       "Independent public integrations",
     ],
   },
@@ -57,7 +57,7 @@ export function RoadmapPageContent() {
         Skip to content
       </a>
       <MarketingHeader homeHref="/" sectionHrefPrefix="/" />
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="trust-page-hero" aria-labelledby="roadmap-title">
           <p className="eyebrow">Public roadmap</p>
           <h1 id="roadmap-title">

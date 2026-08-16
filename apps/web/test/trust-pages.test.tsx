@@ -23,6 +23,11 @@ describe("public trust routes", () => {
     expect(markup).toContain("Shipped");
     expect(markup).toContain("In progress");
     expect(markup).toContain("Proposed grant milestones");
+    expect(markup).toContain(
+      "Hosted readiness checks, recovery runbooks, and structured logs",
+    );
+    expect(markup).toContain("Backup restore and incident drill evidence");
+    expect(markup).not.toContain("Structured operational logging and alerts");
     expect(roadmapMetadata.robots).toMatchObject({ index: true, follow: true });
   });
 });

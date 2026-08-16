@@ -17,7 +17,7 @@ export function AboutPageContent() {
         Skip to content
       </a>
       <MarketingHeader homeHref="/" sectionHrefPrefix="/" />
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section className="trust-page-hero" aria-labelledby="about-title">
           <p className="eyebrow">About PayOps</p>
           <h1 id="about-title">Payment evidence that teams can reproduce.</h1>
