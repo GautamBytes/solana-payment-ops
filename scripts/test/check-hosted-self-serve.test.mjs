@@ -71,6 +71,51 @@ test("checks web, API, and public wallet entry points without credentials", asyn
   ]);
 });
 
+test("checks the embedded public wallet endpoint without an API origin", async () => {
+  const requests = [];
+  const lines = [];
+  const fetchImpl = async (url, init) => {
+    requests.push([String(url), init]);
+    const pathname = new URL(url).pathname;
+    if (pathname === "/try") {
+      return new Response("<main>Use a public wallet</main>", { status: 200 });
+    }
+    if (pathname === "/v1/public-wallet-analysis") {
+      return new Response('{"schemaVersion":"0.1","transfers":[]}', {
+        status: 200,
+      });
+    }
+    return new Response('{"status":"ok"}', { status: 200 });
+  };
+
+  await checker.runHostedSelfServeChecks({
+    webOrigin: "https://payops.example",
+    mode: "embedded",
+    fetchImpl,
+    writeLine: (line) => lines.push(line),
+  });
+
+  assert.deepEqual(
+    requests.map(([url]) => url),
+    [
+      "https://payops.example/health/live",
+      "https://payops.example/health/ready",
+      "https://payops.example/try",
+      "https://payops.example/v1/public-wallet-analysis",
+    ],
+  );
+  const analysisRequest = requests.at(-1)[1];
+  assert.equal(analysisRequest.method, "POST");
+  assert.equal(analysisRequest.headers.origin, "https://payops.example");
+  assert.match(analysisRequest.body, /"rangeDays":7/);
+  assert.deepEqual(lines, [
+    "PASS web_live",
+    "PASS web_ready",
+    "PASS try_page",
+    "PASS public_wallet_analysis",
+  ]);
+});
+
 test("CLI fails closed without printing missing environment values", () => {
   const script = fileURLToPath(
     new URL("../check-hosted-self-serve.mjs", import.meta.url),

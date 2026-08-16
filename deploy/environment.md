@@ -38,3 +38,22 @@ The client limit, global limit, and window variables bound anonymous use. The
 client digest secret is an API-only HMAC secret: never expose it to web, a
 browser variable, logs, or analytics. Public analysis stores only rate-limit
 digests and counters; wallet addresses and results remain request-scoped.
+
+### Embedded web mode
+
+The web application also supports a narrow, read-only embedded mode for the
+self-serve demonstration. This mode does not start the full API, worker, or
+database and must not be used for authenticated merchant operations.
+
+| Variable                                   | Value                  | Rule                                                    |
+| ------------------------------------------ | ---------------------- | ------------------------------------------------------- |
+| `PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED`  | `true`                 | Enables only the same-origin read-only route            |
+| `PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED` | `true`                 | Set only after the Vercel WAF rate-limit rule is active |
+| `PAYOPS_PUBLIC_SOLANA_RPC_URL`             | Secure mainnet RPC URL | Server-only; never prefix with `NEXT_PUBLIC_`           |
+| `PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED`    | `true`                 | Shows the public-wallet form                            |
+
+The embedded route accepts same-origin JSON POST requests only. It scans at
+most 40 signatures and 20 transactions, uses concurrency 2, and aborts
+upstream work after 20 seconds. It never persists wallet addresses or results.
+Keep the edge-rate-limit assertion false until a project-level rule protects
+`/v1/public-wallet-analysis` by client IP.
