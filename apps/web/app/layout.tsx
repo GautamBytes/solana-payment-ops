@@ -9,11 +9,15 @@ import "../styles/docs.css";
 import "../styles/trust-pages.css";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { resolvePublicWebOrigin } from "../lib/public-origin";
+
+const webOrigin = resolvePublicWebOrigin(process.env.PAYOPS_WEB_ORIGIN);
 
 export const metadata: Metadata = {
-  title: "Secure invoice payment | PayOps",
-  description: "Pay an invoice with an exact Solana stablecoin request.",
-  robots: { index: false, follow: false, nocache: true },
+  metadataBase: new URL(webOrigin),
+  title: { default: "PayOps", template: "%s | PayOps" },
+  description:
+    "Open Solana stablecoin payment verification and reconciliation infrastructure.",
   referrer: "no-referrer",
 };
 

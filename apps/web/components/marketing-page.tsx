@@ -557,9 +557,11 @@ export function MarketingFooter() {
       </div>
       <div>
         <strong>Product</strong>
-        <a href="#how-it-works">How it works</a>
-        <a href="#merchants">For merchants</a>
-        <a href="#developers">For developers</a>
+        <a href="/#how-it-works">How it works</a>
+        <a href="/#merchants">For merchants</a>
+        <a href="/#developers">For developers</a>
+        <a href={marketingDestinations.aboutUrl}>About</a>
+        <a href={marketingDestinations.roadmapUrl}>Roadmap</a>
       </div>
       <div>
         <strong>Documentation</strong>
@@ -570,8 +572,10 @@ export function MarketingFooter() {
       </div>
       <div>
         <strong>Trust</strong>
-        <a href="/docs/security">Security</a>
-        <a href="/docs/architecture">Architecture</a>
+        <a href={marketingDestinations.statusUrl}>Status</a>
+        <a href={marketingDestinations.changelogUrl}>Changelog</a>
+        <a href={marketingDestinations.securityPolicyUrl}>Security</a>
+        <a href={marketingDestinations.supportUrl}>Support</a>
         <a href={marketingDestinations.githubUrl}>
           <GithubLogo size={16} /> GitHub
         </a>

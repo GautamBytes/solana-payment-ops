@@ -70,7 +70,7 @@ describe("PayOps marketing homepage", () => {
 
     expect(markup).toContain('href="#how-it-works"');
     expect(markup).toContain('href="#merchants"');
-    expect(markup).toContain('href="#developers"');
+    expect(markup).toContain('href="/#developers"');
     expect(markup).toContain(
       'href="https://github.com/GautamBytes/solana-payment-ops"',
     );
@@ -84,6 +84,12 @@ describe("PayOps marketing homepage", () => {
     );
     expect(markup).toContain("title=Question%20about%20PayOps");
     expect(markup).not.toContain("/discussions");
+    expect(markup).toContain('href="/about"');
+    expect(markup).toContain('href="/roadmap"');
+    expect(markup).toContain('href="/health/ready"');
+    expect(markup).toContain("CHANGELOG.md");
+    expect(markup).toContain("SECURITY.md");
+    expect(markup).toContain("SUPPORT.md");
   });
 
   it("uses the approved plain-language hero and documentation preview", async () => {
