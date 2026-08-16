@@ -33,6 +33,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./public-analysis": {
+      "types": "./dist/public-analysis.d.ts",
+      "import": "./dist/public-analysis.js"
     }
   },
   "files": [

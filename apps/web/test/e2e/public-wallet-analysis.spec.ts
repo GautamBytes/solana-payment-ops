@@ -24,6 +24,10 @@ test("analyzes public payment expectations without an account or wallet connecti
   await openWalletMode(page);
 
   await page.getByLabel("Public wallet address").fill(walletAddress);
+  await page
+    .getByText("Compare against an expected payment", { exact: true })
+    .click();
+  await expect(page.getByLabel("Expected asset")).toBeVisible();
   await page.getByLabel("Expected asset").selectOption("USDC");
   await page.getByLabel("Expected amount").fill("12.50");
   await page.getByLabel("Expected recipient wallet").fill(recipient);
@@ -84,9 +88,25 @@ test("warns that partial coverage is not zero activity", async ({
 
   await expect(
     page.getByText(
-      "Coverage is incomplete. Do not treat missing activity as zero activity.",
+      "Coverage is incomplete. Missing activity must not be treated as zero activity.",
     ),
   ).toBeVisible();
+});
+
+test("keeps public wallet inspection usable on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWalletMode(page);
+  await page.getByLabel("Public wallet address").fill(walletAddress);
+  await expect(
+    page.getByRole("button", { name: "Analyze wallet" }),
+  ).toBeVisible();
+  expect(await horizontalOverflow(page)).toEqual([]);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
 });
 
 test("reports rate limits and keeps the sample workspace usable", async ({

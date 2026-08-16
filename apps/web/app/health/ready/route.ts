@@ -5,14 +5,33 @@ const headers = {
   "content-type": "application/json",
 } as const;
 
-export function GET(): Response {
+export async function GET(): Promise<Response> {
+  let config: ReturnType<typeof parseWebRuntimeConfig>;
   try {
-    parseWebRuntimeConfig(process.env);
+    config = parseWebRuntimeConfig(process.env);
+  } catch {
+    return notReady("invalid_web_origin_configuration");
+  }
+
+  if (config.mode === "embedded") {
+    return new Response('{"status":"ok"}', { status: 200, headers });
+  }
+
+  try {
+    const response = await fetch(`${config.apiOrigin}/health/ready`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!response.ok) return notReady("api_unavailable");
     return new Response('{"status":"ok"}', { status: 200, headers });
   } catch {
-    return new Response(
-      '{"status":"not_ready","code":"invalid_web_origin_configuration"}',
-      { status: 503, headers },
-    );
+    return notReady("api_unavailable");
   }
+}
+
+function notReady(code: string): Response {
+  return new Response(JSON.stringify({ status: "not_ready", code }), {
+    status: 503,
+    headers,
+  });
 }

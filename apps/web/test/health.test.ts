@@ -14,6 +14,12 @@ const validEnvironment = {
   NEXT_PUBLIC_PAYOPS_API_ORIGIN: "https://api.example.com",
 };
 
+const validEmbeddedEnvironment = {
+  PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED: "true",
+  PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED: "true",
+  PAYOPS_PUBLIC_SOLANA_RPC_URL: "https://api.mainnet-beta.solana.com",
+};
+
 describe("web container health", () => {
   test("liveness is static, bounded, and never cached", async () => {
     const response = await live();
@@ -24,11 +30,16 @@ describe("web container health", () => {
     expect(await response.text()).toBe('{"status":"ok"}');
   });
 
-  test("readiness accepts exact secure matching origins without network access", async () => {
+  test("readiness requires an exact secure config and a ready API", async () => {
     for (const [name, value] of Object.entries(validEnvironment)) {
       vi.stubEnv(name, value);
     }
-    const fetch = vi.fn();
+    const fetch = vi.fn().mockResolvedValue(
+      new Response('{"status":"ok"}', {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
     vi.stubGlobal("fetch", fetch);
 
     const response = await ready();
@@ -37,7 +48,92 @@ describe("web container health", () => {
     expect(response.headers.get("content-type")).toBe("application/json");
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(await response.text()).toBe('{"status":"ok"}');
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.example.com/health/ready",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
+  test("fails closed when the hosted API is unavailable", async () => {
+    for (const [name, value] of Object.entries(validEnvironment)) {
+      vi.stubEnv(name, value);
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
+    );
+
+    const response = await ready();
+
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe(
+      '{"status":"not_ready","code":"api_unavailable"}',
+    );
+  });
+
+  test("is ready in embedded mode without calling an external API", async () => {
+    for (const [name, value] of Object.entries(validEmbeddedEnvironment)) {
+      vi.stubEnv(name, value);
+    }
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    expect(parseWebRuntimeConfig(validEmbeddedEnvironment)).toEqual({
+      mode: "embedded",
+      rpcUrl: "https://api.mainnet-beta.solana.com/",
+    });
+    const response = await ready();
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('{"status":"ok"}');
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [
+      "missing edge rate-limit gate",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED: undefined,
+      },
+    ],
+    [
+      "insecure RPC",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_PUBLIC_SOLANA_RPC_URL: "http://api.mainnet-beta.solana.com",
+      },
+    ],
+    [
+      "invalid feature flag",
+      {
+        ...validEmbeddedEnvironment,
+        PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED: "yes",
+      },
+    ],
+  ])("fails closed for embedded mode with %s", async (_name, environment) => {
+    for (const [name, value] of Object.entries(environment)) {
+      if (value !== undefined) vi.stubEnv(name, value);
+    }
+
+    expect(() => parseWebRuntimeConfig(environment)).toThrow(
+      "invalid_web_origin_configuration",
+    );
+    const response = await ready();
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe(
+      '{"status":"not_ready","code":"invalid_web_origin_configuration"}',
+    );
+  });
+
+  test("requires the server and browser API origins to match exactly", () => {
+    expect(() =>
+      parseWebRuntimeConfig({
+        PAYOPS_WEB_ORIGIN: "https://payops.example",
+        PAYOPS_API_ORIGIN: "https://api.payops.example",
+        NEXT_PUBLIC_PAYOPS_API_ORIGIN: "https://api-alt.payops.example",
+      }),
+    ).toThrow("invalid_web_origin_configuration");
   });
 
   test.each([

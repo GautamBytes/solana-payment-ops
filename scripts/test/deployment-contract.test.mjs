@@ -6,15 +6,35 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 
 test("hosted runtime source contract", async () => {
-  const [nextConfig, apiBin, workerBin, webLive, webReady, tryPage] =
-    await Promise.all([
-      source("apps/web/next.config.ts"),
-      source("apps/api/src/bin.ts"),
-      source("apps/worker/src/bin.ts"),
-      source("apps/web/app/health/live/route.ts"),
-      source("apps/web/app/health/ready/route.ts"),
-      source("apps/web/app/try/page.tsx"),
-    ]);
+  const [
+    nextConfig,
+    apiBin,
+    workerBin,
+    webLive,
+    webReady,
+    tryPage,
+    runtimeConfig,
+    embeddedRoute,
+    embeddedHandler,
+    ingestionPackage,
+    corePackage,
+    contractsPackage,
+    vercelConfig,
+  ] = await Promise.all([
+    source("apps/web/next.config.ts"),
+    source("apps/api/src/bin.ts"),
+    source("apps/worker/src/bin.ts"),
+    source("apps/web/app/health/live/route.ts"),
+    source("apps/web/app/health/ready/route.ts"),
+    source("apps/web/app/try/page.tsx"),
+    source("apps/web/lib/runtime-config.ts"),
+    source("apps/web/app/v1/public-wallet-analysis/route.ts"),
+    source("apps/web/lib/server/embedded-public-wallet-analysis.ts"),
+    source("packages/ingestion/package.json").then(JSON.parse),
+    source("packages/core/package.json").then(JSON.parse),
+    source("packages/contracts/package.json").then(JSON.parse),
+    source("apps/web/vercel.json").then(JSON.parse),
+  ]);
 
   assert.match(nextConfig, /output:\s*["']standalone["']/u);
   assert.match(nextConfig, /process\.env\.VERCEL\s*===\s*["']1["']/u);
@@ -28,9 +48,26 @@ test("hosted runtime source contract", async () => {
   assert.match(workerBin, /Promise\.allSettled/u);
   assert.doesNotMatch(workerBin, /process\.exit\(/u);
   assert.doesNotMatch(webLive, /process\.env|fetch\s*\(/u);
-  assert.doesNotMatch(webReady, /fetch\s*\(/u);
+  assert.equal(webReady.match(/fetch\s*\(/gu)?.length, 1);
+  assert.match(webReady, /fetch\(`\$\{config\.apiOrigin\}\/health\/ready`/u);
+  assert.match(webReady, /cache:\s*["']no-store["']/u);
+  assert.match(webReady, /AbortSignal\.timeout\(3_000\)/u);
+  assert.match(webReady, /api_unavailable/u);
   assert.match(tryPage, /export const dynamic\s*=\s*"force-dynamic"/u);
   assert.match(tryPage, /process\.env\.PAYOPS_API_ORIGIN/u);
+  assert.match(runtimeConfig, /PAYOPS_EMBEDDED_PUBLIC_ANALYSIS_ENABLED/u);
+  assert.match(runtimeConfig, /PAYOPS_PUBLIC_ANALYSIS_EDGE_RATE_LIMITED/u);
+  assert.match(runtimeConfig, /PAYOPS_PUBLIC_SOLANA_RPC_URL/u);
+  assert.match(embeddedRoute, /export const maxDuration\s*=\s*30/u);
+  assert.match(embeddedRoute, /analyzePublicWallet/u);
+  assert.match(embeddedRoute, /@payops\/ingestion\/public-analysis/u);
+  assert.match(embeddedHandler, /@payops\/ingestion\/public-analysis/u);
+  assert.doesNotMatch(embeddedRoute, /from ["']@payops\/ingestion["']/u);
+  assert.doesNotMatch(embeddedHandler, /from ["']@payops\/ingestion["']/u);
+  assert.ok(ingestionPackage.exports["./public-analysis"]);
+  assert.ok(corePackage.exports["./public-analysis"]);
+  assert.ok(contractsPackage.exports["./unicode-length"]);
+  assert.equal(vercelConfig.buildCommand, "pnpm --filter @payops/web... build");
 });
 
 test("container build contract", async () => {

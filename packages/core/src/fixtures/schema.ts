@@ -1,5 +1,5 @@
 import { address } from "@solana/kit";
-import { unicodeCodePointLength } from "@payops/contracts";
+import { unicodeCodePointLength } from "@payops/contracts/unicode-length";
 import bs58 from "bs58";
 import { z } from "zod";
 

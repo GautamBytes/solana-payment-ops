@@ -578,14 +578,40 @@
 }
 
 .try-wallet-expectations {
-  display: grid;
   grid-column: 1 / -1;
+  margin: 0;
+}
+
+.try-wallet-expectations > summary {
+  min-height: 3rem;
+  padding: 0.85rem 1rem;
+  color: var(--m-text);
+  background: #080c0a;
+  border: 1px solid var(--m-line);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 680;
+  list-style-position: inside;
+}
+
+.try-wallet-expectations > summary:hover {
+  border-color: #52675b;
+}
+
+.try-wallet-expectations[open] > summary {
+  color: var(--m-green);
+  border-color: #354239;
+}
+
+.try-wallet-expectations fieldset {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.1rem 1.25rem;
   margin: 0;
   padding: 1.3rem;
   background: #080c0a;
   border: 1px solid var(--m-line);
+  border-top: 0;
 }
 
 .try-wallet-expectations legend {
@@ -595,7 +621,7 @@
   font-weight: 400;
 }
 
-.try-wallet-expectations > p {
+.try-wallet-expectations fieldset > p {
   grid-column: 1 / -1;
   margin: 0;
   color: #7f8c84;
@@ -872,7 +898,7 @@
 
   .try-modes,
   .try-wallet-form,
-  .try-wallet-expectations {
+  .try-wallet-expectations fieldset {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -889,7 +915,7 @@
   }
 
   .try-wallet-expectations,
-  .try-wallet-expectations > p {
+  .try-wallet-expectations fieldset > p {
     grid-column: 1;
   }
 
