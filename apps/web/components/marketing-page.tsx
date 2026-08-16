@@ -74,10 +74,15 @@ export function MarketingPage() {
                 </p>
                 <div className="hero-actions">
                   <a className="button" href="#how-it-works">
-                    See how it works <ArrowRight size={18} aria-hidden="true" />
+                    Explore payment flow{" "}
+                    <ArrowRight size={18} aria-hidden="true" />
                   </a>
-                  <a className="button button-secondary" href="/docs">
-                    Open the docs
+                  <a
+                    className="button button-secondary"
+                    href="/docs/quickstart"
+                  >
+                    <Code size={17} aria-hidden="true" />
+                    Developer quickstart
                   </a>
                 </div>
                 <p className="reassurance">
