@@ -39,9 +39,9 @@ export function MarketingHeader() {
 
         <a
           className="button button-small header-cta"
-          href={marketingDestinations.pilotUrl}
+          href={marketingDestinations.tryUrl}
         >
-          <span>Start a pilot</span>
+          <span>Try PayOps</span>
           <ArrowUpRight
             className="header-cta-icon"
             size={17}
@@ -84,10 +84,10 @@ export function MarketingHeader() {
         </a>
         <a
           className="button"
-          href={marketingDestinations.pilotUrl}
+          href={marketingDestinations.tryUrl}
           onClick={() => setOpen(false)}
         >
-          Start a pilot
+          Try PayOps
           <ArrowUpRight size={18} aria-hidden="true" />
         </a>
       </nav>

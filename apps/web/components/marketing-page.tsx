@@ -276,8 +276,8 @@ export function MarketingPage() {
                 Know which invoices are paid, which transfers need review, and
                 what evidence belongs in finance.
               </p>
-              <a href={marketingDestinations.pilotUrl}>
-                Start a read-only pilot{" "}
+              <a href={marketingDestinations.tryUrl}>
+                Explore sample workspace{" "}
                 <ArrowRight size={17} aria-hidden="true" />
               </a>
             </article>
@@ -380,24 +380,22 @@ export function MarketingPage() {
         </section>
 
         <section
-          className="pilot marketing-section"
-          id="pilot"
-          aria-labelledby="pilot-title"
+          className="try-cta marketing-section"
+          id="try"
+          aria-labelledby="try-title"
           data-scroll-reveal="true"
         >
           <div>
-            <p className="eyebrow">Start with evidence, not a migration</p>
-            <h2 id="pilot-title">
-              See what PayOps finds in your payment flow.
-            </h2>
+            <p className="eyebrow">No application. No setup.</p>
+            <h2 id="try-title">See PayOps in action.</h2>
             <p>
-              Run a read-only shadow audit on historical Solana payments. No
-              checkout changes. No signing authority. No funds moved.
+              Explore realistic sample payments, exceptions, and evidence
+              without creating an account.
             </p>
           </div>
-          <div className="pilot-actions">
-            <a className="button" href={marketingDestinations.pilotUrl}>
-              Start a pilot <ArrowRight size={18} aria-hidden="true" />
+          <div className="try-cta-actions">
+            <a className="button" href={marketingDestinations.tryUrl}>
+              See PayOps in action <ArrowRight size={18} aria-hidden="true" />
             </a>
             <a
               className="button button-secondary"

@@ -288,4 +288,16 @@ describe("PayOps marketing homepage", () => {
     expect(css).toContain("cubic-bezier(0.22, 1, 0.36, 1)");
     expect(css).toContain("padding: clamp(3.75rem, 5vw, 5.25rem) 0");
   });
+
+  it("offers self-serve product access without a pilot application", async () => {
+    const { default: HomePage } = await import("../app/page");
+    const markup = renderToStaticMarkup(createElement(HomePage));
+    expect(markup).toContain('href="/try"');
+    expect(markup).toContain("Try PayOps");
+    expect(markup).toContain("Explore sample workspace");
+    expect(markup).toContain("See PayOps in action");
+    expect(markup).not.toMatch(
+      /start a pilot|read-only pilot|PayOps%20read-only%20pilot/i,
+    );
+  });
 });
