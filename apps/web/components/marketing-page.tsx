@@ -562,6 +562,7 @@ export function MarketingFooter() {
         <a href="/#developers">For developers</a>
         <a href={marketingDestinations.aboutUrl}>About</a>
         <a href={marketingDestinations.roadmapUrl}>Roadmap</a>
+        <a href={marketingDestinations.projectStatusUrl}>Project status</a>
       </div>
       <div>
         <strong>Documentation</strong>
@@ -569,6 +570,7 @@ export function MarketingFooter() {
         <a href="/docs/integration">Integration</a>
         <a href="/docs/api">API reference</a>
         <a href="/docs/packages">Packages</a>
+        <a href={marketingDestinations.walkthroughUrl}>Walkthrough</a>
       </div>
       <div>
         <strong>Trust</strong>

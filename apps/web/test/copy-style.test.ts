@@ -36,4 +36,14 @@ describe("website copy style", () => {
 
     expect(matches).toEqual([]);
   });
+
+  it("keeps public website copy project-first", () => {
+    const prohibited = /\b(grant|funding|applicant|application milestone)\b/i;
+    const matches = productionDirectories
+      .flatMap((directory) => sourceFiles(join(websiteRoot, directory)))
+      .filter((path) => prohibited.test(readFileSync(path, "utf8")))
+      .map((path) => path.slice(websiteRoot.length + 1));
+
+    expect(matches).toEqual([]);
+  });
 });

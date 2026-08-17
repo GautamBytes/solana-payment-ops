@@ -1,9 +1,8 @@
 # Public self-serve rollout
 
-This checklist is reusable deployment guidance, not a paid-service requirement
-for the pull request. Merge requires local container and browser verification.
-Before grant funding, use only existing or free allocations and do not enable a
-billing commitment to complete this checklist.
+This checklist supports local and free-tier validation. It does not require a
+paid deployment or billing commitment. Merge requires local container and
+browser verification.
 
 Keep both public-analysis feature flags false until the readiness and bounded
 analysis gates pass.

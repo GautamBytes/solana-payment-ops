@@ -28,6 +28,8 @@ export const marketingDestinations = {
   roadmapUrl: "/roadmap",
   statusUrl: resolveStatusUrl(process.env.NEXT_PUBLIC_PAYOPS_STATUS_URL),
   changelogUrl: `${githubUrl}/blob/main/CHANGELOG.md`,
+  projectStatusUrl: `${githubUrl}/blob/main/PROJECT_STATUS.md`,
+  walkthroughUrl: `${githubUrl}/blob/main/docs/project-walkthrough.md`,
   securityPolicyUrl: `${githubUrl}/blob/main/SECURITY.md`,
   supportUrl: `${githubUrl}/blob/main/SUPPORT.md`,
   githubUrl,

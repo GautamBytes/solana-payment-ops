@@ -13,17 +13,21 @@ describe("public trust routes", () => {
     expect(markup).toContain("versioned transactions");
     expect(markup).toContain("address lookup tables");
     expect(markup).toContain("CPI token transfers");
+    expect(markup).toContain("Engineering commitments");
     expect(markup).toContain("Token-2022 is not supported");
     expect(aboutMetadata.title).toBe("About the project");
     expect(aboutMetadata.robots).toMatchObject({ index: true, follow: true });
   });
 
-  test("separates shipped, in-progress, and proposed work", () => {
+  test("separates shipped, in-progress, and next work", () => {
     const markup = renderToStaticMarkup(createElement(RoadmapPage));
 
     expect(markup).toContain("Shipped");
     expect(markup).toContain("In progress");
-    expect(markup).toContain("Proposed grant milestones");
+    expect(markup).toContain("Next milestones");
+    expect(markup).toContain(
+      "What exists, what is active, and what comes next.",
+    );
     expect(markup).toContain(
       "Hosted readiness checks, recovery runbooks, and structured logs",
     );

@@ -73,7 +73,7 @@ export function AboutPageContent() {
           <section aria-labelledby="commitments-title">
             <p className="trust-page-index">03</p>
             <div>
-              <h2 id="commitments-title">Public-good commitments</h2>
+              <h2 id="commitments-title">Engineering commitments</h2>
               <ul className="trust-commitment-list">
                 {commitments.map((commitment) => (
                   <li key={commitment}>
