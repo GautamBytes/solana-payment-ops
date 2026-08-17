@@ -1,6 +1,8 @@
+import { constants } from "node:fs";
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   rm,
   stat,
@@ -134,8 +136,18 @@ describe("audit reports", () => {
       buildAuditArtifacts(fixture.input, artifactDependencies()),
     ).resolves.toBeDefined();
     expect(await readFile(outside, "utf8")).toBe("outside sentinel");
-    expect((await stat(output)).isFile()).toBe(true);
-    expect(JSON.parse(await readFile(output, "utf8"))).toHaveProperty("rows");
+    const outputHandle = await open(
+      output,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+    try {
+      expect((await outputHandle.stat()).isFile()).toBe(true);
+      expect(JSON.parse(await outputHandle.readFile("utf8"))).toHaveProperty(
+        "rows",
+      );
+    } finally {
+      await outputHandle.close();
+    }
   });
 
   it("quotes CSV fields and escapes hostile HTML text", async () => {
