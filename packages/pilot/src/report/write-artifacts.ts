@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, open, rename, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import { open, rename, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { PilotError, type AuditArtifact } from "../domain/types.js";
 
@@ -12,26 +13,14 @@ export async function writeAuditArtifact(
   const directory = dirname(path);
   const temporaryPath = join(directory, `.payops-${randomUUID()}.tmp`);
   let handle: Awaited<ReturnType<typeof open>> | null = null;
+  let directoryHandle: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    const directoryMetadata = await lstat(directory);
-    if (
-      directoryMetadata.isSymbolicLink() ||
-      !directoryMetadata.isDirectory()
-    ) {
-      throw artifactError();
-    }
-    try {
-      const existing = await lstat(path);
-      if (existing.isSymbolicLink() || !existing.isFile()) {
-        throw artifactError();
-      }
-    } catch (error) {
-      if (isMissingPathError(error)) {
-        // A missing target is the normal first-write case.
-      } else {
-        throw error;
-      }
-    }
+    directoryHandle = await open(
+      directory,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+    );
+    const directoryMetadata = await directoryHandle.stat();
+    if (!directoryMetadata.isDirectory()) throw artifactError();
 
     handle = await open(temporaryPath, "wx", 0o600);
     await handle.writeFile(content, "utf8");
@@ -40,12 +29,9 @@ export async function writeAuditArtifact(
     await handle.close();
     handle = null;
     await rename(temporaryPath, path);
-    const directoryHandle = await open(directory, "r");
-    try {
-      await directoryHandle.sync();
-    } finally {
-      await directoryHandle.close();
-    }
+    await directoryHandle.sync();
+    await directoryHandle.close();
+    directoryHandle = null;
     return {
       audience,
       format,
@@ -55,20 +41,10 @@ export async function writeAuditArtifact(
     };
   } catch (error) {
     if (handle !== null) await handle.close().catch(() => undefined);
+    if (directoryHandle !== null)
+      await directoryHandle.close().catch(() => undefined);
     await unlink(temporaryPath).catch(() => undefined);
     throw artifactError();
-  }
-}
-
-function isMissingPathError(error: unknown): boolean {
-  try {
-    const descriptor =
-      error !== null && typeof error === "object"
-        ? Object.getOwnPropertyDescriptor(error, "code")
-        : undefined;
-    return descriptor !== undefined && descriptor.value === "ENOENT";
-  } catch {
-    return false;
   }
 }
 

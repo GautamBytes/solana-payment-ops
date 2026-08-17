@@ -53,7 +53,7 @@ describe("invoice arithmetic", () => {
     ]) {
       expect(() => calculateInvoiceTotals([line])).toThrowError(
         expect.objectContaining({
-          code: expect.stringMatching(/^invalid_invoice|invoice_amount/),
+          code: expect.stringMatching(/^(?:invalid_invoice|invoice_amount)/),
         }),
       );
     }
