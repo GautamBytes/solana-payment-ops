@@ -269,6 +269,19 @@ describe("parsePilotManifest", () => {
     ).rejects.toMatchObject({ code: "unsafe_manifest_path" });
   });
 
+  it("rejects a final CSV symlink inside the manifest directory", async () => {
+    const directory = await makeTemporaryDirectory();
+    const source = join(directory, "source.csv");
+    const linked = join(directory, "invoices.csv");
+    await writeFile(source, csv, "utf8");
+    await symlink(source, linked);
+    const manifest = validManifest("invoices.csv", sha256(csv));
+
+    await expect(
+      parsePilotManifest(JSON.stringify(manifest), directory),
+    ).rejects.toMatchObject({ code: "unsafe_manifest_path" });
+  });
+
   it("rejects a wrong invoice digest without leaking either path", async () => {
     const fixture = await createFixture();
     const invalid = {

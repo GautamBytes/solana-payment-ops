@@ -1,6 +1,15 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { constants } from "node:fs";
+import { open, realpath } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { stringifyCanonical } from "@payops/core";
 import { address } from "@solana/kit";
 import { z } from "zod";
@@ -115,12 +124,19 @@ export async function parsePilotManifest(
     manifest.invoices.csvPath,
   );
   let bytes: Buffer;
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    const metadata = await stat(invoiceCsvPath);
+    handle = await open(
+      invoiceCsvPath,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+    const metadata = await handle.stat();
     if (!metadata.isFile()) throw new Error("not a regular file");
-    bytes = await readFile(invoiceCsvPath);
+    bytes = await handle.readFile();
   } catch {
     throw unsafeManifestPath();
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 
   const actualDigest = createHash("sha256").update(bytes).digest();
@@ -147,23 +163,30 @@ async function resolveInvoicePath(
 ): Promise<string> {
   if (isAbsolute(configuredPath)) throw unsafeManifestPath();
   let base: string;
+  let candidateDirectory: string;
   let candidate: string;
   try {
     base = await realpath(baseDirectory);
-    candidate = await realpath(resolve(base, configuredPath));
+    const unresolvedCandidate = resolve(base, configuredPath);
+    assertPathWithin(base, unresolvedCandidate);
+    candidateDirectory = await realpath(dirname(unresolvedCandidate));
+    assertPathWithin(base, candidateDirectory);
+    candidate = join(candidateDirectory, basename(unresolvedCandidate));
   } catch {
     throw unsafeManifestPath();
   }
+  return candidate;
+}
+
+function assertPathWithin(base: string, candidate: string): void {
   const pathFromBase = relative(base, candidate);
   if (
-    pathFromBase.length === 0 ||
     pathFromBase === ".." ||
     pathFromBase.startsWith(`..${sep}`) ||
     isAbsolute(pathFromBase)
   ) {
     throw unsafeManifestPath();
   }
-  return candidate;
 }
 
 function invalidManifest(): PilotError {
