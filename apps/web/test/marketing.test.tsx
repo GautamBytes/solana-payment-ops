@@ -90,6 +90,8 @@ describe("PayOps marketing homepage", () => {
     expect(markup).toContain("CHANGELOG.md");
     expect(markup).toContain("SECURITY.md");
     expect(markup).toContain("SUPPORT.md");
+    expect(markup).toContain("PROJECT_STATUS.md");
+    expect(markup).toContain("docs/project-walkthrough.md");
   });
 
   it("uses the approved plain-language hero and documentation preview", async () => {

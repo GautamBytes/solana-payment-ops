@@ -390,6 +390,13 @@ test("smoke lifecycle is interruption-safe and output-bounded", async () => {
   assert.match(smoke, /process\.removeListener\("SIGTERM"/u);
   assert.match(smoke, /PAYOPS_PUBLIC_ANALYSIS_ENABLED:\s*"false"/u);
   assert.match(smoke, /PAYOPS_PUBLIC_WALLET_ANALYSIS_ENABLED:\s*"false"/u);
+  assert.match(smoke, /backupRestore/u);
+  assert.match(smoke, /incidentRecovery/u);
+  assert.match(smoke, /pg_dump/u);
+  assert.match(smoke, /pg_restore/u);
+  assert.match(smoke, /restoreContainerName/u);
+  assert.match(smoke, /waitForConsecutiveStatuses/u);
+  assert.match(smoke, /removeRestoreContainer/u);
   assert.match(
     smoke,
     /PAYOPS_PUBLIC_ANALYSIS_CLIENT_DIGEST_SECRET:\s*randomBytes\(32\)\.toString\("base64url"\)/u,

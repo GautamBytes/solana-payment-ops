@@ -51,10 +51,9 @@ test("exposes the self-serve product and public trust navigation", async ({
     "href",
     "/roadmap",
   );
-  await expect(footer.getByRole("link", { name: "Status" })).toHaveAttribute(
-    "href",
-    "/health/ready",
-  );
+  await expect(
+    footer.getByRole("link", { name: "Status", exact: true }),
+  ).toHaveAttribute("href", "/health/ready");
   await expect(footer.getByRole("link", { name: "Support" })).toHaveAttribute(
     "href",
     /SUPPORT\.md$/,
@@ -90,7 +89,7 @@ test("publishes an accessible factual About page", async ({ page }) => {
   await expectNoSeriousAccessibilityViolations(page);
 });
 
-test("separates shipped work from active and funded milestones", async ({
+test("separates shipped work from active and next milestones", async ({
   page,
 }) => {
   await page.goto("/roadmap");
@@ -100,7 +99,7 @@ test("separates shipped work from active and funded milestones", async ({
     page.getByRole("heading", { name: "In progress" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Proposed grant milestones" }),
+    page.getByRole("heading", { name: "Next milestones" }),
   ).toBeVisible();
   await expect(
     page.getByText(

@@ -38,8 +38,8 @@ const columns = [
   },
   {
     className: "proposed",
-    eyebrow: "Funding scope",
-    title: "Proposed grant milestones",
+    eyebrow: "Planned work",
+    title: "Next milestones",
     icon: Circle,
     items: [
       "Token-2022 verification and conformance",
@@ -61,12 +61,13 @@ export function RoadmapPageContent() {
         <section className="trust-page-hero" aria-labelledby="roadmap-title">
           <p className="eyebrow">Public roadmap</p>
           <h1 id="roadmap-title">
-            What exists, what is active, what funding unlocks.
+            What exists, what is active, and what comes next.
           </h1>
           <p>
             This roadmap separates shipped evidence from current engineering
-            work and proposed grant milestones. Items move only when a public
-            release, issue, test artifact, or integration proves the change.
+            work and next milestones. Items move only when a public release,
+            issue, test artifact, drill record, or integration proves the
+            change.
           </p>
           <a className="button button-secondary" href={roadmapIssueUrl}>
             Review roadmap issues

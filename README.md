@@ -24,6 +24,16 @@ PayOps packages those checks into an open conformance contract and a durable
 ingestion engine instead of making every Solana team rebuild them
 independently.
 
+## Project status
+
+The [project status](PROJECT_STATUS.md) links shipped capabilities, current
+boundaries, active engineering work, and measurable next milestones to public
+evidence. The [product walkthrough](docs/project-walkthrough.md) shows the
+complete user and developer surface. Dated local
+[backup-restore](deploy/drills/2026-08-17-backup-restore.md) and
+[incident-response](deploy/drills/2026-08-17-incident-response.md) records show
+how the operating procedures are exercised.
+
 ## Open Core v0.1
 
 PayOps v0.1.0 publishes seven Apache-2.0 packages to npm. Every package is built

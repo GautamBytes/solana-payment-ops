@@ -1,6 +1,7 @@
-import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +11,8 @@ import { fileURLToPath } from "node:url";
 const MAX_OUTPUT_BYTES = 65_536;
 const repository = fileURLToPath(new URL("../../", import.meta.url));
 const composeFile = join(repository, "deploy/compose.yaml");
+const postgresImage =
+  "postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777";
 const shutdown = new AbortController();
 let interruptedExitCode;
 const interrupt = (signal) => {
@@ -28,6 +31,7 @@ let environmentFile;
 let failed = false;
 let failure;
 let cleanupFailure;
+let restoreContainerName;
 
 try {
   temporary = await mkdtemp(join(tmpdir(), "payops-smoke-"));
@@ -67,6 +71,14 @@ try {
   await compose("run", "--rm", "--no-deps", "role-bootstrap");
   await compose("run", "--rm", "--no-deps", "migrate");
   await compose("run", "--rm", "--no-deps", "migrate");
+  restoreContainerName = `${project}-restore`;
+  const backupRestore = await assertBackupRestore({
+    compose,
+    project,
+    restoreContainerName,
+    temporary,
+    values,
+  });
   await compose("up", "--detach", "--no-deps", "worker", "api");
   await waitFor(`http://127.0.0.1:${apiPort}/health/live`, 200, 90_000);
   await waitFor(`http://127.0.0.1:${apiPort}/health/ready`, 200, 90_000);
@@ -85,21 +97,39 @@ try {
   ]);
   await run("docker", roleAssertionArguments(project, values));
   await assertRuntimeEnvironment(compose);
-  const workerId = (await compose("ps", "--quiet", "worker")).trim();
-  if (!/^[0-9a-f]{64}$/u.test(workerId))
+  const initialWorkerId = (await compose("ps", "--quiet", "worker")).trim();
+  if (!/^[0-9a-f]{64}$/u.test(initialWorkerId))
     throw new Error("worker_container_missing");
   await compose("stop", "--timeout", "15", "worker");
-  const exitCode = (
-    await run("docker", [
-      "inspect",
-      "--format",
-      "{{.State.ExitCode}}",
-      workerId,
-    ])
-  ).trim();
-  if (exitCode !== "0") throw new Error("worker_shutdown_failed");
+  await waitForConsecutiveStatuses(
+    `http://127.0.0.1:${apiPort}/health/ready`,
+    503,
+    2,
+    60_000,
+  );
+  await assertContainerExitCode(initialWorkerId, "worker_shutdown_failed");
+  await compose("up", "--detach", "--no-deps", "worker");
+  await waitForConsecutiveStatuses(
+    `http://127.0.0.1:${apiPort}/health/ready`,
+    200,
+    2,
+    60_000,
+  );
+  const incidentRecovery = true;
+  const recoveredWorkerId = (await compose("ps", "--quiet", "worker")).trim();
+  if (!/^[0-9a-f]{64}$/u.test(recoveredWorkerId))
+    throw new Error("recovered_worker_container_missing");
+  await compose("stop", "--timeout", "15", "worker");
+  await assertContainerExitCode(recoveredWorkerId, "worker_shutdown_failed");
   process.stdout.write(
-    '{"status":"ok","images":4,"roleSeparation":true,"gracefulShutdown":true}\n',
+    `${JSON.stringify({
+      status: "ok",
+      images: 4,
+      roleSeparation: true,
+      backupRestore,
+      incidentRecovery,
+      gracefulShutdown: true,
+    })}\n`,
   );
 } catch (error) {
   failed = true;
@@ -129,6 +159,13 @@ try {
     }
   }
 } finally {
+  if (restoreContainerName) {
+    try {
+      await removeRestoreContainer(restoreContainerName);
+    } catch {
+      cleanupFailure = new Error("smoke_restore_cleanup_failed");
+    }
+  }
   if (project && environmentFile) {
     try {
       await run(
@@ -167,6 +204,222 @@ if (cleanupFailure) throw cleanupFailure;
 else if (interruptedExitCode !== undefined)
   process.exitCode = interruptedExitCode;
 else if (failure) throw failure;
+
+async function assertContainerExitCode(containerId, failureCode) {
+  const exitCode = (
+    await run("docker", [
+      "inspect",
+      "--format",
+      "{{.State.ExitCode}}",
+      containerId,
+    ])
+  ).trim();
+  if (exitCode !== "0") throw new Error(failureCode);
+}
+
+async function assertBackupRestore({
+  compose,
+  project,
+  restoreContainerName: target,
+  temporary,
+  values,
+}) {
+  if (!/^payops-(?:ci-)?smoke(?:-[a-z0-9-]{1,48})?-restore$/u.test(target)) {
+    throw new Error("invalid_restore_container");
+  }
+  const source = (await compose("ps", "--quiet", "postgres")).trim();
+  if (!/^[0-9a-f]{64}$/u.test(source))
+    throw new Error("source_database_container_missing");
+
+  const backupPath = join(temporary, "payops-smoke.dump");
+  const marker = `recovery-${randomBytes(12).toString("hex")}`;
+  const restorePassword = randomBytes(32).toString("hex");
+  const restoreDatabase = "payops_restore";
+  const psql = (container, role, database, sql, password) =>
+    run("docker", [
+      "exec",
+      "--env",
+      `PGPASSWORD=${password}`,
+      container,
+      "psql",
+      "--no-psqlrc",
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--tuples-only",
+      "--no-align",
+      "--username",
+      role,
+      "--dbname",
+      database,
+      "--command",
+      sql,
+    ]);
+
+  await psql(
+    source,
+    values.PAYOPS_DATABASE_ADMIN_ROLE,
+    values.PAYOPS_DATABASE_NAME,
+    `CREATE TABLE IF NOT EXISTS payops.smoke_recovery_marker (value text PRIMARY KEY); INSERT INTO payops.smoke_recovery_marker (value) VALUES ('${marker}');`,
+    values.PAYOPS_DATABASE_ADMIN_PASSWORD,
+  );
+  await runToFile(
+    "docker",
+    [
+      "exec",
+      "--env",
+      `PGPASSWORD=${values.PAYOPS_DATABASE_ADMIN_PASSWORD}`,
+      source,
+      "pg_dump",
+      "--format=custom",
+      "--no-owner",
+      "--no-privileges",
+      "--username",
+      values.PAYOPS_DATABASE_ADMIN_ROLE,
+      "--dbname",
+      values.PAYOPS_DATABASE_NAME,
+    ],
+    backupPath,
+  );
+  const backupSha256 = createHash("sha256")
+    .update(await readFile(backupPath))
+    .digest("hex");
+  if (!/^[0-9a-f]{64}$/u.test(backupSha256))
+    throw new Error("backup_digest_invalid");
+
+  try {
+    await run("docker", [
+      "run",
+      "--detach",
+      "--name",
+      target,
+      "--network",
+      `${project}_payops`,
+      "--read-only",
+      "--cap-drop",
+      "ALL",
+      "--cap-add",
+      "CHOWN",
+      "--cap-add",
+      "DAC_OVERRIDE",
+      "--cap-add",
+      "FOWNER",
+      "--cap-add",
+      "SETGID",
+      "--cap-add",
+      "SETUID",
+      "--security-opt",
+      "no-new-privileges:true",
+      "--tmpfs",
+      "/tmp:rw,noexec,nosuid,size=64m",
+      "--tmpfs",
+      "/run/postgresql:rw,nosuid,size=16m",
+      "--tmpfs",
+      "/var/lib/postgresql/data:rw,nosuid,size=512m",
+      "--env",
+      "POSTGRES_USER=payops_restore_admin",
+      "--env",
+      `POSTGRES_PASSWORD=${restorePassword}`,
+      "--env",
+      `POSTGRES_DB=${restoreDatabase}`,
+      postgresImage,
+    ]);
+    await waitForDatabase(target, "payops_restore_admin", restoreDatabase);
+    await runFromFile(
+      "docker",
+      [
+        "exec",
+        "--interactive",
+        "--env",
+        `PGPASSWORD=${restorePassword}`,
+        target,
+        "pg_restore",
+        "--exit-on-error",
+        "--no-owner",
+        "--no-privileges",
+        "--username",
+        "payops_restore_admin",
+        "--dbname",
+        restoreDatabase,
+      ],
+      backupPath,
+    );
+
+    const ledgerQuery =
+      "SET search_path TO payops; SELECT name || ':' || COALESCE(checksum_sha256, '') FROM payops_schema_migrations ORDER BY name;";
+    const sourceLedger = await psql(
+      source,
+      values.PAYOPS_DATABASE_ADMIN_ROLE,
+      values.PAYOPS_DATABASE_NAME,
+      ledgerQuery,
+      values.PAYOPS_DATABASE_ADMIN_PASSWORD,
+    );
+    const targetLedger = await psql(
+      target,
+      "payops_restore_admin",
+      restoreDatabase,
+      ledgerQuery,
+      restorePassword,
+    );
+    if (sourceLedger.trim() !== targetLedger.trim())
+      throw new Error("restored_migration_ledger_mismatch");
+    const restoredMarker = await psql(
+      target,
+      "payops_restore_admin",
+      restoreDatabase,
+      `SELECT value FROM payops.smoke_recovery_marker WHERE value = '${marker}';`,
+      restorePassword,
+    );
+    if (restoredMarker.trim() !== marker)
+      throw new Error("restored_marker_mismatch");
+  } finally {
+    await removeRestoreContainer(target);
+  }
+  return true;
+}
+
+async function waitForDatabase(container, role, database) {
+  const deadline = Date.now() + 30_000;
+  let readyCount = 0;
+  while (Date.now() < deadline) {
+    shutdown.signal.throwIfAborted();
+    try {
+      await run("docker", [
+        "exec",
+        container,
+        "pg_isready",
+        "--username",
+        role,
+        "--dbname",
+        database,
+      ]);
+      readyCount += 1;
+      if (readyCount >= 3) return;
+    } catch (error) {
+      if (shutdown.signal.aborted) throw error;
+      readyCount = 0;
+    }
+    await delay(500, undefined, { signal: shutdown.signal });
+  }
+  throw new Error("restore_database_deadline_exceeded");
+}
+
+async function removeRestoreContainer(container) {
+  if (!/^payops-(?:ci-)?smoke(?:-[a-z0-9-]{1,48})?-restore$/u.test(container)) {
+    throw new Error("invalid_restore_container");
+  }
+  const present = (
+    await run(
+      "docker",
+      ["ps", "--all", "--quiet", "--filter", `name=^/${container}$`],
+      { signal: undefined },
+    )
+  ).trim();
+  if (present !== "") {
+    if (!/^[0-9a-f]{12,64}$/u.test(present))
+      throw new Error("invalid_restore_container_id");
+    await run("docker", ["rm", "--force", container], { signal: undefined });
+  }
+}
 
 function smokeEnvironment({ temporary, apiPort, webPort }) {
   const password = () => randomBytes(32).toString("hex");
@@ -344,6 +597,33 @@ async function waitFor(url, expectedStatus, timeoutMs) {
   throw new Error(`health_deadline_exceeded:${new URL(url).pathname}`);
 }
 
+async function waitForConsecutiveStatuses(
+  url,
+  expectedStatus,
+  requiredCount,
+  timeoutMs,
+) {
+  const deadline = Date.now() + timeoutMs;
+  let observed = 0;
+  while (Date.now() < deadline) {
+    shutdown.signal.throwIfAborted();
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.any([shutdown.signal, AbortSignal.timeout(2_000)]),
+      });
+      observed = response.status === expectedStatus ? observed + 1 : 0;
+      if (observed >= requiredCount) return;
+    } catch (error) {
+      if (shutdown.signal.aborted) throw error;
+      observed = 0;
+    }
+    await delay(500, undefined, { signal: shutdown.signal });
+  }
+  throw new Error(
+    `consecutive_health_deadline_exceeded:${new URL(url).pathname}:${expectedStatus}`,
+  );
+}
+
 async function availablePort() {
   const server = createServer();
   await new Promise((resolve, reject) =>
@@ -384,6 +664,97 @@ async function run(command, arguments_, options = {}) {
     child.once("close", (code) => {
       if (settled) return;
       settled = true;
+      if (code === 0) resolve(stdout.toString("utf8"));
+      else
+        reject(
+          new Error(
+            `${command}_failed_${code}:${stderr.subarray(-2_000).toString("utf8")}`,
+          ),
+        );
+    });
+  });
+}
+
+async function runToFile(command, arguments_, path) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, arguments_, {
+      cwd: repository,
+      env: process.env,
+      signal: shutdown.signal,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const output = createWriteStream(path, { mode: 0o600 });
+    let stderr = Buffer.alloc(0);
+    let settled = false;
+    let childCode;
+    let outputClosed = false;
+    child.stdout.pipe(output);
+    child.stderr.on("data", (chunk) => {
+      stderr = appendBounded(stderr, chunk);
+    });
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      output.destroy();
+      reject(shutdown.signal.aborted ? new Error("smoke_interrupted") : error);
+    };
+    const finish = () => {
+      if (settled || childCode === undefined || !outputClosed) return;
+      if (childCode !== 0) {
+        fail(
+          new Error(
+            `${command}_failed_${childCode}:${stderr.subarray(-2_000).toString("utf8")}`,
+          ),
+        );
+        return;
+      }
+      settled = true;
+      resolve();
+    };
+    child.once("error", fail);
+    output.once("error", fail);
+    output.once("close", () => {
+      outputClosed = true;
+      finish();
+    });
+    child.once("close", (code) => {
+      childCode = code;
+      finish();
+    });
+  });
+}
+
+async function runFromFile(command, arguments_, path) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, arguments_, {
+      cwd: repository,
+      env: process.env,
+      signal: shutdown.signal,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const input = createReadStream(path);
+    let stdout = Buffer.alloc(0);
+    let stderr = Buffer.alloc(0);
+    let settled = false;
+    input.pipe(child.stdin);
+    child.stdout.on("data", (chunk) => {
+      stdout = appendBounded(stdout, chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr = appendBounded(stderr, chunk);
+    });
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      input.destroy();
+      reject(shutdown.signal.aborted ? new Error("smoke_interrupted") : error);
+    };
+    input.once("error", fail);
+    child.once("error", fail);
+    child.once("close", (code) => {
+      if (settled) return;
+      settled = true;
+      input.destroy();
       if (code === 0) resolve(stdout.toString("utf8"));
       else
         reject(
