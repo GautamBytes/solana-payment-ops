@@ -40,7 +40,7 @@ does not provide custody, sanctions screening, tax advice, regulatory
 compliance, fiat conversion, or a production SLA. ECB observations are
 reference-only and cannot authorize non-USD production quotes.
 
-Do not include secrets, partner RPC bodies, customer data, or undisclosed
-vulnerability details in a public issue. This repository does not yet advertise
-a dedicated private vulnerability intake; use a private maintainer channel
-before disclosure.
+Report suspected vulnerabilities through GitHub private vulnerability
+reporting. Do not open a public issue or include secrets, customer data,
+credential-bearing RPC URLs, or undisclosed vulnerability details in a public
+discussion.

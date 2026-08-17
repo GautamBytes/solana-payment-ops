@@ -1,7 +1,7 @@
 # Backup restore checklist
 
 Use an explicitly named disposable PostgreSQL 16 target. A local Docker target
-is sufficient before grant funding. Never restore over production, a shared
+is sufficient for pre-production recovery validation. Never restore over production, a shared
 development database, or an unnamed database.
 
 ## Evidence record

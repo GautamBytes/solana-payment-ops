@@ -1,0 +1,66 @@
+name: Bug report
+description: Report reproducible behavior that does not match the documented contract.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve PayOps. Search existing issues first and remove all secrets and customer data before submitting.
+  - type: input
+    id: component
+    attributes:
+      label: Affected component
+      description: Package, application, API route, or workflow where the problem occurs.
+      placeholder: "@payops/sdk 0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Actual behavior
+      description: What happened, including the exact error or incorrect result.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What the documentation or contract led you to expect.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest deterministic steps, fixture, or repository link that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include PayOps version, Node.js version, operating system, database version if relevant, and Solana cluster.
+      placeholder: |
+        PayOps: 0.1.0
+        Node.js: 22.18.0
+        OS: macOS 15
+        Cluster: devnet
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Add logs or screenshots only after removing credentials, private merchant reports, and customer payment data.
+      render: shell
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed private keys, seed phrases, credentials, and customer payment data.
+          required: true
+        - label: This is not a suspected security vulnerability. I will use private vulnerability reporting for security issues.
+          required: true

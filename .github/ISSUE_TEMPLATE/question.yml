@@ -1,0 +1,39 @@
+name: Usage question
+description: Ask about setup, integration, architecture, or package behavior.
+title: "question: "
+labels:
+  - question
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Quickstart and local setup
+        - SDK or package integration
+        - API and webhooks
+        - Reconciliation behavior
+        - Hosted workspace
+        - Architecture and security boundaries
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Explain what you are trying to accomplish and where you became blocked.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant context
+      description: Include package versions, documentation links, and a minimal sanitized example when useful.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I did not include private keys, seed phrases, credentials, or customer payment data.
+          required: true

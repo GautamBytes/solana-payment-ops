@@ -1,4 +1,14 @@
-import { mkdir, mkdtemp, readFile, rm, stat, symlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import {
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ReconciliationReportRow } from "@payops/reconciliation";
@@ -115,19 +125,29 @@ describe("audit reports", () => {
     ).rejects.toMatchObject({ code: "invalid_configuration" });
   });
 
-  it("rejects symlink output targets without changing their destination", async () => {
+  it("atomically replaces a symlink output without changing its destination", async () => {
     const fixture = await outputFixture();
     const outside = join(fixture.root, "outside.json");
-    await mkdir(outside);
-    await symlink(
-      outside,
-      join(fixture.privateDirectory, "private-audit.json"),
-    );
+    const output = join(fixture.privateDirectory, "private-audit.json");
+    await writeFile(outside, "outside sentinel", "utf8");
+    await symlink(outside, output);
 
     await expect(
       buildAuditArtifacts(fixture.input, artifactDependencies()),
-    ).rejects.toMatchObject({ code: "artifact_write_failed" });
-    expect((await stat(outside)).isDirectory()).toBe(true);
+    ).resolves.toBeDefined();
+    expect(await readFile(outside, "utf8")).toBe("outside sentinel");
+    const outputHandle = await open(
+      output,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+    try {
+      expect((await outputHandle.stat()).isFile()).toBe(true);
+      expect(JSON.parse(await outputHandle.readFile("utf8"))).toHaveProperty(
+        "rows",
+      );
+    } finally {
+      await outputHandle.close();
+    }
   });
 
   it("quotes CSV fields and escapes hostile HTML text", async () => {

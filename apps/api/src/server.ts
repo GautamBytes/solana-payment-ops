@@ -49,6 +49,7 @@ import { registerInvoiceRoutes } from "./routes/invoices.js";
 import { registerCheckoutRoutes } from "./routes/public-checkout.js";
 import { registerOperationRoutes } from "./routes/operations.js";
 import { registerPublicWalletAnalysisRoutes } from "./routes/public-wallet-analysis.js";
+import { registerBootstrapAcceptanceRoute } from "./routes/bootstrap-acceptance.js";
 import { CheckoutTokenKeyring } from "./security/public-token.js";
 
 export interface ApiServerDependencies {
@@ -146,7 +147,17 @@ export function buildApiServer(
           clientLimit: config.publicAnalysis.clientLimit,
           globalLimit: config.publicAnalysis.globalLimit,
           windowSeconds: config.publicAnalysis.windowSeconds,
+          namespace: "public-wallet-analysis",
         });
+  const bootstrapRateLimits = new PublicAnalysisRateLimitStore(
+    config.databaseUrl,
+    {
+      clientLimit: 5,
+      globalLimit: 100,
+      windowSeconds: 60,
+      namespace: "bootstrap-acceptance",
+    },
+  );
 
   server.route({
     method: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -158,58 +169,18 @@ export function buildApiServer(
     },
   });
 
-  server.post("/v1/auth/bootstrap/accept", async (request, reply) => {
-    if (!hasTrustedOrigin(request, config.trustedOrigins)) {
-      return reply.code(403).send({
-        ...errorBody(
-          request,
-          "untrusted_origin",
-          "Request origin is not trusted",
-        ),
-      });
-    }
-    let body: ReturnType<typeof parseBootstrapBody>;
-    try {
-      body = parseBootstrapBody(request.body);
-    } catch {
-      return reply.code(400).send({
-        ...errorBody(request, "invalid_request", "Request body is invalid"),
-      });
-    }
-    const passwordLength = [...body.password].length;
-    if (passwordLength < 12 || passwordLength > 128) {
-      return reply.code(400).send({
-        ...errorBody(
-          request,
-          "invalid_password",
-          "Password does not meet policy",
-        ),
-      });
-    }
-    try {
-      const accepted = await acceptBootstrapInvitation(
-        {
-          token: body.token,
-          email: body.email,
-          name: body.name,
-          passwordHash: await hashAuthPassword(body.password),
-          now: new Date(),
-        },
-        { databaseUrl: config.databaseUrl },
-      );
+  registerBootstrapAcceptanceRoute(server, {
+    trustedOrigins: config.trustedOrigins,
+    clientDigestSecret: config.authSecrets[0]!,
+    rateLimits: bootstrapRateLimits,
+    hashPassword: hashAuthPassword,
+    acceptInvitation: (input) =>
+      acceptBootstrapInvitation(input, { databaseUrl: config.databaseUrl }),
+    sendVerificationEmail: async (email) => {
       await auth.auth.api.sendVerificationEmail({
-        body: { email: accepted.email, callbackURL: "/" },
+        body: { email, callbackURL: "/" },
       });
-      return reply.code(201).send(accepted);
-    } catch {
-      return reply.code(400).send({
-        ...errorBody(
-          request,
-          "invalid_bootstrap_invitation",
-          "Invitation cannot be accepted",
-        ),
-      });
-    }
+    },
   });
 
   server.get("/v1/organization", async (request, reply) => {
@@ -347,37 +318,11 @@ export function buildApiServer(
       checkoutStore.close(),
       workerJobs.close(),
       publicAnalysisRateLimits?.close(),
+      bootstrapRateLimits.close(),
       ...[...databases].map((database) => database.close()),
     ]);
   });
   return server;
-}
-
-function parseBootstrapBody(value: unknown): {
-  readonly token: string;
-  readonly email: string;
-  readonly name: string;
-  readonly password: string;
-} {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("invalid_bootstrap_body");
-  }
-  const body = value as Record<string, unknown>;
-  if (
-    Object.keys(body).sort().join(",") !== "email,name,password,token" ||
-    typeof body.token !== "string" ||
-    typeof body.email !== "string" ||
-    typeof body.name !== "string" ||
-    typeof body.password !== "string"
-  ) {
-    throw new Error("invalid_bootstrap_body");
-  }
-  return {
-    token: body.token,
-    email: body.email,
-    name: body.name,
-    password: body.password,
-  };
 }
 
 function hasTrustedOrigin(
