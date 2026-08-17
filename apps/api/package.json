@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@payops/sdk": "workspace:^0.1.0",
-    "@solana/kit": "7.0.0",
+    "@solana/kit": "7.1.0",
     "@types/node": "22.20.1",
     "auth": "1.6.26",
     "vitest": "4.1.10"
