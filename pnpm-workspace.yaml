@@ -8,4 +8,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - tsx@4.23.9
 overrides:
+  lodash: 4.18.1
   nanoid@<3.3.18: 3.3.18

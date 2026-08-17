@@ -2,6 +2,19 @@
 
 PayOps accepts focused fixes, tests, documentation, and protocol integrations.
 Payment correctness and reproducible evidence take priority over convenience.
+Participation in project spaces is governed by
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Before opening a pull request
+
+Search existing issues and the public roadmap first. Use the appropriate
+[issue form](.github/ISSUE_TEMPLATE) for a reproducible bug, focused feature
+request, or usage question. For suspected vulnerabilities, follow
+[SECURITY.md](SECURITY.md) and report privately instead of opening an issue.
+
+Small fixes with an obvious scope can go directly to a pull request. For larger
+changes, open an issue first so the problem, contract impact, and boundaries can
+be agreed before implementation.
 
 ## Prerequisites
 
@@ -16,7 +29,7 @@ pnpm install --frozen-lockfile --ignore-scripts
 ```
 
 Start the disposable repository database when a change touches ingestion,
-reconciliation, webhooks, pilot, API, worker, or platform behavior:
+reconciliation, webhooks, command-line tools, API, worker, or platform behavior:
 
 ```bash
 docker compose -f packages/ingestion/docker-compose.test.yml up -d --wait

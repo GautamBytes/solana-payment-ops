@@ -53,7 +53,7 @@ export function MarketingPage() {
       </a>
       <MarketingScrollReveal />
       <MarketingHeader />
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <div className="hero-stage">
           <HeroFlowField />
           <section className="hero" aria-labelledby="hero-title">
@@ -73,9 +73,8 @@ export function MarketingPage() {
                   finance team can trust.
                 </p>
                 <div className="hero-actions">
-                  <a className="button" href="#how-it-works">
-                    Explore payment flow{" "}
-                    <ArrowRight size={18} aria-hidden="true" />
+                  <a className="button" href={marketingDestinations.tryUrl}>
+                    Try PayOps <ArrowRight size={18} aria-hidden="true" />
                   </a>
                   <a
                     className="button button-secondary"
@@ -85,6 +84,9 @@ export function MarketingPage() {
                     Developer quickstart
                   </a>
                 </div>
+                <a className="hero-flow-link" href="#how-it-works">
+                  See how payment verification works
+                </a>
                 <p className="reassurance">
                   <CheckCircle size={19} weight="fill" aria-hidden="true" />
                   No custody. No private keys. Read-only by design.
@@ -135,6 +137,32 @@ export function MarketingPage() {
                 Preserve one trusted answer
               </span>
             </div>
+          </div>
+        </section>
+
+        <section
+          className="public-good marketing-section"
+          aria-labelledby="public-good-title"
+          data-scroll-reveal="true"
+        >
+          <div className="section-heading">
+            <p className="eyebrow">Open infrastructure for Solana commerce</p>
+            <h2 id="public-good-title">
+              Payment correctness should not be rebuilt in every product.
+            </h2>
+            <p>
+              PayOps publishes deterministic verification rules, versioned
+              contracts, conformance fixtures, and reference integrations so
+              Solana teams can test payment behavior against the same evidence.
+            </p>
+          </div>
+          <div className="public-good-actions">
+            <a href={marketingDestinations.aboutUrl}>
+              Review the open core <ArrowRight size={17} aria-hidden="true" />
+            </a>
+            <a href={marketingDestinations.roadmapUrl}>
+              See the public roadmap <ArrowRight size={17} aria-hidden="true" />
+            </a>
           </div>
         </section>
 
@@ -515,7 +543,7 @@ function ProofPoint({
   );
 }
 
-function MarketingFooter() {
+export function MarketingFooter() {
   return (
     <footer className="marketing-footer" data-scroll-reveal="true">
       <div className="footer-brand">
@@ -529,9 +557,12 @@ function MarketingFooter() {
       </div>
       <div>
         <strong>Product</strong>
-        <a href="#how-it-works">How it works</a>
-        <a href="#merchants">For merchants</a>
-        <a href="#developers">For developers</a>
+        <a href="/#how-it-works">How it works</a>
+        <a href="/#merchants">For merchants</a>
+        <a href="/#developers">For developers</a>
+        <a href={marketingDestinations.aboutUrl}>About</a>
+        <a href={marketingDestinations.roadmapUrl}>Roadmap</a>
+        <a href={marketingDestinations.projectStatusUrl}>Project status</a>
       </div>
       <div>
         <strong>Documentation</strong>
@@ -539,11 +570,14 @@ function MarketingFooter() {
         <a href="/docs/integration">Integration</a>
         <a href="/docs/api">API reference</a>
         <a href="/docs/packages">Packages</a>
+        <a href={marketingDestinations.walkthroughUrl}>Walkthrough</a>
       </div>
       <div>
         <strong>Trust</strong>
-        <a href="/docs/security">Security</a>
-        <a href="/docs/architecture">Architecture</a>
+        <a href={marketingDestinations.statusUrl}>Status</a>
+        <a href={marketingDestinations.changelogUrl}>Changelog</a>
+        <a href={marketingDestinations.securityPolicyUrl}>Security</a>
+        <a href={marketingDestinations.supportUrl}>Support</a>
         <a href={marketingDestinations.githubUrl}>
           <GithubLogo size={16} /> GitHub
         </a>

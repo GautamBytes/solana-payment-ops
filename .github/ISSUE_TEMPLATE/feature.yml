@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a focused improvement to PayOps payment operations.
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Payment-operations problem
+      description: Describe the user, workflow, and failure or limitation. Avoid starting with a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should a merchant, developer, or operator be able to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workaround
+      description: Explain how you handle this today and why it is insufficient.
+  - type: textarea
+    id: contract
+    attributes:
+      label: Contract and evidence impact
+      description: Note any expected changes to schemas, finality, reconciliation, idempotency, webhooks, or audit evidence.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request preserves PayOps as a non-custodial verification and reconciliation system.
+          required: true
+        - label: I searched existing roadmap and feature issues for duplicates.
+          required: true

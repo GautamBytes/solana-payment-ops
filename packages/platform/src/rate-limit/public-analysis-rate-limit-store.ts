@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import postgres from "postgres";
 
 const digestPattern = /^[0-9a-f]{64}$/;
+const namespacePattern = /^[a-z][a-z0-9-]{0,63}$/;
 
 export interface PublicAnalysisRateLimitInput {
   readonly clientDigest: string;
@@ -28,6 +29,7 @@ export class PublicAnalysisRateLimitStore {
   readonly #clientLimit: number;
   readonly #globalLimit: number;
   readonly #windowSeconds: number;
+  readonly #namespace: string;
   #closePromise: Promise<void> | undefined;
 
   public constructor(
@@ -36,8 +38,10 @@ export class PublicAnalysisRateLimitStore {
       readonly clientLimit: number;
       readonly globalLimit: number;
       readonly windowSeconds: number;
+      readonly namespace?: string;
     },
   ) {
+    const namespace = options.namespace ?? "public-analysis";
     if (
       !Number.isSafeInteger(options.clientLimit) ||
       options.clientLimit < 1 ||
@@ -47,7 +51,8 @@ export class PublicAnalysisRateLimitStore {
       options.globalLimit > 1_000_000 ||
       !Number.isSafeInteger(options.windowSeconds) ||
       options.windowSeconds < 1 ||
-      options.windowSeconds > 3_600
+      options.windowSeconds > 3_600 ||
+      !namespacePattern.test(namespace)
     ) {
       throw new PublicAnalysisRateLimitError(
         "invalid_public_analysis_rate_limit_configuration",
@@ -57,6 +62,7 @@ export class PublicAnalysisRateLimitStore {
     this.#clientLimit = options.clientLimit;
     this.#globalLimit = options.globalLimit;
     this.#windowSeconds = options.windowSeconds;
+    this.#namespace = namespace;
   }
 
   public async consume(
@@ -74,8 +80,10 @@ export class PublicAnalysisRateLimitStore {
     const bucketStartedAt = new Date(
       Math.floor(input.now.getTime() / windowMs) * windowMs,
     );
-    const clientScope = digest(`client:${input.clientDigest}`);
-    const globalScope = digest("global");
+    const clientScope = digest(
+      `${this.#namespace}:client:${input.clientDigest}`,
+    );
+    const globalScope = digest(`${this.#namespace}:global`);
 
     const counts = await this.#sql.begin(async (transaction) => {
       const clientCount = await increment(

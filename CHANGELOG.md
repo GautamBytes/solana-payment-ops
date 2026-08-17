@@ -6,9 +6,12 @@ versioning for its public packages.
 
 ## [Unreleased]
 
-No changes yet.
+- Added the self-serve Try PayOps sample workspace and bounded public-wallet
+  inspection.
+- Added structured operational logging, readiness correlation, hardened web
+  headers, dependency review, CodeQL, and recovery runbooks.
 
-## [0.1.0] - Pending publication
+## [0.1.0] - 2026-08-14
 
 ### Added
 
@@ -19,9 +22,6 @@ No changes yet.
   PostgreSQL-backed operational state, and native ESM interfaces.
 - Reproducible package-content checks, clean-consumer smoke tests, release
   evidence, checksums, SPDX SBOM generation, and provenance-aware publication.
-
-`0.1.0` describes the first release candidate. Registry availability begins
-only after the protected `v0.1.0` tag workflow completes successfully.
 
 [Unreleased]: https://github.com/GautamBytes/solana-payment-ops/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/GautamBytes/solana-payment-ops/releases/tag/v0.1.0

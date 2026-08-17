@@ -8,9 +8,9 @@ operations.
 
 ## Supported versions
 
-The supported public line is `0.1.x`. Until `v0.1.0` is published, the current
-`main` branch is the only candidate. Older snapshots and unpublished branches
-do not receive security fixes.
+The supported public package line is `0.1.x`. Security fixes are applied to the
+latest supported release and to `main` while the next release is being
+prepared.
 
 ## Report privately
 

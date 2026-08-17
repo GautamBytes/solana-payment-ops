@@ -1,8 +1,9 @@
 # PayOps release runbook
 
-This runbook publishes the seven-package `v0.1.0` bundle after its preparation
-pull request is merged. The feature branch must never create the tag, GitHub
-release, npm organization, token, environment, or package versions.
+This runbook publishes a versioned seven-package PayOps bundle after its release
+pull request is merged. Release preparation never creates the tag or GitHub
+release and never changes npm account, organization, token, or environment
+settings.
 
 ## 1. Preconditions
 
@@ -15,9 +16,8 @@ release, npm organization, token, environment, or package versions.
    pnpm release:verify
    ```
 
-4. Confirm `release/manifests/0.1.0.json` is the only release manifest and lists
-   contracts, core, ingestion, webhooks, reconciliation, pilot, and sdk in that
-   order, all at `0.1.0`.
+4. Confirm the target manifest lists contracts, core, ingestion, webhooks,
+   reconciliation, pilot, and sdk in dependency order at one exact version.
 
 Do not continue from a dirty checkout or a commit other than the reviewed merge
 SHA.
@@ -35,17 +35,13 @@ The authenticated username must equal the repository variable
 `NPM_SCOPE_OWNER` and must own the `@payops` organization. Stop on any mismatch.
 Do not paste authentication output or tokens into issues, chat, or CI logs.
 
-## 3. Bootstrap protected publication
+## 3. Confirm protected publication
 
-In GitHub, create or verify an `npm-release` environment with a required human
-reviewer and deployment-branch/tag protection. Set `NPM_SCOPE_OWNER` as a
-repository or environment variable.
-
-For the bootstrap release only, create a short-lived granular npm automation
-token restricted to the `@payops` scope and publication permissions. Store it
-as the environment secret `NPM_TOKEN`; never pass it as a command-line argument
-or write it to a file. Confirm the release workflow grants only
-`contents: write` and `id-token: write`.
+In GitHub, verify the `npm-release` environment still requires a human reviewer
+and limits deployment to approved tags. Confirm npm trusted publishing is bound
+to this repository, the release workflow, and that protected environment. Keep
+workflow permissions limited to `contents: write` and `id-token: write`. Do not
+add a long-lived npm token.
 
 ## 4. Create the exact annotated tag
 
@@ -57,9 +53,9 @@ git switch main
 git pull --ff-only origin main
 git rev-parse HEAD
 git status --short
-git tag -a v0.1.0 -m "PayOps v0.1.0" <MERGED_SHA>
-git rev-parse 'v0.1.0^{commit}'
-git push origin v0.1.0
+git tag -a v<VERSION> -m "PayOps v<VERSION>" <MERGED_SHA>
+git rev-parse 'v<VERSION>^{commit}'
+git push origin v<VERSION>
 ```
 
 The two commit SHAs must match and status must be empty. Push only the tag. The
@@ -85,18 +81,18 @@ check.
 
 ## 6. Verify published output
 
-For every package in the release manifest, verify the registry reports version
-`0.1.0`, public access, provenance, the expected repository metadata, exact
+For every package in the release manifest, verify the registry reports the
+target version, public access, provenance, the expected repository metadata, exact
 internal dependency ranges, and no unexpected files:
 
 ```bash
-npm view @payops/contracts@0.1.0 --json
-npm view @payops/core@0.1.0 --json
-npm view @payops/ingestion@0.1.0 --json
-npm view @payops/webhooks@0.1.0 --json
-npm view @payops/reconciliation@0.1.0 --json
-npm view @payops/pilot@0.1.0 --json
-npm view @payops/sdk@0.1.0 --json
+npm view @payops/contracts@<VERSION> --json
+npm view @payops/core@<VERSION> --json
+npm view @payops/ingestion@<VERSION> --json
+npm view @payops/webhooks@<VERSION> --json
+npm view @payops/reconciliation@<VERSION> --json
+npm view @payops/pilot@<VERSION> --json
+npm view @payops/sdk@<VERSION> --json
 ```
 
 Download the GitHub release assets and verify `SHA256SUMS`. Inspect the SPDX
@@ -116,17 +112,15 @@ reuse `0.1.0`.
 If no package has published and the tag itself is wrong, stop and obtain
 explicit maintainer approval before deleting and recreating the remote tag. If
 any bytes differ, treat the version as immutable and potentially compromised;
-do not bypass the comparison. Prepare a coordinated `0.1.1` when a fix-forward
+do not bypass the comparison. Prepare the next patch version when a fix-forward
 release is required.
 
 On a token, account, or ownership anomaly, cancel the workflow, revoke the npm
 token, review npm and GitHub audit logs, rotate affected credentials, and do not
 retry until account control is confirmed.
 
-## 8. Remove bootstrap credentials
+## 8. Record release evidence
 
-After verifying the first publication, configure npm trusted publishing for
-this repository, the release workflow, and the protected `npm-release`
-environment. Test it in the next approved release. Then revoke the granular
-bootstrap token and remove `NPM_TOKEN` from GitHub. Keep the protected
-environment and human approval gate.
+Record the workflow URL, tag, merged commit, release URL, package registry URLs,
+checksums, SBOM, and provenance statements. Keep the protected environment and
+human approval gate in place for the next release.
