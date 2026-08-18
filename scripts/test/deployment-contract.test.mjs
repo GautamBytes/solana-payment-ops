@@ -363,7 +363,19 @@ test("repository security automation contract", async () => {
   assert.match(codeql, /security-events:\s*write/u);
   assert.match(dependabot, /package-ecosystem:\s*"npm"/u);
   assert.match(dependabot, /package-ecosystem:\s*"github-actions"/u);
-  assert.match(dependabot, /interval:\s*"weekly"/u);
+  assert.equal([...dependabot.matchAll(/interval:\s*"cron"/gu)].length, 2);
+  assert.match(dependabot, /cronjob:\s*"0 4 1 \*\/2 \*"/u);
+  assert.match(dependabot, /cronjob:\s*"30 4 1 \*\/2 \*"/u);
+  assert.equal(
+    [...dependabot.matchAll(/open-pull-requests-limit:\s*1/gu)].length,
+    2,
+  );
+  assert.match(dependabot, /routine-npm-version-updates:/u);
+  assert.match(dependabot, /routine-actions-version-updates:/u);
+  assert.equal(
+    [...dependabot.matchAll(/applies-to:\s*"version-updates"/gu)].length,
+    2,
+  );
   for (const workflow of [ci, codeql]) {
     for (const match of workflow.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gmu)) {
       assert.match(match[1], /@[0-9a-f]{40}$/u);
