@@ -54,8 +54,8 @@
     "@payops/ingestion": "workspace:^0.1.0",
     "@payops/reconciliation": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
-    "@solana/kit": "7.0.0",
-    "postgres": "3.4.7",
+    "@solana/kit": "7.1.0",
+    "postgres": "3.4.9",
     "zod": "4.4.3"
   },
   "devDependencies": {

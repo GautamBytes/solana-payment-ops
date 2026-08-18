@@ -27,15 +27,15 @@
     "@payops/ingestion": "workspace:^0.1.0",
     "@payops/reconciliation": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
-    "@solana/kit": "6.10.0",
+    "@solana/kit": "7.1.0",
     "@solana/pay": "1.0.26",
     "decimal.js": "10.6.0",
     "drizzle-orm": "0.45.2",
-    "postgres": "3.4.7",
+    "postgres": "3.4.9",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "22.20.1",
+    "@types/node": "26.2.0",
     "vitest": "4.1.10"
   }
 }
