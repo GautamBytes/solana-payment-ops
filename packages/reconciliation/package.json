@@ -52,7 +52,7 @@
     "@payops/webhooks": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "csv-parse": "7.0.2",
-    "postgres": "3.4.7"
+    "postgres": "3.4.9"
   },
   "devDependencies": {
     "@payops/ingestion": "workspace:^0.1.0",

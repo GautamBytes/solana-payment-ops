@@ -54,7 +54,7 @@
     "@payops/core": "workspace:^0.1.0",
     "@solana/kit": "7.0.0",
     "drizzle-orm": "0.45.2",
-    "postgres": "3.4.7",
+    "postgres": "3.4.9",
     "zod": "4.4.3"
   },
   "devDependencies": {
