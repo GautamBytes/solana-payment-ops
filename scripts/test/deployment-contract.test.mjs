@@ -364,8 +364,8 @@ test("repository security automation contract", async () => {
   assert.match(dependabot, /package-ecosystem:\s*"npm"/u);
   assert.match(dependabot, /package-ecosystem:\s*"github-actions"/u);
   assert.equal([...dependabot.matchAll(/interval:\s*"cron"/gu)].length, 2);
-  assert.match(dependabot, /cronjob:\s*"0 4 1 \*\/2 \*"/u);
-  assert.match(dependabot, /cronjob:\s*"30 4 1 \*\/2 \*"/u);
+  assert.match(dependabot, /cronjob:\s*"0 4 18 2,4,6,8,10,12 \*"/u);
+  assert.match(dependabot, /cronjob:\s*"30 4 18 2,4,6,8,10,12 \*"/u);
   assert.equal(
     [...dependabot.matchAll(/open-pull-requests-limit:\s*1/gu)].length,
     2,
