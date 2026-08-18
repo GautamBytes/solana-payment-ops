@@ -52,7 +52,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@solana/kit": "7.0.0",
+    "@solana/kit": "7.1.0",
     "bs58": "6.0.0",
     "zod": "4.4.3"
   },

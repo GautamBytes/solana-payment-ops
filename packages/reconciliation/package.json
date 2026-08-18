@@ -50,7 +50,7 @@
   "dependencies": {
     "@payops/core": "workspace:^0.1.0",
     "@payops/webhooks": "workspace:^0.1.0",
-    "@solana/kit": "7.0.0",
+    "@solana/kit": "7.1.0",
     "csv-parse": "7.0.2",
     "postgres": "3.4.7"
   },
