@@ -36,19 +36,19 @@ how the operating procedures are exercised.
 
 ## Open Core v0.1
 
-PayOps v0.1.0 publishes seven Apache-2.0 packages to npm. Every package is built
+PayOps v0.1.1 publishes seven Apache-2.0 packages to npm. Every package is built
 from the tagged source, verified as a clean consumer artifact, and published
 through npm trusted publishing with provenance.
 
 | Package                                                                              | Use it for                                              | Install                                    |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------ |
-| [`@payops/contracts`](https://www.npmjs.com/package/%40payops%2Fcontracts)           | Lifecycle types, runtime parsing, and JSON Schemas      | `npm install @payops/contracts@0.1.0`      |
-| [`@payops/core`](https://www.npmjs.com/package/%40payops%2Fcore)                     | Solana transaction parsing and payment verification     | `npm install @payops/core@0.1.0`           |
-| [`@payops/ingestion`](https://www.npmjs.com/package/%40payops%2Fingestion)           | Durable RPC ingestion and finality tracking             | `npm install @payops/ingestion@0.1.0`      |
-| [`@payops/webhooks`](https://www.npmjs.com/package/%40payops%2Fwebhooks)             | Transactional signed delivery and consumer verification | `npm install @payops/webhooks@0.1.0`       |
-| [`@payops/reconciliation`](https://www.npmjs.com/package/%40payops%2Freconciliation) | Deterministic invoice matching and exceptions           | `npm install @payops/reconciliation@0.1.0` |
-| [`@payops/pilot`](https://www.npmjs.com/package/%40payops%2Fpilot)                   | Resumable, read-only merchant shadow audits             | `npm install @payops/pilot@0.1.0`          |
-| [`@payops/sdk`](https://www.npmjs.com/package/%40payops%2Fsdk)                       | Typed, zero-retry merchant API access                   | `npm install @payops/sdk@0.1.0`            |
+| [`@payops/contracts`](https://www.npmjs.com/package/%40payops%2Fcontracts)           | Lifecycle types, runtime parsing, and JSON Schemas      | `npm install @payops/contracts@0.1.1`      |
+| [`@payops/core`](https://www.npmjs.com/package/%40payops%2Fcore)                     | Solana transaction parsing and payment verification     | `npm install @payops/core@0.1.1`           |
+| [`@payops/ingestion`](https://www.npmjs.com/package/%40payops%2Fingestion)           | Durable RPC ingestion and finality tracking             | `npm install @payops/ingestion@0.1.1`      |
+| [`@payops/webhooks`](https://www.npmjs.com/package/%40payops%2Fwebhooks)             | Transactional signed delivery and consumer verification | `npm install @payops/webhooks@0.1.1`       |
+| [`@payops/reconciliation`](https://www.npmjs.com/package/%40payops%2Freconciliation) | Deterministic invoice matching and exceptions           | `npm install @payops/reconciliation@0.1.1` |
+| [`@payops/pilot`](https://www.npmjs.com/package/%40payops%2Fpilot)                   | Resumable, read-only merchant shadow audits             | `npm install @payops/pilot@0.1.1`          |
+| [`@payops/sdk`](https://www.npmjs.com/package/%40payops%2Fsdk)                       | Typed, zero-retry merchant API access                   | `npm install @payops/sdk@0.1.1`            |
 
 PayOps Core:
 

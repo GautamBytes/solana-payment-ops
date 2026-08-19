@@ -1,17 +1,17 @@
 {
   "name": "@payops/pilot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Resumable merchant shadow audits for Solana payment operations",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "url": "https://github.com/payops-labs/solana-payment-ops.git",
     "directory": "packages/pilot"
   },
-  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "homepage": "https://github.com/payops-labs/solana-payment-ops#readme",
   "bugs": {
-    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+    "url": "https://github.com/payops-labs/solana-payment-ops/issues"
   },
   "keywords": [
     "solana",
@@ -50,10 +50,10 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/core": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.1.0",
-    "@payops/reconciliation": "workspace:^0.1.0",
-    "@payops/webhooks": "workspace:^0.1.0",
+    "@payops/core": "workspace:^0.1.1",
+    "@payops/ingestion": "workspace:^0.1.1",
+    "@payops/reconciliation": "workspace:^0.1.1",
+    "@payops/webhooks": "workspace:^0.1.1",
     "@solana/kit": "7.0.0",
     "postgres": "3.4.7",
     "zod": "4.4.3"

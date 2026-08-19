@@ -9,8 +9,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/core": "workspace:^0.1.0",
-    "@payops/webhooks": "workspace:^0.1.0",
+    "@payops/core": "workspace:^0.1.1",
+    "@payops/webhooks": "workspace:^0.1.1",
     "postgres": "3.4.7"
   },
   "devDependencies": {

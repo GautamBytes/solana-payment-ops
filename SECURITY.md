@@ -15,7 +15,7 @@ prepared.
 ## Report privately
 
 Use GitHub's
-[private vulnerability reporting](https://github.com/GautamBytes/solana-payment-ops/security/advisories/new)
+[private vulnerability reporting](https://github.com/payops-labs/solana-payment-ops/security/advisories/new)
 flow. Do not open a public issue for a suspected vulnerability. Include the
 affected component and version, impact, prerequisites, and the smallest safe
 reproduction you can provide.

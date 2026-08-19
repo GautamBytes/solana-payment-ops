@@ -303,7 +303,7 @@ export const docPages: readonly DocPage[] = [
     label: "Packages",
     title: "Use only the PayOps pieces you need",
     summary:
-      "Seven Apache-2.0 npm packages published as PayOps v0.1.0 cover contracts, verification, ingestion, reconciliation, webhooks, SDK access, and reference fixtures.",
+      "Seven Apache-2.0 npm packages published as PayOps v0.1.1 cover contracts, verification, ingestion, reconciliation, webhooks, SDK access, and reference fixtures.",
     readingTime: "9 min",
     sections: [
       {

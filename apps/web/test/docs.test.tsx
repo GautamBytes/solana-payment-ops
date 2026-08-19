@@ -43,7 +43,7 @@ describe("PayOps website documentation", () => {
     expect(markup).toContain('class="payops-brand-seal"');
     expect(markup).not.toContain('src="/icon.svg"');
     expect(markup).not.toContain(
-      "github.com/GautamBytes/solana-payment-ops/tree",
+      "github.com/payops-labs/solana-payment-ops/tree",
     );
     expect(markup).toContain('href="/try"');
     expect(markup).toContain("Try PayOps");

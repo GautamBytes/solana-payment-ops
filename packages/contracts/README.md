@@ -4,7 +4,7 @@ Framework-neutral lifecycle contracts shared by PayOps producers and consumers.
 Requires Node.js 22.18 or newer.
 
 ```bash
-npm install @payops/contracts@0.1.0
+npm install @payops/contracts@0.1.1
 ```
 
 ```ts
@@ -21,4 +21,4 @@ Schema files are available under `@payops/contracts/schemas/*`.
 Verify webhook signatures over the exact raw body before parsing JSON. These
 contracts validate shape and bounds; they do not authenticate senders.
 
-[Source, documentation, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, documentation, and license](https://github.com/payops-labs/solana-payment-ops)

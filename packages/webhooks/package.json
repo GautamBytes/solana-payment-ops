@@ -1,17 +1,17 @@
 {
   "name": "@payops/webhooks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canonical lifecycle events and webhook signature verification",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "url": "https://github.com/payops-labs/solana-payment-ops.git",
     "directory": "packages/webhooks"
   },
-  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "homepage": "https://github.com/payops-labs/solana-payment-ops#readme",
   "bugs": {
-    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+    "url": "https://github.com/payops-labs/solana-payment-ops/issues"
   },
   "keywords": [
     "solana",
@@ -55,8 +55,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/contracts": "workspace:^0.1.0",
-    "@payops/core": "workspace:^0.1.0",
+    "@payops/contracts": "workspace:^0.1.1",
+    "@payops/core": "workspace:^0.1.1",
     "ipaddr.js": "2.5.0",
     "postgres": "3.4.7",
     "undici": "7.29.0"

@@ -23,10 +23,10 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@payops/contracts": "workspace:^0.1.0",
-    "@payops/ingestion": "workspace:^0.1.0",
-    "@payops/reconciliation": "workspace:^0.1.0",
-    "@payops/webhooks": "workspace:^0.1.0",
+    "@payops/contracts": "workspace:^0.1.1",
+    "@payops/ingestion": "workspace:^0.1.1",
+    "@payops/reconciliation": "workspace:^0.1.1",
+    "@payops/webhooks": "workspace:^0.1.1",
     "@solana/kit": "6.10.0",
     "@solana/pay": "1.0.26",
     "decimal.js": "10.6.0",

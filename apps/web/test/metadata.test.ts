@@ -11,7 +11,7 @@ import { resolvePublicWebOrigin } from "../lib/public-origin";
 describe("public discovery metadata", () => {
   test("uses one canonical public origin", () => {
     expect(rootMetadata.metadataBase?.toString()).toBe(
-      "https://payops-seven.vercel.app/",
+      "https://solanapayops.xyz/",
     );
     expect(rootMetadata.robots).toBeUndefined();
     expect(rootMetadata.referrer).toBe("no-referrer");
@@ -38,7 +38,7 @@ describe("public discovery metadata", () => {
     ];
 
     expect(urls).toEqual(
-      expectedPaths.map((path) => `https://payops-seven.vercel.app${path}`),
+      expectedPaths.map((path) => `https://solanapayops.xyz${path}`),
     );
   });
 

@@ -6,7 +6,7 @@ transactions through finalization. Requires Node.js 22.18+, PostgreSQL 16, and
 a history-capable Solana RPC endpoint.
 
 ```bash
-npm install @payops/ingestion@0.1.0
+npm install @payops/ingestion@0.1.1
 export DATABASE_URL=postgres://user:password@localhost:5432/payops
 export SOLANA_RPC_URL=https://your-solana-rpc.example
 ```
@@ -26,4 +26,4 @@ leases durable work, prints canonical JSON, and exits. No private key is
 required. Credential-bearing RPC URLs are read from environment variables and
 excluded from reports.
 
-[Source, operator documentation, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, operator documentation, and license](https://github.com/payops-labs/solana-payment-ops)

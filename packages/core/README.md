@@ -4,7 +4,7 @@ Deterministic, offline Solana payment parsing and verification for canonical
 mainnet USDC and USDT. Requires Node.js 22.18 or newer.
 
 ```bash
-npm install @payops/core@0.1.0
+npm install @payops/core@0.1.1
 ```
 
 Run a fixture or the complete ordered conformance corpus:
@@ -20,4 +20,4 @@ match, `1` for an expectation mismatch, and `2` for invalid input.
 
 This package does not schedule RPC requests or persist invoices.
 
-[Source, fixtures, documentation, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, fixtures, documentation, and license](https://github.com/payops-labs/solana-payment-ops)

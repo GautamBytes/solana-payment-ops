@@ -6,8 +6,20 @@ versioning for its public packages.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-19
+
+### Added
+
 - Added the self-serve Try PayOps sample workspace and bounded public-wallet
   inspection.
+
+### Changed
+
+- Made `solanapayops.xyz` the canonical public website origin.
+- Updated package and project metadata for the `payops-labs` organization.
+
+### Security
+
 - Added structured operational logging, readiness correlation, hardened web
   headers, dependency review, CodeQL, and recovery runbooks.
 
@@ -23,5 +35,6 @@ versioning for its public packages.
 - Reproducible package-content checks, clean-consumer smoke tests, release
   evidence, checksums, SPDX SBOM generation, and provenance-aware publication.
 
-[Unreleased]: https://github.com/GautamBytes/solana-payment-ops/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/GautamBytes/solana-payment-ops/releases/tag/v0.1.0
+[Unreleased]: https://github.com/payops-labs/solana-payment-ops/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/payops-labs/solana-payment-ops/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/payops-labs/solana-payment-ops/releases/tag/v0.1.0
