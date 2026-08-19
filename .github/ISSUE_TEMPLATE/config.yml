@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Report a security vulnerability
-    url: https://github.com/GautamBytes/solana-payment-ops/security/advisories/new
+    url: https://github.com/payops-labs/solana-payment-ops/security/advisories/new
     about: Report suspected vulnerabilities privately. Do not open a public issue.
   - name: Read the support guide
-    url: https://github.com/GautamBytes/solana-payment-ops/blob/main/SUPPORT.md
+    url: https://github.com/payops-labs/solana-payment-ops/blob/main/SUPPORT.md
     about: Choose the correct public support path and learn what information to include.

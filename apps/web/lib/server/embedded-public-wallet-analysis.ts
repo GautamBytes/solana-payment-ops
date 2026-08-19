@@ -145,7 +145,8 @@ export function createEmbeddedPublicWalletAnalysisHandler(
         concurrency: 2,
       });
       return complete(jsonResponse(analysis, 200), "ok");
-    } catch {
+    } catch (error) {
+      const code = publicAnalysisFailureCode(error);
       return complete(
         errorResponse(
           503,
@@ -153,10 +154,48 @@ export function createEmbeddedPublicWalletAnalysisHandler(
           "Public analysis is temporarily unavailable",
           requestId,
         ),
-        "public_analysis_unavailable",
+        code,
       );
     }
   };
+}
+
+function publicAnalysisFailureCode(error: unknown): string {
+  for (let current = error, depth = 0; depth < 4; depth += 1) {
+    if (current === null || typeof current !== "object") break;
+    const record = current as {
+      readonly code?: unknown;
+      readonly cause?: unknown;
+    };
+    switch (record.code) {
+      case "rpc_rate_limited":
+        return "public_analysis_rpc_rate_limited";
+      case "rpc_transport_error":
+        return "public_analysis_rpc_transport_error";
+      case "rpc_invalid_json":
+      case "rpc_transaction_schema_invalid":
+        return "public_analysis_rpc_invalid_response";
+      case "rpc_error":
+        return "public_analysis_rpc_error";
+      case "rpc_unsupported_version":
+        return "public_analysis_rpc_unsupported_version";
+      case "rpc_signature_conflict":
+        return "public_analysis_rpc_integrity_error";
+      case "invalid_web_origin_configuration":
+      case "invalid_configuration":
+        return "public_analysis_configuration_error";
+      default:
+        break;
+    }
+    if (
+      current instanceof DOMException &&
+      (current.name === "AbortError" || current.name === "TimeoutError")
+    ) {
+      return "public_analysis_timeout";
+    }
+    current = record.cause;
+  }
+  return "public_analysis_unavailable";
 }
 
 function isSameOrigin(request: Request): boolean {

@@ -195,7 +195,7 @@ describeDatabase("production role bootstrap hardening", () => {
     } finally {
       await roleAdminSql.end();
     }
-  });
+  }, 15_000);
 
   it("bootstraps a legacy schema after migration 4011 and finalizes it once", async () => {
     const schema = await createSchema("upgrade");

@@ -141,4 +141,25 @@ describe("embedded public wallet analysis", () => {
     expect(JSON.stringify(events)).not.toContain("secret");
     expect(JSON.stringify(events)).not.toContain(walletAddress);
   });
+
+  it("records a safe upstream failure class without logging its cause", async () => {
+    const { handler, analyze, events } = fixture();
+    analyze.mockRejectedValueOnce(
+      Object.assign(new Error("provider response included a secret token"), {
+        code: "analysis_unavailable",
+        cause: Object.assign(new Error("private endpoint failed"), {
+          code: "rpc_error",
+        }),
+      }),
+    );
+
+    const response = await handler(request());
+
+    expect(response.status).toBe(503);
+    expect(events).toContainEqual(
+      expect.objectContaining({ code: "public_analysis_rpc_error" }),
+    );
+    expect(JSON.stringify(events)).not.toContain("secret token");
+    expect(JSON.stringify(events)).not.toContain("private endpoint");
+  });
 });
