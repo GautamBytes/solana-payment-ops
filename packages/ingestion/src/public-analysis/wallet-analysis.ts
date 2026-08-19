@@ -6,7 +6,11 @@ import {
 } from "@payops/core/public-analysis";
 import { address } from "@solana/kit";
 
-import type { AddressSignature, SolanaRpcPort } from "../domain/types.js";
+import {
+  IngestionError,
+  type AddressSignature,
+  type SolanaRpcPort,
+} from "../domain/types.js";
 
 export type PublicAssetSymbol = "USDC" | "USDT";
 export type ExpectationStatus =
@@ -187,12 +191,19 @@ async function discoverCandidates(
         break;
       }
       const limit = Math.min(100, remaining);
-      const page = await dependencies.rpc.getSignaturesForAddress({
-        address: tokenAccount.address,
-        commitment: "confirmed",
-        limit,
-        ...(before === undefined ? {} : { before }),
-      });
+      let page: readonly AddressSignature[];
+      try {
+        page = await dependencies.rpc.getSignaturesForAddress({
+          address: tokenAccount.address,
+          commitment: "confirmed",
+          limit,
+          ...(before === undefined ? {} : { before }),
+        });
+      } catch (error) {
+        if (!isRpcRateLimited(error)) throw error;
+        partial = true;
+        break;
+      }
       if (page.length === 0) break;
       if (page.length > limit) partial = true;
       const inspectedPage = page.slice(0, limit);
@@ -355,13 +366,20 @@ export async function analyzePublicWallet(
     const transactionResults = await mapConcurrent(
       discovered.candidates,
       dependencies.concurrency,
-      async (candidate) => ({
-        candidate,
-        transaction: await dependencies.rpc.getTransaction(
-          candidate.signature.signature,
-          "finalized",
-        ),
-      }),
+      async (candidate) => {
+        try {
+          return {
+            candidate,
+            transaction: await dependencies.rpc.getTransaction(
+              candidate.signature.signature,
+              "finalized",
+            ),
+          };
+        } catch (error) {
+          if (!isRpcRateLimited(error)) throw error;
+          return { candidate, transaction: null };
+        }
+      },
     );
 
     const transfers = transactionResults.flatMap(
@@ -457,4 +475,8 @@ export async function analyzePublicWallet(
       { cause: error },
     );
   }
+}
+
+function isRpcRateLimited(error: unknown): boolean {
+  return error instanceof IngestionError && error.code === "rpc_rate_limited";
 }

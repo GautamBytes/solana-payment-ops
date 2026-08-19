@@ -2,7 +2,11 @@ import fixture from "../../../fixtures/v0.1/usdc-transfer-checked-finalized.json
 import { RpcTransactionEnvelopeSchema } from "@payops/core";
 import { describe, expect, it } from "vitest";
 
-import type { AddressSignature, SolanaRpcPort } from "../src/domain/types.js";
+import {
+  IngestionError,
+  type AddressSignature,
+  type SolanaRpcPort,
+} from "../src/domain/types.js";
 import { analyzePublicWallet } from "../src/public-analysis/wallet-analysis.js";
 
 const walletAddress = "LcNR2RPX9mMG1a23dfG6yQNvLUctx4sniKXKH9TV3ym";
@@ -117,6 +121,38 @@ describe("analyzePublicWallet", () => {
     });
 
     expect(result.coverage).toBe("partial");
+  });
+
+  it("returns explicit partial coverage when signature discovery is rate limited", async () => {
+    const rpc = {
+      ...createRpc([]),
+      async getSignaturesForAddress() {
+        throw new IngestionError("rpc_rate_limited", "provider throttled", {
+          retryable: true,
+        });
+      },
+    };
+
+    const result = await analyzePublicWallet(input(), { rpc, ...limits });
+
+    expect(result.coverage).toBe("partial");
+    expect(result.transfers).toEqual([]);
+  });
+
+  it("returns explicit partial coverage when transaction lookup is rate limited", async () => {
+    const rpc = {
+      ...createRpc([signatureEntry(signature)]),
+      async getTransaction() {
+        throw new IngestionError("rpc_rate_limited", "provider throttled", {
+          retryable: true,
+        });
+      },
+    };
+
+    const result = await analyzePublicWallet(input(), { rpc, ...limits });
+
+    expect(result.coverage).toBe("partial");
+    expect(result.transfers).toEqual([]);
   });
 
   it("excludes a resolved transaction outside the requested range", async () => {

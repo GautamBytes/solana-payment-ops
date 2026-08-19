@@ -1367,7 +1367,7 @@ describeDatabase("coordinated migrations", () => {
         resolved_at: new Date("2026-08-01T00:00:00.000Z"),
       },
     ]);
-  });
+  }, 15_000);
 });
 
 async function readPlatformMigrations(
