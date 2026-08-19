@@ -1,4 +1,4 @@
-export const defaultPublicWebOrigin = "https://payops-seven.vercel.app";
+export const defaultPublicWebOrigin = "https://solanapayops.xyz";
 
 export function resolvePublicWebOrigin(value: string | undefined): string {
   if (value === undefined) return defaultPublicWebOrigin;

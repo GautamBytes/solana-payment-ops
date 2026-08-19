@@ -36,6 +36,12 @@ const firstPublicPackages = [
   ["@payops/sdk", "0.1.0", "packages/sdk"],
 ];
 
+const currentPublicPackages = firstPublicPackages.map(([name, , path]) => [
+  name,
+  "0.1.1",
+  path,
+]);
+
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), "payops-release-test-"));
 });
@@ -60,28 +66,45 @@ describe("release manifest validation", () => {
     );
   });
 
-  it("requires every public source package to use v0.1.0", async () => {
-    const sourcePackages = await Promise.all(
-      firstPublicPackages.map(async ([expectedName, expectedVersion, path]) => {
-        const manifest = JSON.parse(
-          await readFile(
-            new URL(`../../${path}/package.json`, import.meta.url),
-            "utf8",
-          ),
-        );
-        return [manifest.name, manifest.version, path];
-      }),
+  it("accepts the exact v0.1.1 patch bundle", async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        new URL("../../release/manifests/0.1.1.json", import.meta.url),
+        "utf8",
+      ),
     );
 
-    assert.deepEqual(sourcePackages, firstPublicPackages);
+    const parsed = parseReleaseManifest(manifest, "v0.1.1");
+    assert.deepEqual(
+      parsed.packages.map(({ name, version, path }) => [name, version, path]),
+      currentPublicPackages,
+    );
   });
 
-  it("ships only the first-public release manifest", async () => {
+  it("requires every public source package to use v0.1.1", async () => {
+    const sourcePackages = await Promise.all(
+      currentPublicPackages.map(
+        async ([expectedName, expectedVersion, path]) => {
+          const manifest = JSON.parse(
+            await readFile(
+              new URL(`../../${path}/package.json`, import.meta.url),
+              "utf8",
+            ),
+          );
+          return [manifest.name, manifest.version, path];
+        },
+      ),
+    );
+
+    assert.deepEqual(sourcePackages, currentPublicPackages);
+  });
+
+  it("ships the immutable v0.1 release manifests", async () => {
     const files = await readdir(
       new URL("../../release/manifests", import.meta.url),
     );
 
-    assert.deepEqual(files.sort(), ["0.1.0.json"]);
+    assert.deepEqual(files.sort(), ["0.1.0.json", "0.1.1.json"]);
   });
 
   it("rejects bundle mismatch, duplicates, unsafe paths, order, and versions", () => {
@@ -213,17 +236,17 @@ describe("public package metadata", () => {
       verifyPublicPackageMetadata(publicPackageManifest(), {
         expectedName: "@payops/core",
         expectedDirectory: "packages/core",
-        expectedVersion: "0.1.0",
+        expectedVersion: "0.1.1",
       }),
     );
   });
 
-  it("accepts every first-public source package", async () => {
+  it("accepts every current public source package", async () => {
     for (const [
       expectedName,
       expectedVersion,
       expectedDirectory,
-    ] of firstPublicPackages) {
+    ] of currentPublicPackages) {
       const manifest = JSON.parse(
         await readFile(
           new URL(`../../${expectedDirectory}/package.json`, import.meta.url),
@@ -248,7 +271,7 @@ describe("public package metadata", () => {
       {
         repository: {
           type: "git",
-          url: "https://github.com/GautamBytes/solana-payment-ops.git",
+          url: "https://github.com/payops-labs/solana-payment-ops.git",
           directory: "packages/other",
         },
       },
@@ -293,7 +316,7 @@ describe("public package metadata", () => {
             {
               expectedName: "@payops/core",
               expectedDirectory: "packages/core",
-              expectedVersion: "0.1.0",
+              expectedVersion: "0.1.1",
             },
           ),
         message,
@@ -337,11 +360,11 @@ describe("public release documentation", () => {
     }
   });
 
-  it("does not advertise an unissued PayOps package version", async () => {
+  it("documents the current PayOps package version", async () => {
     const documentation = await Promise.all(
       [
         ...rootDocuments,
-        ...firstPublicPackages.map(([, , path]) => `${path}/README.md`),
+        ...currentPublicPackages.map(([, , path]) => `${path}/README.md`),
       ].map((path) =>
         readFile(new URL(`../../${path}`, import.meta.url), "utf8"),
       ),
@@ -350,7 +373,7 @@ describe("public release documentation", () => {
       .join("\n")
       .matchAll(/@payops\/[a-z-]+@(\d+\.\d+\.\d+)/gu);
     for (const [, version] of qualifiedVersions) {
-      assert.equal(version, "0.1.0");
+      assert.equal(version, "0.1.1");
     }
   });
 });
@@ -472,7 +495,7 @@ describe("release SBOM", () => {
     const document = buildSpdxDocument({
       tag: "v0.1.0",
       created: "2026-08-11T00:00:00.000Z",
-      repositoryUrl: "https://github.com/GautamBytes/solana-payment-ops",
+      repositoryUrl: "https://github.com/payops-labs/solana-payment-ops",
       packages: [
         {
           name: "@payops/contracts",
@@ -568,19 +591,19 @@ function releaseManifest() {
 function publicPackageManifest() {
   return {
     name: "@payops/core",
-    version: "0.1.0",
+    version: "0.1.1",
     description: "Deterministic Solana payment verification primitives",
     license: "Apache-2.0",
     engines: { node: ">=22.18.0" },
     files: ["dist", "README.md", "LICENSE"],
     repository: {
       type: "git",
-      url: "https://github.com/GautamBytes/solana-payment-ops.git",
+      url: "https://github.com/payops-labs/solana-payment-ops.git",
       directory: "packages/core",
     },
-    homepage: "https://github.com/GautamBytes/solana-payment-ops#readme",
+    homepage: "https://github.com/payops-labs/solana-payment-ops#readme",
     bugs: {
-      url: "https://github.com/GautamBytes/solana-payment-ops/issues",
+      url: "https://github.com/payops-labs/solana-payment-ops/issues",
     },
     keywords: ["solana", "payments", "verification"],
     publishConfig: { access: "public" },

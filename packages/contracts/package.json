@@ -1,17 +1,17 @@
 {
   "name": "@payops/contracts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stable lifecycle contracts and schemas for PayOps integrations",
   "type": "module",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GautamBytes/solana-payment-ops.git",
+    "url": "https://github.com/payops-labs/solana-payment-ops.git",
     "directory": "packages/contracts"
   },
-  "homepage": "https://github.com/GautamBytes/solana-payment-ops#readme",
+  "homepage": "https://github.com/payops-labs/solana-payment-ops#readme",
   "bugs": {
-    "url": "https://github.com/GautamBytes/solana-payment-ops/issues"
+    "url": "https://github.com/payops-labs/solana-payment-ops/issues"
   },
   "keywords": [
     "solana",

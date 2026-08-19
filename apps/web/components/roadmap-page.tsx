@@ -9,7 +9,7 @@ import { MarketingHeader } from "./marketing-header";
 import { MarketingFooter } from "./marketing-page";
 
 const roadmapIssueUrl =
-  "https://github.com/GautamBytes/solana-payment-ops/issues?q=is%3Aissue+label%3Aroadmap";
+  "https://github.com/payops-labs/solana-payment-ops/issues?q=is%3Aissue+label%3Aroadmap";
 
 const columns = [
   {

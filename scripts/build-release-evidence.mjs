@@ -113,7 +113,7 @@ const sbomPackages = await Promise.all(
 const sbom = buildSpdxDocument({
   tag,
   created,
-  repositoryUrl: "https://github.com/GautamBytes/solana-payment-ops",
+  repositoryUrl: "https://github.com/payops-labs/solana-payment-ops",
   packages: sbomPackages,
 });
 await writeFile(

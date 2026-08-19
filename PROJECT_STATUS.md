@@ -1,6 +1,6 @@
 # PayOps project status
 
-Updated 2026-08-17.
+Updated 2026-08-19.
 
 PayOps is an Apache-2.0 Solana payment-integrity and reconciliation project. It
 turns finalized transaction data into deterministic payment decisions that a
@@ -21,7 +21,7 @@ model](docs/open-core/security-model.md) define the system boundary.
 
 ## Available now
 
-- [Open Core v0.1.0](https://github.com/GautamBytes/solana-payment-ops/releases/tag/v0.1.0)
+- [Open Core v0.1.1](https://github.com/payops-labs/solana-payment-ops/releases/tag/v0.1.1)
   publishes seven npm packages for contracts, verification, ingestion,
   webhooks, reconciliation, merchant operations, and typed integration.
 - The [v0.1 conformance corpus](fixtures/v0.1/manifest.json) contains 25
@@ -77,8 +77,8 @@ surfaces in one payment story.
    notes, migration guidance, and the complete release verification gate are
    available.
 
-Progress is tracked on the public [roadmap](https://payops-seven.vercel.app/roadmap)
-and in [roadmap issues](https://github.com/GautamBytes/solana-payment-ops/issues?q=is%3Aissue+label%3Aroadmap).
+Progress is tracked on the public [roadmap](https://solanapayops.xyz/roadmap)
+and in [roadmap issues](https://github.com/payops-labs/solana-payment-ops/issues?q=is%3Aissue+label%3Aroadmap).
 
 ## Operational evidence
 

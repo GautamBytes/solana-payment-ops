@@ -3,7 +3,7 @@
 Install the pieces your application needs:
 
 ```bash
-npm install @payops/core@^0.1.0 @payops/contracts@^0.1.0 @payops/webhooks@^0.1.0
+npm install @payops/core@^0.1.1 @payops/contracts@^0.1.1 @payops/webhooks@^0.1.1
 ```
 
 Resolve the bundled corpus in native ESM and run it:

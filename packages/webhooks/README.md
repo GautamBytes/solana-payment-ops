@@ -5,7 +5,7 @@ creation commits atomically with reconciliation decisions. Requires Node.js
 22.18+ and PostgreSQL 16.
 
 ```bash
-npm install @payops/webhooks@0.1.0
+npm install @payops/webhooks@0.1.1
 export DATABASE_URL=postgres://user:password@localhost:5432/payops
 export MERCHANT_WEBHOOK_SECRET='replace-with-a-random-secret'
 ```
@@ -31,4 +31,4 @@ answer is checked against blocked address ranges and the accepted address is
 pinned for TLS delivery. Secrets, RPC responses, and unnecessary customer data
 are excluded from payloads and inspection output.
 
-[Source, consumer example, operator documentation, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, consumer example, operator documentation, and license](https://github.com/payops-labs/solana-payment-ops)

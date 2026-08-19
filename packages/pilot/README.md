@@ -5,7 +5,7 @@ operations. It never signs transactions, holds keys, or moves funds. Requires
 Node.js 22.18+, PostgreSQL 16, and a mainnet RPC endpoint.
 
 ```bash
-npm install @payops/pilot@0.1.0
+npm install @payops/pilot@0.1.1
 ```
 
 Obtain written merchant consent for the accounts, time range, invoice data,
@@ -27,4 +27,4 @@ contains RPC URLs, secrets, raw transaction bodies, or wallet signatures.
 Warnings such as incomplete coverage or pending finality must remain visible
 and must not be interpreted as zero activity.
 
-[Source, manifest examples, pilot safety guide, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, manifest examples, pilot safety guide, and license](https://github.com/payops-labs/solana-payment-ops)

@@ -184,18 +184,18 @@ export function verifyPublicPackageMetadata(
   assert(
     packageManifest.repository?.type === "git" &&
       packageManifest.repository.url ===
-        "https://github.com/GautamBytes/solana-payment-ops.git" &&
+        "https://github.com/payops-labs/solana-payment-ops.git" &&
       packageManifest.repository.directory === expectedDirectory,
     `Public package repository is invalid: ${expectedName}`,
   );
   assert(
     packageManifest.homepage ===
-      "https://github.com/GautamBytes/solana-payment-ops#readme",
+      "https://github.com/payops-labs/solana-payment-ops#readme",
     `Public package homepage is invalid: ${expectedName}`,
   );
   assert(
     packageManifest.bugs?.url ===
-      "https://github.com/GautamBytes/solana-payment-ops/issues",
+      "https://github.com/payops-labs/solana-payment-ops/issues",
     `Public package issue tracker is invalid: ${expectedName}`,
   );
   assert(

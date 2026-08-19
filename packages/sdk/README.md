@@ -4,7 +4,7 @@ Typed, zero-retry backend client for the PayOps merchant invoice API. Requires
 Node.js 22.18 or newer.
 
 ```bash
-npm install @payops/sdk@0.1.0
+npm install @payops/sdk@0.1.1
 ```
 
 ```ts
@@ -32,4 +32,4 @@ payment-adjacent side effects. `PayOpsApiError` exposes bounded `status`,
 API keys and session cookies are server-side credentials. Never embed them in
 browser or mobile applications, logs, or analytics.
 
-[Source, API documentation, examples, and license](https://github.com/GautamBytes/solana-payment-ops)
+[Source, API documentation, examples, and license](https://github.com/payops-labs/solana-payment-ops)

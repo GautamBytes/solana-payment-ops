@@ -22,7 +22,7 @@ RUN pnpm --config.ignore-scripts=true --filter @payops/api deploy --prod --legac
 FROM node:22.18.0-bookworm-slim@sha256:752ea8a2f758c34002a0461bd9f1cee4f9a3c36d48494586f60ffce1fc708e0e AS runtime
 ARG PAYOPS_BUILD_REVISION
 RUN node -e "if (!/^[0-9a-f]{40}$/.test(process.argv[1])) process.exit(1)" "$PAYOPS_BUILD_REVISION"
-LABEL org.opencontainers.image.source="https://github.com/GautamBytes/solana-payment-ops"
+LABEL org.opencontainers.image.source="https://github.com/payops-labs/solana-payment-ops"
 LABEL org.opencontainers.image.revision=$PAYOPS_BUILD_REVISION
 ENV NODE_ENV=production
 WORKDIR /workspace

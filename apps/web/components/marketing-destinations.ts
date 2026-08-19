@@ -1,4 +1,4 @@
-const githubUrl = "https://github.com/GautamBytes/solana-payment-ops";
+const githubUrl = "https://github.com/payops-labs/solana-payment-ops";
 
 function resolveStatusUrl(value: string | undefined): string {
   if (value === undefined) return "/health/ready";
